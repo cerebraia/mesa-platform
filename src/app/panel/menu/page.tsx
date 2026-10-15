@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
+import { getActiveMembership } from "@/lib/panel-context";
 import type { Category, Product, ProductImage } from "@/lib/catalog-types";
 import { CategoryActions } from "./category-actions";
 import { ProductRowActions } from "./product-row-actions";
@@ -19,16 +20,10 @@ export default async function MenuPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: membership } = await supabase
-    .from("restaurant_members")
-    .select("restaurant_id")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .maybeSingle();
+  const { active } = await getActiveMembership();
+  if (!active) redirect("/panel");
 
-  if (!membership) redirect("/panel");
-
-  const restaurantId = membership.restaurant_id;
+  const restaurantId = active.restaurantId;
 
   const { data: categories, error } = await supabase
     .from("categories")

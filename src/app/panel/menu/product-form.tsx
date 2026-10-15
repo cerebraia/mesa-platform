@@ -1,8 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useState, useTransition } from "react";
-import { Brand } from "@/components/brand";
+import { useState, useTransition, useEffect } from "react";
 import { saveProduct } from "./actions";
 import type {
   Category,
@@ -63,8 +61,9 @@ export function ProductFormPage({
   restaurantId,
 }: ProductFormProps) {
   const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]   = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [dirty, setDirty]   = useState(false);
 
   // Basic fields
   const [name, setName] = useState(product?.name ?? "");
@@ -115,10 +114,22 @@ export function ProductFormPage({
       : [],
   );
 
+  // Warn on tab close / reload when there are unsaved changes
+  useEffect(() => {
+    if (!dirty || success) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty, success]);
+
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
     setImageFile(file);
     setUploadError(null);
+    setDirty(true);
     if (file) {
       setImagePreview(URL.createObjectURL(file));
     } else {
@@ -294,32 +305,14 @@ export function ProductFormPage({
     : null;
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--bg)" }}>
-      <header
-        className="container"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          minHeight: 64,
-          borderBottom: "1px solid var(--border)",
-        }}
-      >
-        <Brand />
-        <Link href="/panel/menu" className="text-link" style={{ fontSize: 13 }}>
-          ← Volver al menú
-        </Link>
-      </header>
-
-      <div
-        className="container"
-        style={{ maxWidth: 680, paddingTop: 48, paddingBottom: 80 }}
-      >
-        <h1 style={{ fontSize: 24, letterSpacing: -0.5, marginBottom: 32 }}>
+    <div className="dashboard-content">
+      <div className="dashboard-heading" style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 28 }}>
           {mode === "new" ? "Nuevo producto" : "Editar producto"}
         </h1>
+      </div>
 
-        <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} onChange={() => setDirty(true)}>
           {/* ── Datos básicos ── */}
           <div className="dashboard-card" style={{ marginBottom: 16 }}>
             <h2 style={{ fontSize: 16, marginBottom: 20 }}>Información básica</h2>
@@ -721,11 +714,15 @@ export function ProductFormPage({
             </p>
           )}
 
-          <button type="submit" disabled={isPending} className="button">
-            {isPending ? "Guardando…" : mode === "new" ? "Crear producto" : "Guardar cambios"}
-          </button>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 8 }}>
+            <button type="submit" disabled={isPending} className="button">
+              {isPending ? "Guardando…" : mode === "new" ? "Crear producto" : "Guardar cambios"}
+            </button>
+            <a href="/panel/menu" className="button secondary">
+              Cancelar
+            </a>
+          </div>
         </form>
-      </div>
     </div>
   );
 }

@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
+import { getActiveMembership } from "@/lib/panel-context";
 import { Brand } from "@/components/brand";
 import { SignOutButton } from "@/components/sign-out-button";
 import { PanelShell } from "./panel-shell";
-import type { MemberRole } from "@/lib/db-types";
 
 export default async function PanelLayout({
   children,
@@ -11,32 +11,15 @@ export default async function PanelLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createServerClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
 
-  // Load membership + restaurant for the shell.
-  // If the user belongs to multiple restaurants, we use the first active one
-  // for the sidebar. Restaurant switching is a future feature.
-  const { data: memberships } = await supabase
-    .from("restaurant_members")
-    .select("restaurant_id, role, restaurants(id, name, slug)")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .limit(3)
-    .returns<Array<{
-      restaurant_id: string;
-      role: MemberRole;
-      restaurants: { id: string; name: string; slug: string } | null;
-    }>>();
+  const { active } = await getActiveMembership();
 
-  const membership = memberships?.[0] ?? null;
-
-  // No active membership: show access-pending without the full nav shell
-  if (!membership || !membership.restaurants) {
+  if (!active) {
     const email    = user.email ?? "";
     const initials = email.slice(0, 2).toUpperCase();
     return (
@@ -68,14 +51,11 @@ export default async function PanelLayout({
     );
   }
 
-  const restaurant = membership.restaurants;
-  const role       = membership.role;
-
   return (
     <PanelShell
-      role={role}
-      restaurantName={restaurant.name}
-      restaurantSlug={restaurant.slug}
+      role={active.role}
+      restaurantName={active.restaurant.name}
+      restaurantSlug={active.restaurant.slug}
       userEmail={user.email ?? ""}
     >
       {children}

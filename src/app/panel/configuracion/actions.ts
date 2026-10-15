@@ -1,28 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
+import { getActiveMembershipForAction } from "@/lib/panel-context";
 import type { PaymentType } from "@/lib/catalog-types";
 
 // ── helpers ──────────────────────────────────────────────────
 
 async function getOwnerMembership() {
   const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autenticado.");
-
-  const { data: m } = await supabase
-    .from("restaurant_members")
-    .select("restaurant_id, role")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .maybeSingle();
-
-  if (m?.role !== "owner") throw new Error("Solo los propietarios pueden modificar la configuración.");
-  return { supabase, restaurantId: m.restaurant_id };
+  const { restaurantId } = await getActiveMembershipForAction({ requiredRole: "owner" });
+  return { supabase, restaurantId };
 }
 
 function revalidateAll(restaurantId: string) {

@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
-import type { MembershipWithRestaurant, MemberRole } from "@/lib/db-types";
-
-// The layout (layout.tsx) handles auth, membership check, and the shell.
-// This page renders only the content area.
+import { getActiveMembership } from "@/lib/panel-context";
+import { selectRestaurant } from "./select-restaurant";
+import type { MemberRole } from "@/lib/db-types";
 
 const ROLE_LABEL: Record<MemberRole, string> = {
   owner:     "Propietario",
@@ -27,8 +26,7 @@ function RoleContent({ role, restaurantName }: { role: MemberRole; restaurantNam
         </div>
         <p style={{ fontSize: 14, marginTop: 16 }}>
           Desde aquí recibirás y gestionarás los pedidos de{" "}
-          <strong>{restaurantName}</strong>. Las siguientes funciones estarán
-          disponibles próximamente:
+          <strong>{restaurantName}</strong>.
         </p>
         <ul style={{ fontSize: 14, color: "var(--muted)", paddingLeft: 20, margin: "20px 0 0" }}>
           <li style={{ padding: "6px 0" }}>Recepción de nuevos pedidos en tiempo real</li>
@@ -57,7 +55,6 @@ function RoleContent({ role, restaurantName }: { role: MemberRole; restaurantNam
       </div>
     );
   }
-  // owner
   return (
     <>
       <div className="metric-grid">
@@ -78,14 +75,14 @@ function RoleContent({ role, restaurantName }: { role: MemberRole; restaurantNam
           <span className="tag">Fase 3</span>
         </div>
         <p style={{ fontSize: 14, marginTop: 16 }}>
-          Este es tu espacio real en Mesa. Las siguientes funciones se habilitarán progresivamente:
+          Las siguientes funciones se habilitarán progresivamente:
         </p>
         <ul style={{ fontSize: 14, color: "var(--muted)", paddingLeft: 20, margin: "20px 0 0" }}>
           <li style={{ padding: "6px 0" }}>Gestión de categorías y productos</li>
-          <li style={{ padding: "6px 0" }}>Carga de fotografías desde Supabase Storage</li>
+          <li style={{ padding: "6px 0" }}>Carga de fotografías</li>
           <li style={{ padding: "6px 0" }}>Recepción y seguimiento de pedidos</li>
           <li style={{ padding: "6px 0" }}>Vista de cocina con estados en tiempo real</li>
-          <li style={{ padding: "6px 0" }}>Gestión del equipo y configuración del restaurante</li>
+          <li style={{ padding: "6px 0" }}>Gestión del equipo y configuración</li>
         </ul>
       </div>
     </>
@@ -94,31 +91,23 @@ function RoleContent({ role, restaurantName }: { role: MemberRole; restaurantNam
 
 export default async function PanelPage() {
   const supabase = await createServerClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: memberships, error } = await supabase
-    .from("restaurant_members")
-    .select("id, role, status, restaurant_id, restaurants(id, name, slug, status)")
-    .eq("status", "active")
-    .returns<MembershipWithRestaurant[]>();
+  const { active, options } = await getActiveMembership();
+  if (!active) redirect("/panel");
 
-  if (error) {
-    throw new Error(`No se pudieron cargar las membresías: ${error.message}`);
-  }
+  const { role, restaurant } = active;
+  const restaurantName = restaurant.name;
 
-  // Layout handles the no-membership case, but guard here too for safety.
-  if (!memberships?.length) {
-    redirect("/panel");
-  }
-
-  const membership   = memberships[0];
-  const restaurant   = membership.restaurants;
-  const role         = membership.role;
-  const restaurantName = restaurant?.name ?? "Tu restaurante";
+  // Load restaurant status for display
+  const { data: restaurantData } = await supabase
+    .from("restaurants")
+    .select("status")
+    .eq("id", active.restaurantId)
+    .single();
 
   const sectionTitle =
     role === "kitchen"   ? "COCINA" :
@@ -130,14 +119,40 @@ export default async function PanelPage() {
       <div className="dashboard-top">
         <span>{sectionTitle}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <span>{restaurant?.name ?? ""}</span>
-          <span className="tag">
-            {STATUS_LABEL[restaurant?.status ?? ""] ?? restaurant?.status}
-          </span>
+          <span>{restaurantName}</span>
+          {restaurantData?.status && (
+            <span className="tag">
+              {STATUS_LABEL[restaurantData.status] ?? restaurantData.status}
+            </span>
+          )}
         </div>
       </div>
 
       <div className="dashboard-content">
+        {/* Restaurant switcher for users with multiple memberships */}
+        {active.hasMultiple && (
+          <div className="dashboard-card" style={{ marginBottom: 20 }}>
+            <h2 style={{ fontSize: 15, marginBottom: 12 }}>Cambiar restaurante</h2>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {options.map((opt) => {
+                const isCurrent = opt.restaurantId === active.restaurantId;
+                return (
+                  <form key={opt.restaurantId} action={selectRestaurant.bind(null, opt.restaurantId)}>
+                    <button
+                      type="submit"
+                      className={isCurrent ? "button small" : "button secondary small"}
+                      style={{ fontSize: 12 }}
+                    >
+                      {opt.restaurantName}
+                      {isCurrent && " ✓"}
+                    </button>
+                  </form>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="dashboard-heading">
           <div>
             <h1>
@@ -148,6 +163,7 @@ export default async function PanelPage() {
             <p>{restaurantName} · {ROLE_LABEL[role]}</p>
           </div>
         </div>
+
         <RoleContent role={role} restaurantName={restaurantName} />
       </div>
     </>

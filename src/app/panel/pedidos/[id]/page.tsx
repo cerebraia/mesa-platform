@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
+import { getActiveMembership } from "@/lib/panel-context";
 import { OrderDetailClient } from "../order-detail-client";
 
 type OrderDetail = {
@@ -63,19 +64,11 @@ export default async function OrderDetailPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: membership } = await supabase
-    .from("restaurant_members")
-    .select("restaurant_id, role")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .maybeSingle();
+  const { active } = await getActiveMembership();
+  if (!active) redirect("/panel");
 
-  if (!membership) redirect("/panel");
-
-  const { restaurantId, role } = {
-    restaurantId: membership.restaurant_id,
-    role: membership.role as "owner" | "attention" | "kitchen",
-  };
+  const restaurantId = active.restaurantId;
+  const role         = active.role;
 
   const { data: restaurant } = await supabase
     .from("restaurants")

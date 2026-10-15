@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
+import { getActiveMembership } from "@/lib/panel-context";
 import { ProductFormPage } from "../../../product-form";
 import type {
   Category,
@@ -22,16 +23,10 @@ export default async function EditProductPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: membership } = await supabase
-    .from("restaurant_members")
-    .select("restaurant_id")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .maybeSingle();
+  const { active } = await getActiveMembership();
+  if (!active) redirect("/panel");
 
-  if (!membership) redirect("/panel");
-
-  const restaurantId = membership.restaurant_id;
+  const restaurantId = active.restaurantId;
 
   const [
     { data: product },
@@ -76,14 +71,22 @@ export default async function EditProductPage({
   if (!product || !categories?.length) redirect("/panel/menu");
 
   return (
-    <ProductFormPage
-      mode="edit"
-      categories={categories!}
-      product={product}
-      existingImage={images?.[0]}
-      existingVariants={variants ?? []}
-      existingGroups={rawGroups ?? []}
-      restaurantId={restaurantId}
-    />
+    <>
+      <div className="dashboard-top">
+        <span>CATÁLOGO · EDITAR PRODUCTO</span>
+        <a href="/panel/menu" className="muted" style={{ fontSize: 12, textDecoration: "none" }}>
+          ← Catálogo
+        </a>
+      </div>
+      <ProductFormPage
+        mode="edit"
+        categories={categories!}
+        product={product}
+        existingImage={images?.[0]}
+        existingVariants={variants ?? []}
+        existingGroups={rawGroups ?? []}
+        restaurantId={restaurantId}
+      />
+    </>
   );
 }

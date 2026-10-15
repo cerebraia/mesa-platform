@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
+import { getActiveMembershipForAction } from "@/lib/panel-context";
 import type {
   ProductInput,
   VariantInput,
@@ -13,22 +14,8 @@ import type {
 
 async function getOwnerRestaurant() {
   const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autenticado.");
-
-  const { data: membership } = await supabase
-    .from("restaurant_members")
-    .select("restaurant_id, role")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .maybeSingle();
-
-  if (membership?.role !== "owner") {
-    throw new Error("Solo los propietarios pueden modificar el catálogo.");
-  }
-  return { supabase, restaurantId: membership.restaurant_id };
+  const { restaurantId } = await getActiveMembershipForAction({ requiredRole: "owner" });
+  return { supabase, restaurantId };
 }
 
 // ── Category actions ─────────────────────────────────────────
