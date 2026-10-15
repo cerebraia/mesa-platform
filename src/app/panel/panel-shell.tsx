@@ -17,25 +17,120 @@ const ROLE_LABEL: Record<MemberRole, string> = {
   kitchen:   "Cocina",
 };
 
-interface NavItem {
-  href:     string;
-  label:    string;
-  exact?:   boolean;
-  external?: boolean;
+// ── Icons ─────────────────────────────────────────────────────────
+
+function IconHome() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+  );
 }
 
-function navItems(role: MemberRole, slug: string): NavItem[] {
+function IconOrders() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+      <rect x="9" y="3" width="6" height="4" rx="1"/>
+      <line x1="9" y1="12" x2="15" y2="12"/>
+      <line x1="9" y1="16" x2="15" y2="16"/>
+    </svg>
+  );
+}
+
+function IconGrid() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="7" height="7"/>
+      <rect x="14" y="3" width="7" height="7"/>
+      <rect x="14" y="14" width="7" height="7"/>
+      <rect x="3" y="14" width="7" height="7"/>
+    </svg>
+  );
+}
+
+function IconSettings() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+    </svg>
+  );
+}
+
+function IconExternal() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+      <polyline points="15 3 21 3 21 9"/>
+      <line x1="10" y1="14" x2="21" y2="3"/>
+    </svg>
+  );
+}
+
+function IconMenu() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  );
+}
+
+function IconClose() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18"/>
+      <line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  );
+}
+
+// ── Nav items ─────────────────────────────────────────────────────
+
+type NavItem = {
+  href:      string;
+  label:     string;
+  icon:      React.ReactNode;
+  exact?:    boolean;
+  external?: boolean;
+  group:     "main" | "mgmt" | "ext";
+};
+
+function buildNavItems(role: MemberRole, slug: string): NavItem[] {
   const items: NavItem[] = [
-    { href: "/panel",         label: "Inicio",         exact: true },
-    { href: "/panel/pedidos", label: "Pedidos" },
+    {
+      href:  "/panel",
+      label: "Inicio",
+      icon:  <IconHome />,
+      exact: true,
+      group: "main",
+    },
+    {
+      href:  "/panel/pedidos",
+      label: role === "kitchen" ? "Cola de cocina" : "Pedidos",
+      icon:  <IconOrders />,
+      group: "main",
+    },
   ];
+
   if (role === "owner") {
     items.push(
-      { href: "/panel/menu",          label: "Catálogo" },
-      { href: "/panel/configuracion", label: "Configuración" },
+      { href: "/panel/menu",          label: "Catálogo",      icon: <IconGrid />,     group: "mgmt" },
+      { href: "/panel/configuracion", label: "Configuración", icon: <IconSettings />, group: "mgmt" },
     );
   }
-  items.push({ href: `/r/${slug}`, label: "Ver menú ↗", external: true });
+
+  items.push({
+    href:     `/r/${slug}`,
+    label:    "Ver menú",
+    icon:     <IconExternal />,
+    external: true,
+    group:    "ext",
+  });
+
   return items;
 }
 
@@ -45,6 +140,8 @@ function isActive(href: string, pathname: string, exact?: boolean): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
+// ── Shell props ───────────────────────────────────────────────────
+
 interface ShellProps {
   role:           MemberRole;
   restaurantName: string;
@@ -53,7 +150,53 @@ interface ShellProps {
   children:       React.ReactNode;
 }
 
-// Inner shell — lives inside UnsavedChangesProvider, so it can call the hook.
+// ── NavLinks helper ───────────────────────────────────────────────
+
+function NavLinks({
+  items,
+  pathname,
+}: {
+  items: NavItem[];
+  pathname: string;
+}) {
+  const groups: { key: NavItem["group"]; label: string | null }[] = [
+    { key: "main", label: null },
+    { key: "mgmt", label: "GESTIÓN" },
+    { key: "ext",  label: null },
+  ];
+
+  return (
+    <>
+      {groups.map(({ key, label }) => {
+        const groupItems = items.filter((i) => i.group === key);
+        if (!groupItems.length) return null;
+        return (
+          <div key={key} className={key !== "main" ? "sidebar-group" : undefined}>
+            {label && <div className="sidebar-group-label">{label}</div>}
+            {groupItems.map((item) => {
+              const active = isActive(item.href, pathname, item.exact);
+              return (
+                <UnsavedAwareLink
+                  key={item.href}
+                  href={item.href}
+                  target={item.external ? "_blank" : undefined}
+                  rel={item.external ? "noopener noreferrer" : undefined}
+                  className={`sidebar-link${active ? " sidebar-link--active" : ""}`}
+                >
+                  <span className="sidebar-link-icon">{item.icon}</span>
+                  {item.label}
+                </UnsavedAwareLink>
+              );
+            })}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+// ── ShellInner ────────────────────────────────────────────────────
+
 function ShellInner({
   role,
   restaurantName,
@@ -66,10 +209,13 @@ function ShellInner({
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerRef     = useRef<HTMLElement>(null);
 
-  // Close drawer on route change
+  const items    = buildNavItems(role, restaurantSlug);
+  const initials = restaurantName.slice(0, 2).toUpperCase();
+
+  // Close drawer on navigation
   useEffect(() => { setOpen(false); }, [pathname]);
 
-  // Escape closes the hamburger drawer
+  // Escape closes the drawer
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -82,7 +228,7 @@ function ShellInner({
     return () => document.removeEventListener("keydown", handler);
   }, [open]);
 
-  // Trap clicks outside drawer on mobile
+  // Click outside closes the drawer
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
@@ -99,97 +245,44 @@ function ShellInner({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const items    = navItems(role, restaurantSlug);
-  const initials = restaurantName.slice(0, 2).toUpperCase();
-
-  const navLinkStyle = (active: boolean): React.CSSProperties => ({
-    display:        "flex",
-    gap:            14,
-    textAlign:      "left",
-    border:         0,
-    padding:        "12px 14px",
-    borderRadius:   9,
-    fontSize:       13,
-    textDecoration: "none",
-    fontWeight:     active ? 600 : 400,
-    background:     active ? "var(--soft)" : "none",
-    color:          active ? "var(--purple)" : "var(--muted)",
-  });
-
-  const NavLinks = () => (
-    <>
-      {items.map((item) => {
-        const active = isActive(item.href, pathname, item.exact);
-        return (
-          <UnsavedAwareLink
-            key={item.href}
-            href={item.href}
-            target={item.external ? "_blank" : undefined}
-            rel={item.external ? "noopener noreferrer" : undefined}
-            style={navLinkStyle(active)}
-          >
-            {item.label}
-          </UnsavedAwareLink>
-        );
-      })}
-    </>
+  const WorkspaceBlock = () => (
+    <div className="sidebar-workspace">
+      <div className="sidebar-avatar">{initials}</div>
+      <div style={{ minWidth: 0 }}>
+        <span className="sidebar-name">{restaurantName}</span>
+        <span className="sidebar-role">{ROLE_LABEL[role]}</span>
+      </div>
+    </div>
   );
 
-  const SignOut = () => (
-    <UnsavedAwareButton
-      className="button secondary small"
-      onClick={async () => { await signOut(); }}
-    >
-      Cerrar sesión
-    </UnsavedAwareButton>
+  const BottomBlock = () => (
+    <div className="sidebar-bottom-v2">
+      <span className="sidebar-bottom-email">{userEmail}</span>
+      <UnsavedAwareButton
+        className="sidebar-signout"
+        onClick={async () => { await signOut(); }}
+      >
+        Cerrar sesión
+      </UnsavedAwareButton>
+    </div>
   );
 
   return (
     <div className="dashboard">
-      {/* ── Desktop sidebar ──────────────────────────────────── */}
-      <aside className="sidebar" style={{ position: "relative", zIndex: 10 }}>
+      {/* ── Desktop sidebar ─────────────────────────────── */}
+      <aside className="sidebar">
         <Brand />
-
-        <div className="workspace">
-          <div className="avatar">{initials}</div>
-          <div style={{ minWidth: 0 }}>
-            <b style={{ fontSize: 12, display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {restaurantName}
-            </b>
-            <span className="muted" style={{ fontSize: 11 }}>{ROLE_LABEL[role]}</span>
-          </div>
-        </div>
-
-        <nav aria-label="Panel" style={{ flex: 1 }}>
-          <NavLinks />
+        <WorkspaceBlock />
+        <nav aria-label="Panel" className="sidebar-nav">
+          <NavLinks items={items} pathname={pathname} />
         </nav>
-
-        <div className="sidebar-bottom">
-          <span style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {userEmail}
-          </span>
-          <SignOut />
-        </div>
+        <BottomBlock />
       </aside>
 
-      {/* ── Main content ─────────────────────────────────────── */}
+      {/* ── Main content ────────────────────────────────── */}
       <main className="dashboard-main" style={{ minWidth: 0 }}>
         {/* Mobile header */}
-        <div
-          className="panel-mobile-header"
-          style={{
-            display:        "none",
-            alignItems:     "center",
-            justifyContent: "space-between",
-            padding:        "0 20px",
-            minHeight:      56,
-            borderBottom:   "1px solid var(--border)",
-            background:     "white",
-            position:       "sticky",
-            top:            0,
-            zIndex:         20,
-          }}
-        >
+        <div className="panel-mobile-header">
           <Brand />
           <button
             ref={menuButtonRef}
@@ -197,12 +290,9 @@ function ShellInner({
             aria-expanded={open}
             aria-controls="panel-mobile-drawer"
             onClick={() => setOpen((v) => !v)}
-            style={{
-              background: "none", border: "none", cursor: "pointer",
-              padding: "8px", color: "var(--ink)", fontSize: 22, lineHeight: 1,
-            }}
+            className="panel-mobile-menu-btn"
           >
-            {open ? "✕" : "☰"}
+            {open ? <IconClose /> : <IconMenu />}
           </button>
         </div>
 
@@ -212,40 +302,32 @@ function ShellInner({
             id="panel-mobile-drawer"
             ref={drawerRef}
             aria-label="Navegación del panel"
-            style={{
-              position:  "fixed", top: 56, left: 0, right: 0, bottom: 0,
-              background: "white", zIndex: 30, overflowY: "auto",
-              padding: "16px 20px 32px", borderTop: "1px solid var(--border)",
-            }}
+            className="panel-mobile-drawer"
           >
-            <div className="workspace" style={{ marginBottom: 12 }}>
-              <div className="avatar">{initials}</div>
-              <div>
-                <b style={{ fontSize: 12, display: "block" }}>{restaurantName}</b>
-                <span className="muted" style={{ fontSize: 11 }}>{ROLE_LABEL[role]}</span>
-              </div>
-            </div>
-            <NavLinks />
-            <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12 }}>
-              <span style={{ fontSize: 11, color: "var(--muted)" }}>{userEmail}</span>
-              <SignOut />
+            <WorkspaceBlock />
+            <NavLinks items={items} pathname={pathname} />
+            <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,.1)" }}>
+              <span className="sidebar-bottom-email" style={{ display: "block", marginBottom: 10 }}>
+                {userEmail}
+              </span>
+              <UnsavedAwareButton
+                className="sidebar-signout"
+                onClick={async () => { await signOut(); }}
+              >
+                Cerrar sesión
+              </UnsavedAwareButton>
             </div>
           </nav>
         )}
 
         {children}
       </main>
-
-      <style>{`
-        @media (max-width: 760px) {
-          .panel-mobile-header { display: flex !important; }
-        }
-      `}</style>
     </div>
   );
 }
 
-// Public export — wraps ShellInner in the provider.
+// ── Public export ─────────────────────────────────────────────────
+
 export function PanelShell(props: ShellProps) {
   return (
     <UnsavedChangesProvider>

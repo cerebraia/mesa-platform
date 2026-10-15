@@ -1,4 +1,4 @@
-# Estado Mesa Platform — 14 de octubre de 2026 (actualizado)
+# Estado Mesa Platform — 15 de octubre de 2026 (actualizado)
 
 ## Resumen ejecutivo
 
@@ -81,10 +81,20 @@
 | **Diálogo accesible (aria-modal, foco, Escape)** | ✅ **Implementado** |
 | **History sentinel para back/forward del navegador** | ✅ **Implementado (sin romper historial)** |
 | **Pruebas GD01-GD12 (lógica de guard)** | ✅ **12/12 aprobadas** |
+| **Migración 022 (dashboard_metrics)** | ✅ **Archivo creado — pendiente aplicar en BD** |
+| **RPC get_dashboard_metrics con control por rol** | ✅ **Implementado (owner/attention: financiero; kitchen: cola)** |
+| **Panel /panel rediseñado como resumen operativo** | ✅ **Implementado** |
+| **Sidebar oscuro con iconos SVG y navegación agrupada** | ✅ **Implementado (PanelShell)** |
+| **Filtro de período: Hoy, Ayer, 7 días, Este mes** | ✅ **Implementado (URL searchParam `periodo`)** |
+| **Métricas: pedidos recibidos, activos, confirmado, ticket** | ✅ **Implementadas (servidor, zona horaria del restaurante)** |
+| **Tabla de pedidos recientes con estado y pago** | ✅ **Implementada** |
+| **Vista cocina: cola de preparación sin métricas financieras** | ✅ **Implementada** |
+| **Estados vacíos y de error en dashboard** | ✅ **Implementados** |
+| **Responsive: tarjetas en 2 columnas a < 1100 px** | ✅ **Implementado** |
 
 ---
 
-## Migraciones aplicadas: 21/21
+## Migraciones aplicadas: 21/21 (022 pendiente de aplicar en BD)
 
 | Versión | Archivo | Contenido |
 |---|---|---|
@@ -109,6 +119,7 @@
 | 20261014000019 | order_ops_v2.sql | advance_order_status y confirm_order_payment: retornan jsonb, añaden expected_status, idempotencia y detección de conflicto |
 | 20261014000020 | admin_plans.sql | advance_order_status v3 y confirm_order_payment v3: p_expected_* obligatorio para transiciones reales; is_restaurant_open verifica status='active'; tablas plans, subscriptions, subscription_payments, admin_audit_log; RLS; place_order verifica suscripción activa |
 | 20261014000021 | domains_v2.sql | restaurant_domains: añade status, requested_by, reviewed_by, updated_at; trigger sync_domain_status; RLS INSERT para owner; RPCs get_restaurant_slug_by_host (anon) y manage_restaurant_domain (admin) |
+| 20261015000022 | dashboard_metrics.sql | RPC get_dashboard_metrics(p_restaurant_id, p_period, p_timezone): owner/attention recibe conteos, confirmado cobrado, ticket promedio, 5 pedidos recientes; kitchen recibe conteos y cola de preparación; fechas calculadas en zona horaria del restaurante |
 
 ---
 
@@ -195,7 +206,7 @@ Actualiza `restaurants.name` y `restaurants.timezone` + upsert de `restaurant_co
 | `npm run test:improvements` (mejoras pedidos) | ✅ 10/10 |
 | `npm run test:admin` (administración) | ✅ 10/10 |
 | `npm run test:domains` (dominios) | ✅ 13/13 |
-| `npm run build` | ✅ limpio |
+| `npm run build` (rediseño panel) | ✅ limpio |
 
 ---
 
@@ -914,11 +925,38 @@ Ver lista completa en `tests/unsaved-changes.test.ts`. Sin navegador no se puede
 
 ## Pendientes
 
-1. **Configurar las 5 variables en Railway** → redeploy → verificar HTTP 200 en /
-2. Configurar Supabase Auth → URL Configuration → Site URL y Redirect URLs para staging
-3. **Verificación manual en browser** (guías anteriores + /admin + /login + formularios con guard GD-B01…GD-B11)
-4. SMTP en Supabase para habilitar flujo completo de invitación de dueño
-5. Notificaciones en tiempo real (Supabase Realtime) para nuevos pedidos
-6. Registro por invitación (owner invita miembros a su restaurante)
-7. Decidir: dominio principal + subdominio comodín vs. solo dominios personalizados
-8. Crear Supabase de producción independiente antes de cualquier carga real
+1. **Aplicar migración 022** (`npx supabase db push`) para activar la RPC `get_dashboard_metrics`
+2. **Configurar las 5 variables en Railway** → redeploy → verificar HTTP 200 en /
+3. Configurar Supabase Auth → URL Configuration → Site URL y Redirect URLs para staging
+4. **Verificación manual en browser** del nuevo dashboard: sidebar oscuro, métricas, filtro de período, tabla de pedidos, estados vacíos
+5. Verificar responsive a 360 px: sidebar oculto → header oscuro → drawer oscuro
+6. SMTP en Supabase para habilitar flujo completo de invitación de dueño
+7. Notificaciones en tiempo real (Supabase Realtime) para nuevos pedidos
+8. Registro por invitación (owner invita miembros a su restaurante)
+9. Decidir: dominio principal + subdominio comodín vs. solo dominios personalizados
+10. Crear Supabase de producción independiente antes de cualquier carga real
+
+## Notas de diseño del dashboard (15/10/2026)
+
+### Definición de métricas
+
+| Métrica | Definición | Cancelaciones |
+|---|---|---|
+| Pedidos recibidos | COUNT de todos los pedidos creados en el período, cualquier estado | Se cuentan (representan carga operativa) |
+| Pedidos activos | COUNT en tiempo real de pedidos no terminales (received, accepted, preparing, ready, on_the_way) | No aplica (en curso) |
+| Confirmado cobrado | SUM de total_cents donde payment_status='confirmed' AND status NOT IN ('cancelled','rejected') | Excluidos |
+| Ticket promedio | AVG de total_cents excluyendo cancelled y rejected en el período | Excluidos |
+
+"Confirmado cobrado" representa lo que el restaurante marcó como cobrado en el período. No se denomina "ingresos netos" porque el sistema no registra costos ni reembolsos.
+
+### Rol cocina
+
+El rol cocina no recibe métricas financieras ni datos de clientes. Solo ve:
+- Pedidos activos (tiempo real)
+- Cola de preparación (accepted/preparing/ready, sin monto, sin PII)
+
+### Estados vacíos vs errores
+
+- Sin pedidos en el período → texto descriptivo, sin cifras cero falsas
+- Error de RPC → mensaje de error con enlace para reintentar; nunca cifras cero
+- Migración 022 no aplicada → el RPC falla, se muestra el error de conexión
