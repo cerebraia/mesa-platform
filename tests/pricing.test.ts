@@ -1,0 +1,11 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {catalog} from "../src/lib/catalog.ts";
+import {calculateLine,selectionKey} from "../src/lib/pricing.ts";
+const burger=catalog[0];
+const selection={variantId:"doble",options:{pan:["brioche"],extras:["bacon","queso"],retirar:["cebolla"]}};
+test("Calcula variante, extras y cantidad en centavos",()=>{assert.equal(calculateLine(burger,selection,2).total,2700);});
+test("Exige grupos obligatorios",()=>{assert.throws(()=>calculateLine(burger,{variantId:"sencilla",options:{}},1),/pan/);});
+test("Rechaza opciones ajenas, duplicadas y grupos desconocidos",()=>{for(const options of ([{pan:["inventada"]},{pan:["tradicional","tradicional"]},{pan:["tradicional"],otro:["foo"]}] as Record<string,string[]>[]))assert.throws(()=>calculateLine(burger,{variantId:"sencilla",options},1));});
+test("Rechaza extras por encima del máximo y cantidades inválidas",()=>{assert.throws(()=>calculateLine(burger,{variantId:"sencilla",options:{pan:["tradicional"],extras:["bacon","queso","carne"]}},1));for(const q of [0,-1,1.5,21])assert.throws(()=>calculateLine(burger,selection,q));});
+test("Configuraciones distintas mantienen claves distintas",()=>{assert.notEqual(selectionKey("smash",selection),selectionKey("smash",{...selection,variantId:"sencilla"}));assert.equal(selectionKey("smash",selection),selectionKey("smash",{...selection,options:{...selection.options,extras:["queso","bacon"]}}));});

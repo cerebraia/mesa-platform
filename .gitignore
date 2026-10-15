@@ -1,0 +1,27 @@
+# Next.js
+.next/
+out/
+
+# Dependencias
+node_modules/
+
+# Variables de entorno locales — NUNCA subir al repositorio
+.env.local
+.env*.local
+.env.test
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+
+# Build info TypeScript
+tsconfig.tsbuildinfo
+
+# macOS
+.DS_Store
+
+# Claude Code (memoria local, no pertenece al repositorio)
+.claude/
+
+# Railway local config (si se usa railway CLI)
+.railway/

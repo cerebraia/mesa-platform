@@ -1,0 +1,142 @@
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { createServerClient } from "@/lib/supabase/server";
+import { Brand } from "@/components/brand";
+import { SignOutButton } from "@/components/sign-out-button";
+import { OrdersListClient } from "./orders-list-client";
+
+type OrderSummary = {
+  id: string;
+  order_number: number;
+  status: string;
+  modality: string;
+  payment_status?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  delivery_zone_name?: string;
+  delivery_fee_cents?: number;
+  payment_method_name?: string;
+  payment_method_type?: string;
+  subtotal_cents: number;
+  total_cents: number;
+  created_at: string;
+  updated_at?: string;
+};
+
+export default async function PedidosPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string>>;
+}) {
+  const sp = await searchParams;
+  const supabase = await createServerClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: membership } = await supabase
+    .from("restaurant_members")
+    .select("restaurant_id, role")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (!membership) redirect("/panel");
+
+  const { restaurantId, role } = {
+    restaurantId: membership.restaurant_id,
+    role: membership.role as "owner" | "attention" | "kitchen",
+  };
+
+  const { data: restaurant } = await supabase
+    .from("restaurants")
+    .select("id, name")
+    .eq("id", restaurantId)
+    .single();
+
+  const statusFilter     = sp.status     ?? null;
+  const paymentFilter    = sp.pago       ?? null;
+  const modalityFilter   = sp.modalidad  ?? null;
+  const dateFrom         = sp.desde      ?? null;
+  const dateTo           = sp.hasta      ?? null;
+  const page             = parseInt(sp.pagina ?? "1") || 1;
+
+  const { data: result, error } = await supabase.rpc("get_orders_for_panel", {
+    p_restaurant_id:  restaurantId,
+    p_status:         statusFilter,
+    p_payment_status: paymentFilter,
+    p_modality:       modalityFilter,
+    p_date_from:      dateFrom,
+    p_date_to:        dateTo,
+    p_page:           page,
+    p_per_page:       50,
+  });
+
+  const orders: OrderSummary[] = (result as { orders: OrderSummary[] })?.orders ?? [];
+
+  return (
+    <div className="dashboard">
+      <aside className="sidebar">
+        <Brand />
+        <div className="workspace">
+          <div className="avatar">{(restaurant?.name ?? "?").slice(0, 2).toUpperCase()}</div>
+          <div>
+            <b style={{ fontSize: 12, display: "block" }}>{restaurant?.name ?? "Restaurante"}</b>
+            <span className="muted" style={{ fontSize: 11 }}>
+              {role === "kitchen" ? "Cocina" : role === "attention" ? "Atención" : "Propietario"}
+            </span>
+          </div>
+        </div>
+        <nav aria-label="Panel">
+          <Link href="/panel" className="muted" style={{ display: "flex", gap: 14, textAlign: "left", border: 0, background: "none", color: "var(--muted)", padding: "12px 14px", borderRadius: 9, fontSize: 13, textDecoration: "none" }}>
+            ← Panel
+          </Link>
+        </nav>
+        <div className="sidebar-bottom">
+          <span style={{ fontSize: 11 }}>{user.email}</span>
+          <SignOutButton />
+        </div>
+      </aside>
+
+      <main className="dashboard-main">
+        <div className="dashboard-top">
+          <span>PEDIDOS</span>
+          <span>{restaurant?.name}</span>
+        </div>
+
+        <div className="dashboard-content">
+          <div className="dashboard-heading">
+            <div>
+              <h1>
+                {role === "kitchen" ? "Cola de cocina" : "Pedidos"}
+              </h1>
+              <p style={{ fontSize: 14 }}>
+                {role === "kitchen"
+                  ? "Pedidos aceptados y en preparación."
+                  : "Gestiona y actualiza el estado de los pedidos."}
+              </p>
+            </div>
+          </div>
+
+          {error && (
+            <div className="auth-error" role="alert" style={{ marginBottom: 16 }}>
+              Error al cargar pedidos: {error.message}
+            </div>
+          )}
+
+          <OrdersListClient
+            orders={orders}
+            role={role}
+            restaurantId={restaurantId}
+            currentPage={page}
+            currentFilters={{ status: statusFilter, pago: paymentFilter, modalidad: modalityFilter, desde: dateFrom, hasta: dateTo }}
+          />
+        </div>
+      </main>
+    </div>
+  );
+}
+
+export const dynamic = "force-dynamic";
