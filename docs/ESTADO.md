@@ -76,6 +76,11 @@
 | **Formularios de categoría/producto integrados en PanelShell** | ✅ **Implementados** |
 | **Aviso cambios sin guardar en formulario de producto** | ✅ **Implementado (beforeunload)** |
 | **Datos de prueba Cat anon test C08 eliminados** | ✅ **3 registros eliminados — evidencia documentada** |
+| **Guard unificado de cambios sin guardar** | ✅ **Implementado — commit e2fe71d** |
+| **Cobertura: sidebar, cerrar sesión, cambio restaurante, tab/reload, back** | ✅ **Implementada** |
+| **Diálogo accesible (aria-modal, foco, Escape)** | ✅ **Implementado** |
+| **History sentinel para back/forward del navegador** | ✅ **Implementado (sin romper historial)** |
+| **Pruebas GD01-GD12 (lógica de guard)** | ✅ **12/12 aprobadas** |
 
 ---
 
@@ -859,11 +864,59 @@ Cada sub-página renderizaba su propio `<aside>` mínimo:
 
 ---
 
+## Guard de cambios sin guardar — cobertura y límites
+
+### Arquitectura (commit e2fe71d)
+
+`UnsavedChangesProvider` envuelve `PanelShell`. Gestiona:
+- `isDirty` / `setDirty` — compartido por todos los formularios del panel
+- `requestLeave()` — muestra el diálogo y resuelve la promesa según la elección del usuario
+- `beforeunload` — tab close / reload
+- `popstate` + history sentinel — back/forward del navegador
+
+### Navegación cubierta
+
+| Punto de salida | Mecanismo |
+|---|---|
+| Enlace del sidebar | `UnsavedAwareLink` (intercepta click, llama `requestLeave`) |
+| "Volver al catálogo" (Cancelar) | `UnsavedAwareLink` |
+| "Ver menú ↗" (nueva pestaña) | `UnsavedAwareLink` |
+| Cerrar sesión | `UnsavedAwareButton` (llama `signOut` tras confirmación) |
+| Cambio de restaurante | `UnsavedAwareButton` en `RestaurantSwitcher` |
+| Cierre / recarga de pestaña | `beforeunload` en el provider |
+| Navegación atrás del navegador | `popstate` + `history.pushState` sentinel |
+
+### History sentinel
+
+Cuando el formulario se pone sucio, se hace `history.pushState({ unsavedGuard: true }, "")`. Esto añade una entrada extra al stack. Si el usuario pulsa Atrás, `popstate` detecta que el sentinel fue consumido y muestra el diálogo:
+- "Seguir editando": se re-inserta el sentinel con `history.pushState`
+- "Descartar y salir": se limpia `dirty` y la navegación procede
+
+El sentinel es una entrada extra en el historial (el usuario ve un extra paso al pulsar Adelante), pero no altera las URLs ni el historial real de páginas. Se elimina al guardar o descartar.
+
+### Límite documentado: forward button
+
+Si el usuario abre el formulario, lo hace sucio, y luego pulsa el botón Adelante del navegador (para ir a una página que cargó antes), el `popstate` NO recibe el sentinel (porque el sentinel está en la posición actual, no en las anteriores). Esta transición queda sin protección. Añadir un guard completo para este caso requeriría history manipulation más invasiva, contradiciendo el requisito de no romper el historial.
+
+### Diálogo
+
+- `role="dialog"` `aria-modal="true"` `aria-labelledby` `aria-describedby`
+- Foco inicial en "Seguir editando" al abrir
+- Escape → "Seguir editando" (sin salir)
+- Clic en backdrop → "Seguir editando"
+- Tab navega entre los dos botones (sin salir del diálogo)
+
+### Pruebas de navegador pendientes (GD-B01 a GD-B11)
+
+Ver lista completa en `tests/unsaved-changes.test.ts`. Sin navegador no se pueden ejecutar.
+
+---
+
 ## Pendientes
 
-1. **Configurar las 5 variables en Railway** (ver tabla arriba) → redeploy automático → verificar HTTP 200 en /
+1. **Configurar las 5 variables en Railway** → redeploy → verificar HTTP 200 en /
 2. Configurar Supabase Auth → URL Configuration → Site URL y Redirect URLs para staging
-3. **Verificación manual en browser** (guías de fases anteriores + /admin + /login + /r/restaurante-alfa)
+3. **Verificación manual en browser** (guías anteriores + /admin + /login + formularios con guard GD-B01…GD-B11)
 4. SMTP en Supabase para habilitar flujo completo de invitación de dueño
 5. Notificaciones en tiempo real (Supabase Realtime) para nuevos pedidos
 6. Registro por invitación (owner invita miembros a su restaurante)
