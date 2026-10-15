@@ -668,13 +668,16 @@ Si se configura `PLATFORM_SUBDOMAIN_BASE=mesa.app`, el slug se extrae del subdom
 
 ## Repositorio y despliegue
 
-### Estado del repositorio local
+### Estado del repositorio
 
-- Repositorio git inicializado en la raíz del proyecto.
-- Commit inicial creado: `48942cb` — 127 archivos, 22 107 líneas.
+- Repositorio: https://github.com/cerebraia/mesa-platform (público)
+- Rama main, 3 commits en origin/main:
+  - `48942cb` — Proyecto inicial (127 archivos, 22 107 líneas)
+  - `02260f3` — Preparación Railway, .env.example, docs
+  - `4b2f2b0` — **fix(railway): buildCommand corregido** (`npm ci` eliminado de buildCommand; lo ejecuta Nixpacks automáticamente)
 - `.env.local`, `.env.test`, `node_modules/`, `.next/`, `.claude/` excluidos por `.gitignore`.
-- Sin secretos en archivos versionados (verificado con grep antes del commit).
-- `railway.json` incluido: buildCommand `npm ci && npm run build`, startCommand `npm start`, healthcheck `/api/health`.
+- Sin secretos en archivos versionados (verificado con grep y clone limpio).
+- `railway.json`: buildCommand `npm run build`, startCommand `npm start -H 0.0.0.0`, healthcheck `/api/health`.
 
 ### Bloqueo para subir a GitHub
 
