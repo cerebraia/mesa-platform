@@ -1,8 +1,5 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
-import { Brand } from "@/components/brand";
-import { SignOutButton } from "@/components/sign-out-button";
 import type {
   RestaurantConfig,
   BusinessHour,
@@ -94,24 +91,13 @@ export default async function ConfiguracionPage() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
   return (
-    <div className="dashboard">
-      <aside className="sidebar">
-        <Brand />
-        <div className="sidebar-bottom">
-          <Link href="/panel" className="text-link" style={{ fontSize: 12 }}>
-            ← Panel
-          </Link>
-          <SignOutButton />
-        </div>
-      </aside>
+    <>
+      <div className="dashboard-top">
+        <span>CONFIGURACIÓN</span>
+        <span>{restaurant?.name}</span>
+      </div>
 
-      <main className="dashboard-main">
-        <div className="dashboard-top">
-          <span>CONFIGURACIÓN</span>
-          <span>{restaurant?.name}</span>
-        </div>
-
-        <div className="dashboard-content">
+      <div className="dashboard-content">
           <div className="dashboard-heading">
             <div>
               <h1>Configuración del restaurante</h1>
@@ -172,8 +158,7 @@ export default async function ConfiguracionPage() {
               domains={(domains ?? []) as Array<{ id: string; host: string; kind: string; status: string }>}
             />
           </div>
-        </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }

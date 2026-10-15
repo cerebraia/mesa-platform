@@ -1,8 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
-import { Brand } from "@/components/brand";
-import { SignOutButton } from "@/components/sign-out-button";
 import { OrderDetailClient } from "../order-detail-client";
 
 type OrderDetail = {
@@ -110,36 +108,15 @@ export default async function OrderDetailPage({
   };
 
   return (
-    <div className="dashboard">
-      <aside className="sidebar">
-        <Brand />
-        <div className="workspace">
-          <div className="avatar">{(restaurant?.name ?? "?").slice(0, 2).toUpperCase()}</div>
-          <div>
-            <b style={{ fontSize: 12, display: "block" }}>{restaurant?.name}</b>
-            <span className="muted" style={{ fontSize: 11 }}>
-              {role === "kitchen" ? "Cocina" : role === "attention" ? "Atención" : "Propietario"}
-            </span>
-          </div>
-        </div>
-        <nav>
-          <Link href="/panel/pedidos" className="muted" style={{ display: "flex", gap: 14, textAlign: "left", border: 0, background: "none", color: "var(--muted)", padding: "12px 14px", borderRadius: 9, fontSize: 13, textDecoration: "none" }}>
-            ← Pedidos
-          </Link>
-        </nav>
-        <div className="sidebar-bottom">
-          <span style={{ fontSize: 11 }}>{user.email}</span>
-          <SignOutButton />
-        </div>
-      </aside>
+    <>
+      <div className="dashboard-top">
+        <span>PEDIDO #{order.order_number}</span>
+        <Link href="/panel/pedidos" className="muted" style={{ fontSize: 12, textDecoration: "none" }}>
+          ← Pedidos
+        </Link>
+      </div>
 
-      <main className="dashboard-main">
-        <div className="dashboard-top">
-          <span>PEDIDO #{order.order_number}</span>
-          <span>{restaurant?.name}</span>
-        </div>
-
-        <div className="dashboard-content">
+      <div className="dashboard-content">
           <div className="dashboard-heading" style={{ marginBottom: 20 }}>
             <div>
               <h1 style={{ fontSize: 28 }}>Pedido #{order.order_number}</h1>
@@ -304,9 +281,8 @@ export default async function OrderDetailPage({
               ))}
             </div>
           )}
-        </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -1,8 +1,5 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
-import { Brand } from "@/components/brand";
-import { SignOutButton } from "@/components/sign-out-button";
 import { OrdersListClient } from "./orders-list-client";
 
 type OrderSummary = {
@@ -77,65 +74,39 @@ export default async function PedidosPage({
   const orders: OrderSummary[] = (result as { orders: OrderSummary[] })?.orders ?? [];
 
   return (
-    <div className="dashboard">
-      <aside className="sidebar">
-        <Brand />
-        <div className="workspace">
-          <div className="avatar">{(restaurant?.name ?? "?").slice(0, 2).toUpperCase()}</div>
+    <>
+      <div className="dashboard-top">
+        <span>PEDIDOS</span>
+        <span>{restaurant?.name}</span>
+      </div>
+
+      <div className="dashboard-content">
+        <div className="dashboard-heading">
           <div>
-            <b style={{ fontSize: 12, display: "block" }}>{restaurant?.name ?? "Restaurante"}</b>
-            <span className="muted" style={{ fontSize: 11 }}>
-              {role === "kitchen" ? "Cocina" : role === "attention" ? "Atención" : "Propietario"}
-            </span>
+            <h1>{role === "kitchen" ? "Cola de cocina" : "Pedidos"}</h1>
+            <p style={{ fontSize: 14 }}>
+              {role === "kitchen"
+                ? "Pedidos aceptados y en preparación."
+                : "Gestiona y actualiza el estado de los pedidos."}
+            </p>
           </div>
         </div>
-        <nav aria-label="Panel">
-          <Link href="/panel" className="muted" style={{ display: "flex", gap: 14, textAlign: "left", border: 0, background: "none", color: "var(--muted)", padding: "12px 14px", borderRadius: 9, fontSize: 13, textDecoration: "none" }}>
-            ← Panel
-          </Link>
-        </nav>
-        <div className="sidebar-bottom">
-          <span style={{ fontSize: 11 }}>{user.email}</span>
-          <SignOutButton />
-        </div>
-      </aside>
 
-      <main className="dashboard-main">
-        <div className="dashboard-top">
-          <span>PEDIDOS</span>
-          <span>{restaurant?.name}</span>
-        </div>
-
-        <div className="dashboard-content">
-          <div className="dashboard-heading">
-            <div>
-              <h1>
-                {role === "kitchen" ? "Cola de cocina" : "Pedidos"}
-              </h1>
-              <p style={{ fontSize: 14 }}>
-                {role === "kitchen"
-                  ? "Pedidos aceptados y en preparación."
-                  : "Gestiona y actualiza el estado de los pedidos."}
-              </p>
-            </div>
+        {error && (
+          <div className="auth-error" role="alert" style={{ marginBottom: 16 }}>
+            Error al cargar pedidos: {error.message}
           </div>
+        )}
 
-          {error && (
-            <div className="auth-error" role="alert" style={{ marginBottom: 16 }}>
-              Error al cargar pedidos: {error.message}
-            </div>
-          )}
-
-          <OrdersListClient
-            orders={orders}
-            role={role}
-            restaurantId={restaurantId}
-            currentPage={page}
-            currentFilters={{ status: statusFilter, pago: paymentFilter, modalidad: modalityFilter, desde: dateFrom, hasta: dateTo }}
-          />
-        </div>
-      </main>
-    </div>
+        <OrdersListClient
+          orders={orders}
+          role={role}
+          restaurantId={restaurantId}
+          currentPage={page}
+          currentFilters={{ status: statusFilter, pago: paymentFilter, modalidad: modalityFilter, desde: dateFrom, hasta: dateTo }}
+        />
+      </div>
+    </>
   );
 }
 

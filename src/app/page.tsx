@@ -1,19 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
-import {Brand} from "@/components/brand";
+import { Brand } from "@/components/brand";
+import { SiteHeader } from "@/components/site-header";
 
 export default function Home() {
   return (
     <>
-      <header className="site-header container">
-        <Brand/>
-        <nav aria-label="Principal">
-          <a href="#funciones">Funciones</a>
-          <a href="#como-funciona">Cómo funciona</a>
-          <a href="#planes">Planes</a>
-        </nav>
-        <Link className="button small secondary" href="/demo/panel">Explorar el panel ↗</Link>
-      </header>
+      <SiteHeader />
 
       <main>
         {/* ── Hero ── */}

@@ -168,54 +168,56 @@ test("C07 usuario sin membresía no lee ni escribe catálogo", { skip: SKIP }, a
 test("C08 anónimo solo lee categorías activas y productos publicados", { skip: SKIP }, async () => {
   const owner = await clientFor(process.env.TEST_OWNER_ALFA_EMAIL!, process.env.TEST_OWNER_ALFA_PASSWORD!);
 
-  // Create a category and an unpublished product in Alfa
+  // Create a category and an unpublished product in Alfa.
+  // Cleanup uses try/finally so orphaned data never remains even on assertion failure.
   const { data: cat } = await owner.from("categories").insert({
     restaurant_id: ALFA, name: "Cat anon test C08", position: 997, is_active: true,
   }).select("id").single();
   assert.ok(cat?.id);
 
-  const { data: prodId } = await owner.rpc("upsert_product", {
-    p_restaurant_id: ALFA,
-    p_product: {
-      category_id: cat.id,
-      name: "Borrador C08",
-      base_price_cents: 500,
-      is_published: false,
-      is_available: true,
-    },
-    p_variants: [{ name: "Regular", price_cents: 500, is_available: true }],
-    p_option_groups: [],
-  });
-  assert.ok(prodId, "upsert_product debe devolver un UUID");
+  let prodId: string | null = null;
 
-  // Anon should NOT see the unpublished product
-  const anon = anonClient();
-  const { data: anonProds } = await anon.from("products").select("id").eq("id", prodId as string);
-  assert.equal(anonProds?.length ?? 0, 0, "Anon no debe ver productos no publicados");
+  try {
+    const { data: rpcProdId } = await owner.rpc("upsert_product", {
+      p_restaurant_id: ALFA,
+      p_product: {
+        category_id: cat.id,
+        name: "Borrador C08",
+        base_price_cents: 500,
+        is_published: false,
+        is_available: true,
+      },
+      p_variants: [{ name: "Regular", price_cents: 500, is_available: true }],
+      p_option_groups: [],
+    });
+    assert.ok(rpcProdId, "upsert_product debe devolver un UUID");
+    prodId = rpcProdId as string;
 
-  // Publish the product via owner
-  await owner.rpc("set_product_published", {
-    p_restaurant_id: ALFA,
-    p_product_id: prodId,
-    p_published: true,
-  });
+    // Anon should NOT see the unpublished product
+    const anon = anonClient();
+    const { data: anonProds } = await anon.from("products").select("id").eq("id", prodId);
+    assert.equal(anonProds?.length ?? 0, 0, "Anon no debe ver productos no publicados");
 
-  // Anon SHOULD see it now
-  const { data: anonProdsPublished } = await anon.from("products").select("id").eq("id", prodId as string);
-  assert.equal(anonProdsPublished?.length ?? 0, 1, "Anon debe ver producto publicado");
+    // Publish the product via owner
+    await owner.rpc("set_product_published", {
+      p_restaurant_id: ALFA, p_product_id: prodId, p_published: true,
+    });
 
-  // Unpublish and confirm disappears
-  await owner.rpc("set_product_published", {
-    p_restaurant_id: ALFA,
-    p_product_id: prodId,
-    p_published: false,
-  });
-  const { data: anonProdsUnpublished } = await anon.from("products").select("id").eq("id", prodId as string);
-  assert.equal(anonProdsUnpublished?.length ?? 0, 0, "Después de despublicar: anon no lo ve");
+    // Anon SHOULD see it now
+    const { data: anonProdsPublished } = await anon.from("products").select("id").eq("id", prodId);
+    assert.equal(anonProdsPublished?.length ?? 0, 1, "Anon debe ver producto publicado");
 
-  // Cleanup
-  await owner.from("products").delete().eq("id", prodId as string);
-  await owner.from("categories").delete().eq("id", cat.id);
+    // Unpublish and confirm disappears
+    await owner.rpc("set_product_published", {
+      p_restaurant_id: ALFA, p_product_id: prodId, p_published: false,
+    });
+    const { data: anonProdsUnpublished } = await anon.from("products").select("id").eq("id", prodId);
+    assert.equal(anonProdsUnpublished?.length ?? 0, 0, "Después de despublicar: anon no lo ve");
+  } finally {
+    // Always clean up, even if assertions fail
+    if (prodId) await owner.from("products").delete().eq("id", prodId);
+    await owner.from("categories").delete().eq("id", cat.id);
+  }
 });
 
 // ── C09: Aislamiento Storage — owner de Beta no puede subir en Alfa ──────
