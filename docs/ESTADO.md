@@ -666,12 +666,121 @@ Si se configura `PLATFORM_SUBDOMAIN_BASE=mesa.app`, el slug se extrae del subdom
 
 ---
 
+## Repositorio y despliegue
+
+### Estado del repositorio local
+
+- Repositorio git inicializado en la raíz del proyecto.
+- Commit inicial creado: `48942cb` — 127 archivos, 22 107 líneas.
+- `.env.local`, `.env.test`, `node_modules/`, `.next/`, `.claude/` excluidos por `.gitignore`.
+- Sin secretos en archivos versionados (verificado con grep antes del commit).
+- `railway.json` incluido: buildCommand `npm ci && npm run build`, startCommand `npm start`, healthcheck `/api/health`.
+
+### Bloqueo para subir a GitHub
+
+El repositorio remoto `mesa-platform` no existe aún. No hay `gh` CLI instalado y el puerto SSH 22 está bloqueado en esta red. HTTPS a `api.github.com` funciona.
+
+**Pasos exactos para completar (ejecutar tú mismo):**
+
+```bash
+# 1. Instalar GitHub CLI (si no lo tienes)
+brew install gh
+
+# 2. Autenticarse
+gh auth login
+# Elige: GitHub.com → HTTPS → authenticate with browser
+
+# 3. Crear repo privado y subir
+gh repo create mesa-platform --private --source=. --remote=origin --push
+
+# 4. Verificar
+git remote -v
+git log --oneline -3
+```
+
+Alternativa sin gh CLI:
+```bash
+# 1. Crear en https://github.com/new → nombre: mesa-platform, privado, SIN inicializar
+# 2. Añadir remote y hacer push
+git remote add origin https://github.com/<tu-usuario>/mesa-platform.git
+git push -u origin main
+```
+
+### Staging en Railway — Pasos cuando tengas el repo en GitHub
+
+Railway conecta directamente con GitHub. No requiere configuración manual de build. El `railway.json` ya tiene todo configurado.
+
+**Pasos:**
+1. Ir a https://railway.com/new → "Deploy from GitHub repo" → seleccionar `mesa-platform`
+2. Railway detecta `railway.json` automáticamente
+3. En Variables de entorno del servicio, añadir:
+
+| Variable | Valor para staging |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://xlqilgkohjdleqeeoslk.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | (desde Supabase Dashboard → API) |
+| `SUPABASE_SERVICE_ROLE_KEY` | (desde Supabase Dashboard → API → service_role) |
+| `NEXT_PUBLIC_PLATFORM_HOST` | El hostname `.up.railway.app` asignado (copiar de Railway Settings) |
+| `NEXT_PUBLIC_SITE_URL` | `https://<hostname>.up.railway.app` |
+| `NODE_ENV` | `production` (Railway lo establece automáticamente) |
+
+4. Railway asigna un hostname temporal (ej. `mesa-platform-production.up.railway.app`)
+5. Este hostname se identifica como **staging** — conectado a Supabase de desarrollo
+6. Verificar: `curl https://<hostname>.up.railway.app/api/health`
+7. Respuesta esperada: `{"status":"ok","project":"mesa-platform","stage":"prototype","database":"not-connected"}`
+
+**Importante:** Este staging es sobre `xlqilgkohjdleqeeoslk` (proyecto de desarrollo). Nunca crear seeds de prueba ni ejecutar suites con escritura contra él como si fuera producción.
+
+### Supabase de producción — Cuándo y cómo
+
+Crear un Supabase de producción independiente solo cuando:
+- El código haya pasado validación manual en browser completa
+- Se tenga un dominio principal definido
+- Se haya decidido si se usa subdominio comodín o solo dominios personalizados
+
+**Para aplicar las migraciones en producción (en orden):**
+```bash
+# Desde la raíz del proyecto, con .env.local apuntando al proyecto de producción
+npx supabase db push --db-url "postgresql://postgres.<ID>:<PASS>@aws-1-...pooler.supabase.com:5432/postgres"
+```
+Las migraciones son aditivas y están numeradas. `supabase db push` aplica solo las que faltan según el historial de migraciones registrado. No ejecutar `supabase db reset` en producción (destruye datos).
+
+### Variables NEXT_PUBLIC y el build
+
+Las variables `NEXT_PUBLIC_*` se incorporan en tiempo de build, no en runtime. Esto implica:
+- Railway debe tener estas variables configuradas ANTES de lanzar el build
+- Si se cambian después, hay que redesplegar (hacer un nuevo deploy)
+- Las variables sin `NEXT_PUBLIC_` son solo de servidor y pueden cambiarse sin rebuild
+
+### Cookies Secure bajo HTTPS
+
+En producción (`NODE_ENV=production`) las cookies de sesión de pedidos tienen `Secure=true`. Los tokens de Supabase Auth también requieren HTTPS. El proxy solo funciona correctamente con HTTPS en producción — no hay que configurar nada extra si Railway gestiona TLS.
+
+---
+
+## URLs de retorno para Supabase Auth (pendiente configurar)
+
+Para que el flujo de invitación de dueño funcione (assignOwner con cuenta nueva):
+
+1. En Supabase Dashboard → Authentication → URL Configuration:
+   - **Site URL**: `https://<hostname>.up.railway.app` (o el dominio real en producción)
+   - **Redirect URLs**: `https://<hostname>.up.railway.app/login`
+2. Para SMTP (correos de invitación):
+   - Authentication → SMTP Settings → habilitar custom SMTP
+   - Requiere: host, puerto, usuario, contraseña del servidor de correo
+   - Sin SMTP configurado, `assignOwner` para cuentas nuevas deja la invitación como `invitePending: true`
+
+---
+
 ## Pendientes
 
-1. **Verificación manual en browser** (guías anteriores + /admin + routing por hostname)
-2. Notificaciones en tiempo real (Supabase Realtime) para nuevos pedidos
-3. Registro por invitación (owner invita miembros a su restaurante)
-4. Subir código a repositorio privado en GitHub
-5. Verificación manual del flujo de invitación de dueño con SMTP configurado
-6. Configurar servicio Railway y dominio principal (ver sección Railway pendiente arriba)
-7. Decidir: subdominio comodín o solo dominios personalizados
+1. **Subir a GitHub** (bloqueo: gh CLI o token HTTPS — pasos arriba)
+2. **Verificación manual en browser** (guías anteriores + /admin + routing hostname)
+3. Configurar variables en Railway y hacer primer deploy de staging
+4. Verificación funcional en staging: /api/health, /login, /panel, /r/[slug]
+5. Configurar Supabase Auth → Site URL y Redirect URLs para staging
+6. SMTP en Supabase para habilitar flujo completo de invitación de dueño
+7. Notificaciones en tiempo real (Supabase Realtime) para nuevos pedidos
+8. Registro por invitación (owner invita miembros a su restaurante)
+9. Decidir: dominio principal + subdominio comodín vs. solo dominios personalizados
+10. Crear Supabase de producción independiente antes de cualquier carga real
