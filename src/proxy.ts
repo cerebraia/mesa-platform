@@ -33,30 +33,41 @@ import {
 // ── Session-refresh helper (used for platform-host requests) ──────────────────
 
 async function runSessionProxy(request: NextRequest): Promise<NextResponse> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+  // If Supabase is not configured, protect private routes with a redirect to /login
+  // and pass public routes through. Never crash with 500.
+  if (!supabaseUrl || !supabaseKey) {
+    const { pathname } = request.nextUrl;
+    if (pathname.startsWith("/panel") || pathname.startsWith("/admin")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next({ request });
+  }
+
   // supabaseResponse must be returned (or have its cookies copied) on every
   // branch so that session token refreshes are written back to the browser.
   let supabaseResponse = NextResponse.next({ request });
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
-          );
-        },
+  const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) =>
+          request.cookies.set(name, value),
+        );
+        supabaseResponse = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) =>
+          supabaseResponse.cookies.set(name, value, options),
+        );
       },
     },
-  );
+  });
 
   // getUser() validates the JWT with the GoTrue server; never use getSession()
   // for authorization because it reads from storage without server validation.
@@ -96,15 +107,21 @@ async function runSessionProxy(request: NextRequest): Promise<NextResponse> {
 // returns slugs for active domains/restaurants. No service role needed here.
 
 async function resolveCustomDomain(host: string): Promise<string | null> {
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
-    { cookies: { getAll: () => [], setAll: () => {} } },
-  );
-  const { data } = await supabase.rpc("get_restaurant_slug_by_host", {
-    p_host: host,
-  });
-  return typeof data === "string" && data.length > 0 ? data : null;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  // If Supabase is not configured, fail safely to 404 instead of 500.
+  if (!supabaseUrl || !supabaseKey) return null;
+  try {
+    const supabase = createServerClient(supabaseUrl, supabaseKey, {
+      cookies: { getAll: () => [], setAll: () => {} },
+    });
+    const { data } = await supabase.rpc("get_restaurant_slug_by_host", {
+      p_host: host,
+    });
+    return typeof data === "string" && data.length > 0 ? data : null;
+  } catch {
+    return null;
+  }
 }
 
 // ── Restaurant-domain path routing ────────────────────────────────────────────
