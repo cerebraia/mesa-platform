@@ -91,6 +91,7 @@
 | **Vista cocina: cola de preparación sin métricas financieras** | ✅ **Implementada** |
 | **Estados vacíos y de error en dashboard** | ✅ **Implementados** |
 | **Responsive: tarjetas en 2 columnas a < 1100 px** | ✅ **Implementado** |
+| **Panel: altura viewport completa (sin franja blanca inferior)** | ✅ **Implementado** |
 
 ---
 
@@ -207,6 +208,7 @@ Actualiza `restaurants.name` y `restaurants.timezone` + upsert de `restaurant_co
 | `npm run test:admin` (administración) | ✅ 10/10 |
 | `npm run test:domains` (dominios) | ✅ 13/13 |
 | `npm run build` (rediseño panel) | ✅ limpio |
+| `npm run build` (altura viewport panel) | ✅ limpio |
 
 ---
 

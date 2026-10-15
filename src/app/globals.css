@@ -153,8 +153,14 @@
 .sidebar-signout{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.68);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:500;cursor:pointer;text-align:left;width:100%}
 .sidebar-signout:hover{background:rgba(255,255,255,.14);color:white}
 
-/* ── Panel: fondo principal ───────────────────────────────────── */
-.dashboard{background:#f4f2f9}
+/* ── Panel: altura completa y fondo ───────────────────────────── */
+/* min-height:760px del base se reemplaza por viewport completo.   */
+/* Dos declaraciones: navegadores sin dvh usan el fallback vh.     */
+.dashboard{background:#f4f2f9;min-height:100vh;min-height:100dvh}
+/* El sidebar ocupa exactamente el viewport y hace scroll interno  */
+/* cuando la nav supera la altura disponible.                      */
+.sidebar{position:sticky;top:0;height:100vh;height:100dvh;overflow-y:auto}
+/* dashboard-main hereda el fondo y estira via grid align-stretch  */
 .dashboard-main{background:#f4f2f9}
 .dashboard-top{background:white}
 .dashboard-card{box-shadow:0 1px 3px rgba(0,0,0,.04)}
