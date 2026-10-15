@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/panel-context";
+import { PageHeader } from "@/components/panel/page-header";
 import { OrderDetailClient } from "../order-detail-client";
 
 type OrderDetail = {
@@ -102,25 +103,20 @@ export default async function OrderDetailPage({
 
   return (
     <>
-      <div className="dashboard-top">
-        <span>PEDIDO #{order.order_number}</span>
-        <Link href="/panel/pedidos" className="muted" style={{ fontSize: 12, textDecoration: "none" }}>
-          ← Pedidos
-        </Link>
-      </div>
+      <PageHeader
+        title={`Pedido #${order.order_number}`}
+        description={new Date(order.created_at).toLocaleString("es-VE", {
+          day: "numeric", month: "long", year: "numeric",
+          hour: "2-digit", minute: "2-digit",
+        })}
+        actions={
+          <Link href="/panel/pedidos" className="btn-ver-menu">
+            ← Pedidos
+          </Link>
+        }
+      />
 
-      <div className="dashboard-content">
-          <div className="dashboard-heading" style={{ marginBottom: 20 }}>
-            <div>
-              <h1 style={{ fontSize: 28 }}>Pedido #{order.order_number}</h1>
-              <p style={{ fontSize: 13 }}>
-                {new Date(order.created_at).toLocaleString("es-VE", {
-                  day: "numeric", month: "long", year: "numeric",
-                  hour: "2-digit", minute: "2-digit",
-                })}
-              </p>
-            </div>
-          </div>
+      <div className="dashboard-content" style={{ maxWidth: "none" }}>
 
           {/* Status + quick actions (client component) */}
           <OrderDetailClient

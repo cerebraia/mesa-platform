@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/panel-context";
+import { PageHeader } from "@/components/panel/page-header";
 import { OrdersListClient } from "./orders-list-client";
 
 type OrderSummary = {
@@ -27,11 +28,9 @@ export default async function PedidosPage({
   searchParams: Promise<Record<string, string>>;
 }) {
   const sp = await searchParams;
-  const supabase = await createServerClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const supabase = await createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
   const { active } = await getActiveMembership();
@@ -39,19 +38,14 @@ export default async function PedidosPage({
 
   const restaurantId = active.restaurantId;
   const role         = active.role;
+  const isKitchen    = role === "kitchen";
 
-  const { data: restaurant } = await supabase
-    .from("restaurants")
-    .select("id, name")
-    .eq("id", restaurantId)
-    .single();
-
-  const statusFilter     = sp.status     ?? null;
-  const paymentFilter    = sp.pago       ?? null;
-  const modalityFilter   = sp.modalidad  ?? null;
-  const dateFrom         = sp.desde      ?? null;
-  const dateTo           = sp.hasta      ?? null;
-  const page             = parseInt(sp.pagina ?? "1") || 1;
+  const statusFilter   = sp.status     ?? null;
+  const paymentFilter  = sp.pago       ?? null;
+  const modalityFilter = sp.modalidad  ?? null;
+  const dateFrom       = sp.desde      ?? null;
+  const dateTo         = sp.hasta      ?? null;
+  const page           = parseInt(sp.pagina ?? "1") || 1;
 
   const { data: result, error } = await supabase.rpc("get_orders_for_panel", {
     p_restaurant_id:  restaurantId,
@@ -68,23 +62,16 @@ export default async function PedidosPage({
 
   return (
     <>
-      <div className="dashboard-top">
-        <span>PEDIDOS</span>
-        <span>{restaurant?.name}</span>
-      </div>
+      <PageHeader
+        title={isKitchen ? "Cola de cocina" : "Pedidos"}
+        description={
+          isKitchen
+            ? "Pedidos aceptados y en preparación."
+            : "Gestiona y actualiza el estado de los pedidos."
+        }
+      />
 
-      <div className="dashboard-content">
-        <div className="dashboard-heading">
-          <div>
-            <h1>{role === "kitchen" ? "Cola de cocina" : "Pedidos"}</h1>
-            <p style={{ fontSize: 14 }}>
-              {role === "kitchen"
-                ? "Pedidos aceptados y en preparación."
-                : "Gestiona y actualiza el estado de los pedidos."}
-            </p>
-          </div>
-        </div>
-
+      <div className="panel-content">
         {error && (
           <div className="auth-error" role="alert" style={{ marginBottom: 16 }}>
             Error al cargar pedidos: {error.message}
@@ -96,7 +83,13 @@ export default async function PedidosPage({
           role={role}
           restaurantId={restaurantId}
           currentPage={page}
-          currentFilters={{ status: statusFilter, pago: paymentFilter, modalidad: modalityFilter, desde: dateFrom, hasta: dateTo }}
+          currentFilters={{
+            status: statusFilter,
+            pago:   paymentFilter,
+            modalidad: modalityFilter,
+            desde: dateFrom,
+            hasta: dateTo,
+          }}
         />
       </div>
     </>

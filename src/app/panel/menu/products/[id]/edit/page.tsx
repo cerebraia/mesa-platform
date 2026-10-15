@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/panel-context";
+import { PageHeader } from "@/components/panel/page-header";
 import { ProductFormPage } from "../../../product-form";
 import type {
   Category,
@@ -72,12 +73,11 @@ export default async function EditProductPage({
 
   return (
     <>
-      <div className="dashboard-top">
-        <span>CATÁLOGO · EDITAR PRODUCTO</span>
-        <a href="/panel/menu" className="muted" style={{ fontSize: 12, textDecoration: "none" }}>
-          ← Catálogo
-        </a>
-      </div>
+      <PageHeader
+        title={`Editar: ${product!.name}`}
+        description="Modifica los datos, imagen, precio y opciones del producto."
+        actions={<a href="/panel/menu" className="btn-ver-menu">← Catálogo</a>}
+      />
       <ProductFormPage
         mode="edit"
         categories={categories!}

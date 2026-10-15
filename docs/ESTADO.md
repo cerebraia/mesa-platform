@@ -1,4 +1,4 @@
-# Estado Mesa Platform — 15 de octubre de 2026 (actualizado)
+# Estado Mesa Platform — 15 de octubre de 2026 (rediseño panel v2)
 
 ## Resumen ejecutivo
 
@@ -92,6 +92,20 @@
 | **Estados vacíos y de error en dashboard** | ✅ **Implementados** |
 | **Responsive: tarjetas en 2 columnas a < 1100 px** | ✅ **Implementado** |
 | **Panel: altura viewport completa (sin franja blanca inferior)** | ✅ **Implementado** |
+| **Rediseño panel v2 — sistema visual completo** | ✅ **Implementado** |
+| **lucide-react instalado; iconos consistentes en todo el panel** | ✅ |
+| **Tokens de diseño panel: #19162E sidebar, #F6F7FB fondo, #202337 texto** | ✅ |
+| **PanelShell: sidebar 250px, activo con borde morado + fondo, topbar "Ver menú"** | ✅ |
+| **Componentes compartidos: PageHeader, EmptyState** | ✅ |
+| **/panel: PageHeader + métricas mejoradas + estado vacío correcto** | ✅ |
+| **/panel/menu: pestañas Productos / Categorías + búsqueda + filtros cliente** | ✅ |
+| **/panel/pedidos: barra de filtros rediseñada + contadores + estados con badges** | ✅ |
+| **/panel/configuracion: pestañas General / Horarios / Entregas / Pagos / Dominio** | ✅ |
+| **Formularios productos y categorías: PageHeader con título y breadcrumb** | ✅ |
+| **Detalle de pedido: PageHeader con número y fecha** | ✅ |
+| **Mobile: drawer oscuro, panel-mobile-header, sidebar oculto a ≤ 760 px** | ✅ |
+| **dashboard-top eliminado de todas las páginas del panel** | ✅ |
+| **Sin regresiones en sitio público ni /r/[slug]** | ✅ (estilos panel aislados en sección del panel de globals.css) |
 
 ---
 
@@ -927,7 +941,11 @@ Ver lista completa en `tests/unsaved-changes.test.ts`. Sin navegador no se puede
 
 ## Pendientes
 
-1. **Aplicar migración 022** (`npx supabase db push`) para activar la RPC `get_dashboard_metrics`
+1. **Aplicar migración 022** (`npx supabase db push`) para activar la RPC `get_dashboard_metrics` (sin esto el dashboard muestra error de RPC, no datos)
+2. **Verificación visual en navegador** (sin acceso a browser; pendiente): escritorio, 768 px y 360 px en /panel, /panel/menu (tabs), /panel/pedidos, /panel/configuracion (tabs), formularios de producto, detalle de pedido
+3. **Formulario de producto**: los bloques internos (información, imágenes, precio, variantes, opciones, publicación) conservan su estructura; la mejora visual de sus secciones internas queda pendiente de una segunda pasada
+4. **sidebar-bottom (móvil)**: el fix de !important de la sesión anterior puede quedar obsoleto; revisar botón "Cerrar sesión" en drawer móvil
+0. ← desplaza los pendientes anteriores a continuación
 2. **Configurar las 5 variables en Railway** → redeploy → verificar HTTP 200 en /
 3. Configurar Supabase Auth → URL Configuration → Site URL y Redirect URLs para staging
 4. **Verificación manual en browser** del nuevo dashboard: sidebar oscuro, métricas, filtro de período, tabla de pedidos, estados vacíos

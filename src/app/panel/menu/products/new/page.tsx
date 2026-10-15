@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/panel-context";
+import { PageHeader } from "@/components/panel/page-header";
 import { ProductFormPage } from "../../product-form";
 import type { Category } from "@/lib/catalog-types";
 
@@ -31,12 +32,11 @@ export default async function NewProductPage({
 
   return (
     <>
-      <div className="dashboard-top">
-        <span>CATÁLOGO · NUEVO PRODUCTO</span>
-        <a href="/panel/menu" className="muted" style={{ fontSize: 12, textDecoration: "none" }}>
-          ← Catálogo
-        </a>
-      </div>
+      <PageHeader
+        title="Nuevo producto"
+        description="Añade nombre, precio, imagen y opciones para este producto."
+        actions={<a href="/panel/menu" className="btn-ver-menu">← Catálogo</a>}
+      />
       <ProductFormPage
         mode="new"
         categories={categories}

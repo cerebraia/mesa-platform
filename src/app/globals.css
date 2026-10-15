@@ -130,91 +130,167 @@
   .option-group-minmax{display:flex;gap:8px;width:100%;margin-top:4px}
 }
 
-/* ── Panel rediseño — sidebar oscuro ─────────────────────────── */
-/* Overrides that replace the white sidebar with a dark purple one. */
-.sidebar{background:#1e1040;border-right:none;padding:22px 14px 18px;gap:0}
-.sidebar .brand{color:white}
-.sidebar .brand-icon{background:rgba(255,255,255,.13);color:rgba(255,255,255,.9)}
-.sidebar .brand-dot{color:rgba(255,255,255,.3);margin-left:-8px}
-.sidebar-workspace{display:flex;gap:10px;align-items:center;padding:14px 4px;margin:10px 0 4px;border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08)}
-.sidebar-avatar{display:grid;place-items:center;background:rgba(255,255,255,.13);color:white;width:36px;height:36px;flex-shrink:0;border-radius:10px;font-size:11px;font-weight:700}
-.sidebar-name{font-size:12px;font-weight:600;color:white;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ══════════════════════════════════════════════════════════════
+   Mesa Platform — Panel (admin) design system
+   Overrides the base .dashboard/.sidebar/.dashboard-* rules.
+   Does not affect the public site or /r/* menu routes.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Layout ─── */
+.dashboard{background:#F6F7FB;grid-template-columns:250px 1fr;min-height:100vh;min-height:100dvh}
+.dashboard-main{background:#F6F7FB;min-width:0;display:flex;flex-direction:column}
+.dashboard-top{display:none}
+
+/* ── Sidebar ─── */
+.sidebar{background:#19162E;border-right:none;padding:20px 12px 16px;gap:0;position:sticky;top:0;height:100vh;height:100dvh;overflow-y:auto}
+.sidebar .brand{color:#fff;font-size:22px}
+.sidebar .brand-icon{background:rgba(255,255,255,.12);color:rgba(255,255,255,.9);width:30px;height:30px;font-size:20px}
+.sidebar .brand-dot{color:rgba(255,255,255,.3)}
+
+/* ── Workspace (restaurant + role) ─── */
+.sidebar-workspace{display:flex;gap:10px;align-items:center;padding:12px 6px;margin:8px 0 4px;border-top:1px solid rgba(255,255,255,.07);border-bottom:1px solid rgba(255,255,255,.07)}
+.sidebar-avatar{display:grid;place-items:center;background:rgba(112,59,230,.35);color:#fff;width:36px;height:36px;flex-shrink:0;border-radius:10px;font-size:12px;font-weight:700}
+.sidebar-name{font-size:13px;font-weight:600;color:#fff;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sidebar-role{font-size:11px;color:rgba(255,255,255,.5);display:block}
-.sidebar-nav{flex:1;display:flex;flex-direction:column;gap:0;margin:6px 0;overflow-y:auto}
-.sidebar-group{margin-top:14px}
-.sidebar-group-label{font-size:10px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase;color:rgba(255,255,255,.28);padding:0 10px;margin-bottom:3px}
-.sidebar-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:500;color:rgba(255,255,255,.62);text-decoration:none;border:0;background:none;width:100%;text-align:left;cursor:pointer}
-.sidebar-link:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.9)}
-.sidebar-link--active{background:rgba(255,255,255,.13);color:white;font-weight:600}
-.sidebar-link-icon{width:16px;height:16px;flex-shrink:0;display:flex;align-items:center;justify-content:center;opacity:.8}
+
+/* ── Navigation ─── */
+.sidebar-nav{flex:1;display:flex;flex-direction:column;gap:2px;padding:8px 0;overflow-y:auto}
+.sidebar-group{margin-top:16px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)}
+.sidebar-group-label{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:rgba(255,255,255,.25);padding:0 8px 4px}
+.sidebar-link{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;font-size:13px;font-weight:500;color:rgba(255,255,255,.6);text-decoration:none;border:0;background:none;width:100%;text-align:left;cursor:pointer;transition:background .12s,color .12s}
+.sidebar-link:hover{background:rgba(255,255,255,.06);color:rgba(255,255,255,.9)}
+.sidebar-link--active{background:rgba(112,59,230,.2);color:#fff;font-weight:600;border-left:3px solid #703BE6;padding-left:7px}
+.sidebar-link-icon{display:flex;align-items:center;justify-content:center;width:18px;height:18px;flex-shrink:0;opacity:.7}
 .sidebar-link--active .sidebar-link-icon{opacity:1}
-.sidebar-bottom-v2{margin-top:auto;padding-top:14px;border-top:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:10px}
-.sidebar-bottom-email{font-size:11px;color:rgba(255,255,255,.38);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sidebar-signout{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.68);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:500;cursor:pointer;text-align:left;width:100%}
-.sidebar-signout:hover{background:rgba(255,255,255,.14);color:white}
 
-/* ── Panel: altura completa y fondo ───────────────────────────── */
-/* min-height:760px del base se reemplaza por viewport completo.   */
-/* Dos declaraciones: navegadores sin dvh usan el fallback vh.     */
-.dashboard{background:#f4f2f9;min-height:100vh;min-height:100dvh}
-/* El sidebar ocupa exactamente el viewport y hace scroll interno  */
-/* cuando la nav supera la altura disponible.                      */
-.sidebar{position:sticky;top:0;height:100vh;height:100dvh;overflow-y:auto}
-/* dashboard-main hereda el fondo y estira via grid align-stretch  */
-.dashboard-main{background:#f4f2f9}
-.dashboard-top{background:white}
-.dashboard-card{box-shadow:0 1px 3px rgba(0,0,0,.04)}
+/* ── Bottom (user + signout) ─── */
+.sidebar-bottom-v2{margin-top:auto;padding-top:12px;border-top:1px solid rgba(255,255,255,.07);display:flex;flex-direction:column;gap:8px}
+.sidebar-bottom-email{font-size:11px;color:rgba(255,255,255,.35);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px}
+.sidebar-signout{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.65);border-radius:8px;padding:9px 12px;font-size:12px;font-weight:500;cursor:pointer;text-align:left;width:100%;transition:background .12s}
+.sidebar-signout:hover{background:rgba(255,255,255,.12);color:#fff}
 
-/* ── Panel mobile — header y drawer oscuro ────────────────────── */
-.panel-mobile-header{display:none;align-items:center;justify-content:space-between;padding:0 18px;min-height:54px;border-bottom:1px solid rgba(255,255,255,.1);background:#1e1040;position:sticky;top:0;z-index:20}
-.panel-mobile-header .brand{color:white}
-.panel-mobile-header .brand-icon{background:rgba(255,255,255,.13);color:rgba(255,255,255,.9)}
+/* ── Shell topbar (Ver menú link, desktop only) ─── */
+.panel-topbar{display:flex;align-items:center;justify-content:flex-end;padding:16px 32px 0;gap:8px;flex-shrink:0}
+.btn-ver-menu{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;background:#fff;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;font-weight:500;color:#202337;text-decoration:none;transition:border-color .12s,color .12s;white-space:nowrap}
+.btn-ver-menu:hover{border-color:#703BE6;color:#703BE6}
+
+/* ── Page header ─── */
+.panel-page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 32px 16px;flex-wrap:wrap}
+.panel-page-title{font-size:26px;font-weight:700;letter-spacing:-.7px;color:#202337;line-height:1.2;margin:0}
+.panel-page-desc{font-size:14px;color:#667085;margin:4px 0 0}
+.panel-page-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0}
+
+/* ── Content area ─── */
+.panel-content{padding:0 32px 40px}
+.dashboard-content{padding:0 32px 40px;max-width:none}
+.dashboard-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+.dashboard-heading h1{font-size:26px;font-weight:700;letter-spacing:-.7px;color:#202337;margin:0}
+.dashboard-heading p{font-size:14px;color:#667085;margin:2px 0 0}
+
+/* ── Cards ─── */
+.dashboard-card{background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:20px 24px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+
+/* ── Filter bar ─── */
+.panel-filter-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 14px;background:#fff;border:1px solid #E5E7EB;border-radius:12px;margin-bottom:16px}
+.filter-search-wrap{display:flex;align-items:center;gap:7px;padding:7px 12px;background:#F6F7FB;border:1px solid #E5E7EB;border-radius:8px;flex:1;min-width:170px;max-width:260px}
+.filter-search-wrap svg{color:#667085;flex-shrink:0}
+.filter-search-wrap input{border:none;background:transparent;font-size:13px;color:#202337;width:100%;outline:none;padding:0;min-width:0}
+.panel-filter-bar select{padding:7px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px;color:#202337;background:#fff;cursor:pointer}
+.filter-count{font-size:12px;color:#667085;margin-left:auto;white-space:nowrap}
+.filter-clear{font-size:12px;color:#703BE6;background:none;border:none;cursor:pointer;padding:0;font-weight:500}
+
+/* ── Tabs ─── */
+.panel-tabs{display:flex;border-bottom:1px solid #E5E7EB;margin-bottom:20px;gap:0}
+.panel-tab{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;font-size:13px;font-weight:500;color:#667085;background:none;border:0;border-bottom:2px solid transparent;cursor:pointer;text-decoration:none;white-space:nowrap;transition:color .12s}
+.panel-tab:hover{color:#202337}
+.panel-tab--active{color:#703BE6;border-bottom-color:#703BE6;font-weight:600}
+
+/* ── Mobile header & drawer ─── */
+.panel-mobile-header{display:none;align-items:center;justify-content:space-between;padding:0 16px;min-height:54px;background:#19162E;border-bottom:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:20}
+.panel-mobile-header .brand{color:#fff}
+.panel-mobile-header .brand-icon{background:rgba(255,255,255,.12);color:rgba(255,255,255,.9)}
 .panel-mobile-header .brand-dot{color:rgba(255,255,255,.3)}
-.panel-mobile-menu-btn{background:none;border:none;cursor:pointer;padding:8px;color:white;font-size:20px;line-height:1}
-.panel-mobile-drawer{position:fixed;top:54px;left:0;right:0;bottom:0;background:#1e1040;z-index:30;overflow-y:auto;padding:14px 16px 28px}
+.panel-mobile-menu-btn{background:none;border:none;cursor:pointer;padding:8px;color:#fff;display:flex;align-items:center;justify-content:center}
+.panel-mobile-drawer{position:fixed;top:54px;left:0;right:0;bottom:0;background:#19162E;z-index:30;overflow-y:auto;padding:12px 14px 28px}
+
+/* ── Metric grid ─── */
+.metric-grid-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:20px}
+.metric-v2{background:#fff;padding:16px 20px;border:1px solid #E5E7EB;border-radius:12px;display:flex;flex-direction:column;gap:10px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.metric-v2-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.metric-v2-icon{width:36px;height:36px;border-radius:10px;background:#EDE9FC;display:grid;place-items:center;color:#703BE6;flex-shrink:0}
+.metric-v2-icon--green{background:#D1FAE5;color:#059669}
+.metric-v2-icon--amber{background:#FEF3C7;color:#D97706}
+.metric-v2-label{font-size:12px;color:#667085;font-weight:500}
+.metric-v2-value{font-size:26px;font-weight:700;color:#202337;letter-spacing:-.8px;line-height:1.1}
+.metric-v2-sub{font-size:11px;color:#667085}
+
+/* ── Period tabs ─── */
+.period-tabs{display:flex;gap:4px;flex-wrap:wrap}
+.period-tab{background:none;border:1px solid #E5E7EB;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:500;color:#667085;cursor:pointer;transition:border-color .12s,color .12s}
+.period-tab:hover{border-color:#703BE6;color:#703BE6}
+.period-tab--on{background:#EDE9FC;border-color:#703BE6;color:#703BE6;font-weight:600}
+
+/* ── Quick actions ─── */
+.panel-quick-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.panel-quick-action{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:500;background:#fff;border:1px solid #E5E7EB;color:#202337;cursor:pointer;text-decoration:none;transition:border-color .12s,color .12s}
+.panel-quick-action:hover{border-color:#703BE6;color:#703BE6}
+.panel-quick-action--primary{background:#703BE6;color:#fff;border-color:#703BE6}
+.panel-quick-action--primary:hover{background:#4d239e}
+
+/* ── Status badges ─── */
+.order-status-badge{display:inline-flex;align-items:center;font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500;white-space:nowrap}
+.badge-received{background:#FEF3C7;color:#92400E}
+.badge-accepted{background:#DBEAFE;color:#1E40AF}
+.badge-preparing{background:#EDE9FE;color:#5B21B6}
+.badge-ready{background:#D1FAE5;color:#065F46}
+.badge-on_the_way{background:#FCE7F3;color:#9D174D}
+.badge-completed{background:#F0FDF4;color:#166534}
+.badge-rejected{background:#FEE2E2;color:#991B1B}
+.badge-cancelled{background:#F5F5F5;color:#6B7280}
+.payment-paid{background:#D1FAE5;color:#065F46}
+.payment-pending{background:#FEF9C3;color:#854D0E}
+.modality-pickup{background:#EDE9FE;color:#5B21B6}
+.modality-delivery{background:#DBEAFE;color:#1E40AF}
+
+/* ── Empty state ─── */
+.panel-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:56px 32px;background:#fff;border:1px solid #E5E7EB;border-radius:12px}
+.panel-empty-icon{width:52px;height:52px;background:#F6F7FB;border-radius:14px;display:grid;place-items:center;color:#667085;margin-bottom:16px}
+.panel-empty-title{font-size:16px;font-weight:600;color:#202337;margin:0 0 8px}
+.panel-empty-desc{font-size:13px;color:#667085;margin:0 0 20px;max-width:320px;line-height:1.6}
+
+/* ── Category cards ─── */
+.cat-card{background:#fff;border:1px solid #E5E7EB;border-radius:12px;display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:8px}
+.cat-card-icon{width:36px;height:36px;background:#F6F7FB;border-radius:9px;display:grid;place-items:center;color:#667085;flex-shrink:0}
+.cat-card-info{flex:1;min-width:0}
+.cat-card-name{font-size:14px;font-weight:600;color:#202337;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cat-card-meta{font-size:12px;color:#667085;margin-top:2px}
+.cat-card-actions{display:flex;gap:6px;flex-shrink:0}
+
+/* ── Counters strip (above filter bar) ─── */
+.count-strip{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.count-chip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;color:#202337}
+.count-chip span{font-size:11px;color:#667085;font-weight:400}
+
+/* ── Responsive ─── */
+@media(max-width:1100px){.metric-grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1050px){
+  .dashboard{grid-template-columns:220px 1fr}
+  .panel-content,.dashboard-content{padding:0 24px 32px}
+  .panel-page-header{padding:18px 24px 14px}
+  .panel-topbar{padding:14px 24px 0}
+}
 @media(max-width:760px){
   .sidebar{display:none !important}
   .panel-mobile-header{display:flex}
   .dashboard{grid-template-columns:1fr !important}
+  .panel-content,.dashboard-content{padding:0 16px 24px}
+  .panel-page-header{padding:14px 16px 10px;flex-direction:column;align-items:stretch}
+  .panel-topbar{padding:10px 16px 0}
+  .panel-filter-bar{flex-direction:column;align-items:stretch}
+  .filter-search-wrap{max-width:100%}
+  .filter-count{margin-left:0}
 }
-
-/* ── Filtro de período ────────────────────────────────────────── */
-.period-tabs{display:flex;gap:4px;flex-wrap:wrap}
-.period-tab{background:none;border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:500;color:var(--muted);cursor:pointer}
-.period-tab:hover{border-color:var(--purple);color:var(--purple)}
-.period-tab--on{background:var(--soft);border-color:var(--purple);color:var(--purple);font-weight:600}
-
-/* ── Tarjetas de métricas con icono ───────────────────────────── */
-.metric-grid-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:20px}
-.metric-v2{background:white;padding:18px 20px;border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
-.metric-v2-header{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.metric-v2-icon{width:36px;height:36px;border-radius:10px;background:var(--soft);display:grid;place-items:center;color:var(--purple);flex-shrink:0}
-.metric-v2-icon--green{background:#ecfdf5;color:#059669}
-.metric-v2-icon--amber{background:#fffbeb;color:#d97706}
-.metric-v2-label{font-size:12px;color:var(--muted);font-weight:500}
-.metric-v2-value{font-size:27px;font-weight:700;color:var(--ink);letter-spacing:-1px;line-height:1}
-.metric-v2-sub{font-size:11px;color:var(--muted)}
-@media(max-width:1100px){.metric-grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:460px){.metric-grid-4{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}}
-
-/* ── Acciones rápidas ─────────────────────────────────────────── */
-.panel-quick-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
-.panel-quick-action{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:500;background:white;border:1px solid var(--border);color:var(--ink);cursor:pointer;text-decoration:none}
-.panel-quick-action:hover{border-color:var(--purple);color:var(--purple)}
-.panel-quick-action--primary{background:var(--purple);color:white;border-color:var(--purple)}
-.panel-quick-action--primary:hover{background:var(--purple-dark)}
-
-/* ── Etiquetas de estado en tabla de pedidos ──────────────────── */
-.order-status-badge{display:inline-flex;align-items:center;font-size:11px;padding:3px 8px;border-radius:20px;font-weight:500;white-space:nowrap}
-.badge-received{background:#fef3c7;color:#92400e}
-.badge-accepted{background:#dbeafe;color:#1e40af}
-.badge-preparing{background:#ede9fe;color:#5b21b6}
-.badge-ready{background:#d1fae5;color:#065f46}
-.badge-on_the_way{background:#fce7f3;color:#9d174d}
-.badge-completed{background:#f0f9ff;color:#0369a1}
-.badge-rejected{background:#fee2e2;color:#991b1b}
-.badge-cancelled{background:#f5f5f5;color:#737373}
-.payment-paid{background:#d1fae5;color:#065f46}
-.payment-pending{background:#fef9c3;color:#854d0e}
-.modality-pickup{background:var(--soft);color:var(--purple)}
-.modality-delivery{background:#f0f9ff;color:#0369a1}
+@media(max-width:460px){
+  .metric-grid-4{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .panel-page-title{font-size:22px}
+}

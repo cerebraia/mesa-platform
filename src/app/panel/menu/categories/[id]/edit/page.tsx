@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/panel-context";
+import { PageHeader } from "@/components/panel/page-header";
 import { CategoryFormPage } from "../../../category-form";
 import type { Category } from "@/lib/catalog-types";
 
@@ -30,12 +31,13 @@ export default async function EditCategoryPage({
 
   return (
     <>
-      <div className="dashboard-top">
-        <span>CATÁLOGO · EDITAR CATEGORÍA</span>
-        <a href="/panel/menu" className="muted" style={{ fontSize: 12, textDecoration: "none" }}>
-          ← Catálogo
-        </a>
-      </div>
+      <PageHeader
+        title={`Editar: ${category.name}`}
+        description="Modifica el nombre y estado de la categoría."
+        actions={
+          <a href="/panel/menu" className="btn-ver-menu">← Catálogo</a>
+        }
+      />
       <CategoryFormPage mode="edit" category={category} />
     </>
   );

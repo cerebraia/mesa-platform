@@ -1,15 +1,19 @@
 import Link from "next/link";
+import { PageHeader } from "@/components/panel/page-header";
 import { CategoryFormPage } from "../../category-form";
 
 export default function NewCategoryPage() {
   return (
     <>
-      <div className="dashboard-top">
-        <span>CATÁLOGO · NUEVA CATEGORÍA</span>
-        <Link href="/panel/menu" className="muted" style={{ fontSize: 12, textDecoration: "none" }}>
-          ← Catálogo
-        </Link>
-      </div>
+      <PageHeader
+        title="Nueva categoría"
+        description="Las categorías organizan los productos de tu menú."
+        actions={
+          <Link href="/panel/menu" className="btn-ver-menu">
+            ← Catálogo
+          </Link>
+        }
+      />
       <CategoryFormPage mode="new" />
     </>
   );
