@@ -71,6 +71,11 @@
 | **Estado vacío por categoría sin productos** | ✅ **Implementado** |
 | **Placeholder IMG neutro sin emoji** | ✅ **Implementado** |
 | **Test C08: try/finally para cleanup garantizado** | ✅ **Corregido** |
+| **panel-context: getActiveMembership con React.cache** | ✅ **Implementado — commit 4960f54** |
+| **Selector de restaurante para usuarios con múltiples membresías** | ✅ **Implementado (cookie validada en servidor)** |
+| **Formularios de categoría/producto integrados en PanelShell** | ✅ **Implementados** |
+| **Aviso cambios sin guardar en formulario de producto** | ✅ **Implementado (beforeunload)** |
+| **Datos de prueba Cat anon test C08 eliminados** | ✅ **3 registros eliminados — evidencia documentada** |
 
 ---
 
