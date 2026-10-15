@@ -709,30 +709,48 @@ git remote add origin https://github.com/<tu-usuario>/mesa-platform.git
 git push -u origin main
 ```
 
-### Staging en Railway — Pasos cuando tengas el repo en GitHub
+### Staging activo: mesa-platform-production.up.railway.app
 
-Railway conecta directamente con GitHub. No requiere configuración manual de build. El `railway.json` ya tiene todo configurado.
+**Último commit desplegado:** `3ae1cd5` (fix proxy degradación segura)
 
-**Pasos:**
-1. Ir a https://railway.com/new → "Deploy from GitHub repo" → seleccionar `mesa-platform`
-2. Railway detecta `railway.json` automáticamente
-3. En Variables de entorno del servicio, añadir:
+#### Variables requeridas — configurar en Railway → tu servicio → Variables
 
-| Variable | Valor para staging |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://xlqilgkohjdleqeeoslk.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | (desde Supabase Dashboard → API) |
-| `SUPABASE_SERVICE_ROLE_KEY` | (desde Supabase Dashboard → API → service_role) |
-| `NEXT_PUBLIC_PLATFORM_HOST` | El hostname `.up.railway.app` asignado (copiar de Railway Settings) |
-| `NEXT_PUBLIC_SITE_URL` | `https://<hostname>.up.railway.app` |
-| `NODE_ENV` | `production` (Railway lo establece automáticamente) |
+⚠️ **Las variables `NEXT_PUBLIC_*` usan `process.env` en código de servidor/proxy en tiempo de ejecución** (no solo en build de cliente). Basta con definirlas en Railway; el redeploy las aplica.
 
-4. Railway asigna un hostname temporal (ej. `mesa-platform-production.up.railway.app`)
-5. Este hostname se identifica como **staging** — conectado a Supabase de desarrollo
-6. Verificar: `curl https://<hostname>.up.railway.app/api/health`
-7. Respuesta esperada: `{"status":"ok","project":"mesa-platform","stage":"prototype","database":"not-connected"}`
+**Públicas (seguro incluir en logs, nunca en Git con valor):**
 
-**Importante:** Este staging es sobre `xlqilgkohjdleqeeoslk` (proyecto de desarrollo). Nunca crear seeds de prueba ni ejecutar suites con escritura contra él como si fuera producción.
+| Variable | Valor para staging | Para qué sirve |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://xlqilgkohjdleqeeoslk.supabase.co` | Cliente Supabase (proxy, páginas, checkout) |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | clave anon de Supabase Dashboard → API | Operaciones dentro de RLS |
+| `NEXT_PUBLIC_PLATFORM_HOST` | `mesa-platform-production.up.railway.app` | **Reconocer el hostname propio como plataforma** — sin esta variable, el proxy trata Railway como dominio de restaurante |
+| `NEXT_PUBLIC_SITE_URL` | `https://mesa-platform-production.up.railway.app` | URL base para invitaciones de Supabase Auth |
+
+**Privadas (jamás en Git, solo en Railway con mecanismo de secretos):**
+
+| Variable | Origen | Para qué sirve |
+|---|---|---|
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Dashboard → API → service_role | Auth Admin API, place_order, confirmaciones, panel admin |
+
+**No añadir:**
+- `MESA_DATABASE_URL` — solo para migraciones locales con supabase CLI, no para la app
+- `NODE_ENV` — Railway lo establece automáticamente como `production`
+- `NEXT_PUBLIC_APP_HOST` — omitir si el panel y el sitio comparten hostname; hereda de `NEXT_PUBLIC_PLATFORM_HOST`
+- `PLATFORM_SUBDOMAIN_BASE` — omitir hasta que haya un dominio real con wildcard
+
+#### Por qué falla sin NEXT_PUBLIC_PLATFORM_HOST
+
+Sin esta variable, `isPlatformHost("mesa-platform-production.up.railway.app")` devuelve `false`. El proxy trata Railway como posible dominio de restaurante, hace un lookup en la BD, y si la BD tampoco está configurada → **HTTP 500**.
+
+Con el fix de `3ae1cd5`, sin variables la app degrada a **404** en lugar de 500, pero aún así no funciona. Con las 5 variables arriba → funciona completamente.
+
+#### Orden de configuración (importante)
+
+1. Añadir las 5 variables en Railway → Variables del servicio
+2. Railway dispara redeploy automáticamente al guardar
+3. Esperar que el build termine (≈ 2–3 min)
+4. Verificar: `curl https://mesa-platform-production.up.railway.app/api/health`
+5. Verificar: `curl -I https://mesa-platform-production.up.railway.app/` → debe ser HTTP 200
 
 ### Supabase de producción — Cuándo y cómo
 
@@ -748,12 +766,14 @@ npx supabase db push --db-url "postgresql://postgres.<ID>:<PASS>@aws-1-...pooler
 ```
 Las migraciones son aditivas y están numeradas. `supabase db push` aplica solo las que faltan según el historial de migraciones registrado. No ejecutar `supabase db reset` en producción (destruye datos).
 
-### Variables NEXT_PUBLIC y el build
+### Variables NEXT_PUBLIC y comportamiento en servidor vs cliente
 
-Las variables `NEXT_PUBLIC_*` se incorporan en tiempo de build, no en runtime. Esto implica:
-- Railway debe tener estas variables configuradas ANTES de lanzar el build
-- Si se cambian después, hay que redesplegar (hacer un nuevo deploy)
-- Las variables sin `NEXT_PUBLIC_` son solo de servidor y pueden cambiarse sin rebuild
+En Next.js 16:
+- **Código de cliente (React)**: `NEXT_PUBLIC_*` se reemplazan literalmente en el bundle de JavaScript durante el build. Deben estar presentes al compilar.
+- **Código de servidor (proxy, Server Components, Route Handlers)**: `process.env.NEXT_PUBLIC_*` se lee desde el entorno real al iniciar el servidor. No necesitan estar en el build.
+- **Módulos de nivel superior** (como las constantes de `host-resolver.ts`): se evalúan al cargar el módulo por primera vez → al arrancar el servidor → desde las variables del entorno de Railway.
+
+Por tanto: añadir las variables en Railway y redesplegar es suficiente. No hace falta cambiar código.
 
 ### Cookies Secure bajo HTTPS
 
@@ -777,13 +797,11 @@ Para que el flujo de invitación de dueño funcione (assignOwner con cuenta nuev
 
 ## Pendientes
 
-1. **Subir a GitHub** (bloqueo: gh CLI o token HTTPS — pasos arriba)
-2. **Verificación manual en browser** (guías anteriores + /admin + routing hostname)
-3. Configurar variables en Railway y hacer primer deploy de staging
-4. Verificación funcional en staging: /api/health, /login, /panel, /r/[slug]
-5. Configurar Supabase Auth → Site URL y Redirect URLs para staging
-6. SMTP en Supabase para habilitar flujo completo de invitación de dueño
-7. Notificaciones en tiempo real (Supabase Realtime) para nuevos pedidos
-8. Registro por invitación (owner invita miembros a su restaurante)
-9. Decidir: dominio principal + subdominio comodín vs. solo dominios personalizados
-10. Crear Supabase de producción independiente antes de cualquier carga real
+1. **Configurar las 5 variables en Railway** (ver tabla arriba) → redeploy automático → verificar HTTP 200 en /
+2. Configurar Supabase Auth → URL Configuration → Site URL y Redirect URLs para staging
+3. **Verificación manual en browser** (guías de fases anteriores + /admin + /login + /r/restaurante-alfa)
+4. SMTP en Supabase para habilitar flujo completo de invitación de dueño
+5. Notificaciones en tiempo real (Supabase Realtime) para nuevos pedidos
+6. Registro por invitación (owner invita miembros a su restaurante)
+7. Decidir: dominio principal + subdominio comodín vs. solo dominios personalizados
+8. Crear Supabase de producción independiente antes de cualquier carga real
