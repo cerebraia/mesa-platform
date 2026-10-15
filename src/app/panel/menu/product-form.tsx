@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { saveProduct } from "./actions";
+import { useUnsavedChanges, UnsavedAwareLink } from "@/components/unsaved-changes";
 import type {
   Category,
   Product,
@@ -63,7 +65,8 @@ export function ProductFormPage({
   const [isPending, startTransition] = useTransition();
   const [error, setError]   = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [dirty, setDirty]   = useState(false);
+  const router = useRouter();
+  const { setDirty } = useUnsavedChanges();
 
   // Basic fields
   const [name, setName] = useState(product?.name ?? "");
@@ -113,17 +116,6 @@ export function ProductFormPage({
         }))
       : [],
   );
-
-  // Warn on tab close / reload when there are unsaved changes
-  useEffect(() => {
-    if (!dirty || success) return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [dirty, success]);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
@@ -292,9 +284,11 @@ export function ProductFormPage({
 
       if (result.error) {
         setError(result.error);
+        setDirty(true); // save failed — restore dirty protection
       } else {
         setSuccess(true);
-        window.location.href = "/panel/menu";
+        setDirty(false); // clear guard before navigating away
+        router.push("/panel/menu");
       }
     });
   }
@@ -312,7 +306,12 @@ export function ProductFormPage({
         </h1>
       </div>
 
-      <form onSubmit={handleSubmit} onChange={() => setDirty(true)}>
+      <form
+        onSubmit={handleSubmit}
+        // Propagate changes to the shared guard. Image picker
+        // calls setDirty(true) directly; other fields go through onChange.
+        onChange={() => setDirty(true)}
+      >
           {/* ── Datos básicos ── */}
           <div className="dashboard-card" style={{ marginBottom: 16 }}>
             <h2 style={{ fontSize: 16, marginBottom: 20 }}>Información básica</h2>
@@ -718,9 +717,9 @@ export function ProductFormPage({
             <button type="submit" disabled={isPending} className="button">
               {isPending ? "Guardando…" : mode === "new" ? "Crear producto" : "Guardar cambios"}
             </button>
-            <a href="/panel/menu" className="button secondary">
+            <UnsavedAwareLink href="/panel/menu" className="button secondary">
               Cancelar
-            </a>
+            </UnsavedAwareLink>
           </div>
         </form>
     </div>

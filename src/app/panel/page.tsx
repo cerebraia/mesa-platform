@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/panel-context";
-import { selectRestaurant } from "./select-restaurant";
+import { RestaurantSwitcher } from "./restaurant-switcher";
 import type { MemberRole } from "@/lib/db-types";
 
 const ROLE_LABEL: Record<MemberRole, string> = {
@@ -129,28 +129,12 @@ export default async function PanelPage() {
       </div>
 
       <div className="dashboard-content">
-        {/* Restaurant switcher for users with multiple memberships */}
+        {/* Restaurant switcher — uses UnsavedAwareButton to guard dirty forms */}
         {active.hasMultiple && (
-          <div className="dashboard-card" style={{ marginBottom: 20 }}>
-            <h2 style={{ fontSize: 15, marginBottom: 12 }}>Cambiar restaurante</h2>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {options.map((opt) => {
-                const isCurrent = opt.restaurantId === active.restaurantId;
-                return (
-                  <form key={opt.restaurantId} action={selectRestaurant.bind(null, opt.restaurantId)}>
-                    <button
-                      type="submit"
-                      className={isCurrent ? "button small" : "button secondary small"}
-                      style={{ fontSize: 12 }}
-                    >
-                      {opt.restaurantName}
-                      {isCurrent && " ✓"}
-                    </button>
-                  </form>
-                );
-              })}
-            </div>
-          </div>
+          <RestaurantSwitcher
+            options={options}
+            activeRestaurantId={active.restaurantId}
+          />
         )}
 
         <div className="dashboard-heading">

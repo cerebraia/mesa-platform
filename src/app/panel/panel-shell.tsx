@@ -1,10 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Brand } from "@/components/brand";
-import { SignOutButton } from "@/components/sign-out-button";
+import {
+  UnsavedChangesProvider,
+  UnsavedAwareLink,
+  UnsavedAwareButton,
+} from "@/components/unsaved-changes";
+import { signOut } from "@/app/login/actions";
 import type { MemberRole } from "@/lib/db-types";
 
 const ROLE_LABEL: Record<MemberRole, string> = {
@@ -14,15 +18,16 @@ const ROLE_LABEL: Record<MemberRole, string> = {
 };
 
 interface NavItem {
-  href:  string;
-  label: string;
-  exact?: boolean;
+  href:     string;
+  label:    string;
+  exact?:   boolean;
+  external?: boolean;
 }
 
 function navItems(role: MemberRole, slug: string): NavItem[] {
   const items: NavItem[] = [
-    { href: "/panel",           label: "Inicio",        exact: true },
-    { href: "/panel/pedidos",   label: "Pedidos" },
+    { href: "/panel",         label: "Inicio",         exact: true },
+    { href: "/panel/pedidos", label: "Pedidos" },
   ];
   if (role === "owner") {
     items.push(
@@ -30,15 +35,14 @@ function navItems(role: MemberRole, slug: string): NavItem[] {
       { href: "/panel/configuracion", label: "Configuración" },
     );
   }
-  // "Ver menú" always last — opens in new tab, never highlighted as active
-  items.push({ href: `/r/${slug}`, label: "Ver menú ↗" });
+  items.push({ href: `/r/${slug}`, label: "Ver menú ↗", external: true });
   return items;
 }
 
-function isActive(itemHref: string, pathname: string, exact?: boolean): boolean {
-  if (itemHref.startsWith("/r/")) return false; // external menu link
-  if (exact) return pathname === itemHref;
-  return pathname === itemHref || pathname.startsWith(itemHref + "/");
+function isActive(href: string, pathname: string, exact?: boolean): boolean {
+  if (href.startsWith("/r/")) return false;
+  if (exact) return pathname === href;
+  return pathname === href || pathname.startsWith(href + "/");
 }
 
 interface ShellProps {
@@ -49,22 +53,23 @@ interface ShellProps {
   children:       React.ReactNode;
 }
 
-export function PanelShell({
+// Inner shell — lives inside UnsavedChangesProvider, so it can call the hook.
+function ShellInner({
   role,
   restaurantName,
   restaurantSlug,
   userEmail,
   children,
 }: ShellProps) {
-  const pathname     = usePathname();
-  const [open, setOpen]     = useState(false);
+  const pathname      = usePathname();
+  const [open, setOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const drawerRef    = useRef<HTMLElement>(null);
+  const drawerRef     = useRef<HTMLElement>(null);
 
   // Close drawer on route change
   useEffect(() => { setOpen(false); }, [pathname]);
 
-  // Escape closes the drawer and returns focus to the button
+  // Escape closes the hamburger drawer
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
@@ -94,48 +99,55 @@ export function PanelShell({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const items   = navItems(role, restaurantSlug);
+  const items    = navItems(role, restaurantSlug);
   const initials = restaurantName.slice(0, 2).toUpperCase();
+
+  const navLinkStyle = (active: boolean): React.CSSProperties => ({
+    display:        "flex",
+    gap:            14,
+    textAlign:      "left",
+    border:         0,
+    padding:        "12px 14px",
+    borderRadius:   9,
+    fontSize:       13,
+    textDecoration: "none",
+    fontWeight:     active ? 600 : 400,
+    background:     active ? "var(--soft)" : "none",
+    color:          active ? "var(--purple)" : "var(--muted)",
+  });
 
   const NavLinks = () => (
     <>
       {items.map((item) => {
         const active = isActive(item.href, pathname, item.exact);
-        const isExternal = item.href.startsWith("/r/");
         return (
-          <Link
+          <UnsavedAwareLink
             key={item.href}
             href={item.href}
-            target={isExternal ? "_blank" : undefined}
-            rel={isExternal ? "noopener noreferrer" : undefined}
-            style={{
-              display:        "flex",
-              gap:            14,
-              textAlign:      "left",
-              border:         0,
-              padding:        "12px 14px",
-              borderRadius:   9,
-              fontSize:       13,
-              textDecoration: "none",
-              fontWeight:     active ? 600 : 400,
-              background:     active ? "var(--soft)" : "none",
-              color:          active ? "var(--purple)" : "var(--muted)",
-            }}
+            target={item.external ? "_blank" : undefined}
+            rel={item.external ? "noopener noreferrer" : undefined}
+            style={navLinkStyle(active)}
           >
             {item.label}
-          </Link>
+          </UnsavedAwareLink>
         );
       })}
     </>
   );
 
+  const SignOut = () => (
+    <UnsavedAwareButton
+      className="button secondary small"
+      onClick={async () => { await signOut(); }}
+    >
+      Cerrar sesión
+    </UnsavedAwareButton>
+  );
+
   return (
     <div className="dashboard">
-      {/* ── Desktop sidebar ─────────────────────────────────── */}
-      <aside
-        className="sidebar"
-        style={{ position: "relative", zIndex: 10 }}
-      >
+      {/* ── Desktop sidebar ──────────────────────────────────── */}
+      <aside className="sidebar" style={{ position: "relative", zIndex: 10 }}>
         <Brand />
 
         <div className="workspace">
@@ -156,11 +168,11 @@ export function PanelShell({
           <span style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {userEmail}
           </span>
-          <SignOutButton />
+          <SignOut />
         </div>
       </aside>
 
-      {/* ── Main content ────────────────────────────────────── */}
+      {/* ── Main content ─────────────────────────────────────── */}
       <main className="dashboard-main" style={{ minWidth: 0 }}>
         {/* Mobile header */}
         <div
@@ -186,13 +198,8 @@ export function PanelShell({
             aria-controls="panel-mobile-drawer"
             onClick={() => setOpen((v) => !v)}
             style={{
-              background:  "none",
-              border:      "none",
-              cursor:      "pointer",
-              padding:     "8px",
-              color:       "var(--ink)",
-              fontSize:    22,
-              lineHeight:  1,
+              background: "none", border: "none", cursor: "pointer",
+              padding: "8px", color: "var(--ink)", fontSize: 22, lineHeight: 1,
             }}
           >
             {open ? "✕" : "☰"}
@@ -206,16 +213,9 @@ export function PanelShell({
             ref={drawerRef}
             aria-label="Navegación del panel"
             style={{
-              position:   "fixed",
-              top:        56,
-              left:       0,
-              right:      0,
-              bottom:     0,
-              background: "white",
-              zIndex:     30,
-              overflowY:  "auto",
-              padding:    "16px 20px 32px",
-              borderTop:  "1px solid var(--border)",
+              position:  "fixed", top: 56, left: 0, right: 0, bottom: 0,
+              background: "white", zIndex: 30, overflowY: "auto",
+              padding: "16px 20px 32px", borderTop: "1px solid var(--border)",
             }}
           >
             <div className="workspace" style={{ marginBottom: 12 }}>
@@ -228,7 +228,7 @@ export function PanelShell({
             <NavLinks />
             <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12 }}>
               <span style={{ fontSize: 11, color: "var(--muted)" }}>{userEmail}</span>
-              <SignOutButton />
+              <SignOut />
             </div>
           </nav>
         )}
@@ -239,9 +239,17 @@ export function PanelShell({
       <style>{`
         @media (max-width: 760px) {
           .panel-mobile-header { display: flex !important; }
-          /* The desktop sidebar is hidden via the existing .dashboard CSS at 760px */
         }
       `}</style>
     </div>
+  );
+}
+
+// Public export — wraps ShellInner in the provider.
+export function PanelShell(props: ShellProps) {
+  return (
+    <UnsavedChangesProvider>
+      <ShellInner {...props} />
+    </UnsavedChangesProvider>
   );
 }

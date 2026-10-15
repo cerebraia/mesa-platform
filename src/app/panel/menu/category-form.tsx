@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import { createCategory, updateCategory, type CategoryState } from "./actions";
+import { useUnsavedChanges, UnsavedAwareLink } from "@/components/unsaved-changes";
 import type { Category } from "@/lib/catalog-types";
 
 function SubmitButton({ label }: { label: string }) {
@@ -17,8 +17,6 @@ function SubmitButton({ label }: { label: string }) {
 
 const initial: CategoryState = { error: null };
 
-// Renders inside PanelShell — no outer layout wrapper.
-// The parent page provides the dashboard-top bar with the back link.
 export function CategoryFormPage({
   mode,
   category,
@@ -28,6 +26,16 @@ export function CategoryFormPage({
 }) {
   const action = mode === "new" ? createCategory : updateCategory;
   const [state, formAction] = useActionState(action, initial);
+  const { setDirty } = useUnsavedChanges();
+
+  // On action error, restore dirty flag (save failed; user still has changes).
+  // On success the Server Action calls redirect(), so this effect only fires
+  // when the action returns with an error (no redirect).
+  useEffect(() => {
+    if (state.error) {
+      setDirty(true);
+    }
+  }, [state.error, setDirty]);
 
   return (
     <div className="dashboard-content">
@@ -40,7 +48,14 @@ export function CategoryFormPage({
       </div>
 
       <div className="settings-card">
-        <form action={formAction}>
+        <form
+          action={formAction}
+          // Optimistically clear dirty on submit.
+          // If the action returns an error, the useEffect above restores it.
+          onSubmit={() => setDirty(false)}
+          // Mark dirty on any field change.
+          onChange={() => setDirty(true)}
+        >
           {mode === "edit" && category && (
             <input type="hidden" name="id" value={category.id} />
           )}
@@ -68,9 +83,9 @@ export function CategoryFormPage({
             <SubmitButton
               label={mode === "new" ? "Crear categoría" : "Guardar cambios"}
             />
-            <Link href="/panel/menu" className="button secondary">
+            <UnsavedAwareLink href="/panel/menu" className="button secondary">
               Cancelar
-            </Link>
+            </UnsavedAwareLink>
           </div>
         </form>
       </div>

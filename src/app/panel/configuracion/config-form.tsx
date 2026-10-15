@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { saveConfig, saveConfigImage, type ConfigState } from "./actions";
+import { useUnsavedChanges } from "@/components/unsaved-changes";
 import type { RestaurantConfig } from "@/lib/catalog-types";
 
 function SaveButton({ label }: { label: string }) {
@@ -38,6 +39,17 @@ export function ConfigForm({ restaurant, config, timezones, supabaseUrl, restaur
   const [state, action] = useActionState(saveConfig, initial);
   const [isPending, startTransition] = useTransition();
   const [imgError, setImgError] = useState<string | null>(null);
+  const { setDirty } = useUnsavedChanges();
+
+  // Save succeeded (success: true) → clear guard
+  useEffect(() => {
+    if (state.success) setDirty(false);
+  }, [state.success, setDirty]);
+
+  // Save failed → restore guard
+  useEffect(() => {
+    if (state.error) setDirty(true);
+  }, [state.error, setDirty]);
 
   async function uploadImage(file: File, type: "logo" | "cover") {
     if (file.size > 5 * 1024 * 1024) { setImgError("La imagen supera 5 MB."); return; }
@@ -65,7 +77,7 @@ export function ConfigForm({ restaurant, config, timezones, supabaseUrl, restaur
   const coverUrl = config?.cover_path ? `${ASSET_BASE(supabaseUrl)}/${config.cover_path}` : null;
 
   return (
-    <form action={action}>
+    <form action={action} onChange={() => setDirty(true)} onSubmit={() => setDirty(false)}>
       {/* ── Identidad ── */}
       <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: "var(--muted)", letterSpacing: 1 }}>IDENTIDAD</h3>
 
