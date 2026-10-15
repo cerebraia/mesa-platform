@@ -64,6 +64,13 @@
 | **Gestión de dominios en /panel/configuracion (owner)** | ✅ **Implementada** |
 | **Gestión de dominios en /admin/restaurants/[id] (admin)** | ✅ **Implementada** |
 | **Pruebas dominios (DO01-DO10 + 4 unitarias)** | ✅ **13/13 aprobadas** |
+| **Barra lateral unificada (PanelShell)** | ✅ **Implementada — commit fc97cf2** |
+| **Menú móvil panel (hamburger, Escape, foco)** | ✅ **Implementado** |
+| **Menú móvil web comercial (SiteHeader)** | ✅ **Implementado** |
+| **Plural correcto en catálogo (1 producto / N productos)** | ✅ **Corregido** |
+| **Estado vacío por categoría sin productos** | ✅ **Implementado** |
+| **Placeholder IMG neutro sin emoji** | ✅ **Implementado** |
+| **Test C08: try/finally para cleanup garantizado** | ✅ **Corregido** |
 
 ---
 
@@ -792,6 +799,58 @@ Para que el flujo de invitación de dueño funcione (assignOwner con cuenta nuev
    - Authentication → SMTP Settings → habilitar custom SMTP
    - Requiere: host, puerto, usuario, contraseña del servidor de correo
    - Sin SMTP configurado, `assignOwner` para cuentas nuevas deja la invitación como `invitePending: true`
+
+---
+
+## Categorías de prueba huérfanas ("Cat anon test C08")
+
+**Origen:** test C08 en `tests/catalog-isolation.test.ts`. El test crea una categoría con nombre `"Cat anon test C08"` y `position: 997` en el restaurante Alfa. Si el test se interrumpía antes del cleanup, la categoría quedaba huérfana.
+
+**Corrección aplicada:** el test usa `try/finally` desde `fc97cf2` — cleanup garantizado aunque fallen aserciones.
+
+**Datos existentes:** las categorías `"Cat anon test C08"` visibles en el catálogo son residuos de ejecuciones anteriores interrumpidas. Para limpiarlas:
+```bash
+# Solo el owner-alfa puede borrarlas (RLS: category pertenece a restaurant Alfa)
+# Ejecutar con credenciales de owner-alfa o service_role:
+# DELETE FROM categories WHERE name = 'Cat anon test C08' AND restaurant_id = 'aaaaaaaa-0000-0000-0000-000000000001';
+```
+No se borran automáticamente aquí porque requieren autorización explícita del propietario del proyecto.
+
+---
+
+## Navegación del panel — estructura tras fc97cf2
+
+### Causa del menú ausente
+
+Cada sub-página renderizaba su propio `<aside>` mínimo:
+- `/panel/menu` → Brand + ← Panel + SignOut (sin nav completo)
+- `/panel/pedidos` → Brand + workspace + ← Panel + SignOut
+- `/panel/pedidos/[id]` → Brand + workspace + ← Pedidos + SignOut
+- `/panel/configuracion` → Brand + ← Panel + SignOut
+
+### Solución implementada
+
+| Archivo | Rol |
+|---|---|
+| `panel/layout.tsx` | Carga user + membership + restaurant; renderiza PanelShell o pantalla access-pending |
+| `panel/panel-shell.tsx` | Client Component: sidebar completo, usePathname para estado activo, menú móvil |
+| Cada sub-página | Solo contenido — sin `<aside>` propio |
+
+### Navegación por rol
+
+| Ítem | owner | attention | kitchen |
+|---|---|---|---|
+| Inicio | ✅ | ✅ | ✅ |
+| Pedidos | ✅ | ✅ | ✅ |
+| Catálogo | ✅ | — | — |
+| Configuración | ✅ | — | — |
+| Ver menú ↗ | ✅ | ✅ | ✅ |
+
+### Menú móvil del panel
+
+- Botón hamburger visible a ≤ 760 px
+- Se cierra con Escape (foco devuelto al botón) o al navegar
+- Se cierra haciendo clic fuera del drawer
 
 ---
 
