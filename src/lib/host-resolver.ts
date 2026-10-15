@@ -25,7 +25,8 @@ export const RESERVED_SUBDOMAINS = new Set([
 
 // Slug-compatible pattern: lowercase letters, digits, hyphens.
 // Matches the CHECK constraint on restaurants.slug.
-const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
+// Exported so tests can verify the same pattern without duplicating it.
+export const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/;
 
 /**
  * Normalise an incoming Host header value.
@@ -61,8 +62,8 @@ function isLocalDev(host: string): boolean {
   );
 }
 
-const PLATFORM_MAIN = (process.env.NEXT_PUBLIC_PLATFORM_HOST ?? "").toLowerCase().trim();
-const PLATFORM_APP  = (process.env.NEXT_PUBLIC_APP_HOST ?? PLATFORM_MAIN).toLowerCase().trim();
+const PLATFORM_MAIN  = (process.env.NEXT_PUBLIC_PLATFORM_HOST ?? "").toLowerCase().trim();
+const PLATFORM_APP   = (process.env.NEXT_PUBLIC_APP_HOST ?? PLATFORM_MAIN).toLowerCase().trim();
 const SUBDOMAIN_BASE = (process.env.PLATFORM_SUBDOMAIN_BASE ?? "").toLowerCase().trim();
 
 const PLATFORM_HOST_SET = new Set([PLATFORM_MAIN, PLATFORM_APP].filter(Boolean));
@@ -79,15 +80,19 @@ export function isPlatformHost(host: string): boolean {
 }
 
 /**
- * If the host is a platform subdomain (e.g. slug.mesa.app), returns
- * the subdomain part if it looks like a valid, non-reserved restaurant slug.
- * Returns null otherwise.
+ * Pure, testable core of extractPlatformSubdomain.
+ * Given an already-normalised host and an explicit base (e.g. "mesa.app"),
+ * returns the subdomain slug if it is valid and non-reserved, or null.
  *
- * Requires PLATFORM_SUBDOMAIN_BASE to be set.
+ * Invariants checked:
+ *   - host ends with exactly ".<base>" (not multi-level: "a.b.BASE" → null)
+ *   - subdomain is a single DNS label (no dots)
+ *   - subdomain is not in RESERVED_SUBDOMAINS
+ *   - subdomain matches SLUG_RE
  */
-export function extractPlatformSubdomain(host: string): string | null {
-  if (!SUBDOMAIN_BASE) return null;
-  const suffix = `.${SUBDOMAIN_BASE}`;
+export function extractPlatformSubdomainFor(host: string, base: string): string | null {
+  if (!base) return null;
+  const suffix = `.${base}`;
   if (!host.endsWith(suffix)) return null;
   const sub = host.slice(0, host.length - suffix.length);
   // Must be a single DNS label (no dots)
@@ -95,6 +100,17 @@ export function extractPlatformSubdomain(host: string): string | null {
   if (RESERVED_SUBDOMAINS.has(sub)) return null;
   if (!SLUG_RE.test(sub)) return null;
   return sub;
+}
+
+/**
+ * If the host is a platform subdomain (e.g. slug.mesa.app), returns
+ * the subdomain part if it looks like a valid, non-reserved restaurant slug.
+ * Returns null otherwise.
+ *
+ * Requires PLATFORM_SUBDOMAIN_BASE to be set.
+ */
+export function extractPlatformSubdomain(host: string): string | null {
+  return extractPlatformSubdomainFor(host, SUBDOMAIN_BASE);
 }
 
 /**
@@ -109,4 +125,70 @@ export function couldBeRestaurantDomain(host: string): boolean {
   // Basic validity: at least two DNS labels
   const parts = host.split(".");
   return parts.length >= 2 && parts.every((p) => p.length > 0);
+}
+
+// ── Restaurant path routing ────────────────────────────────────────────────────
+//
+// Pure function that decides what to do with an incoming path on a restaurant
+// domain or subdomain.  Returns a discriminated union so proxy.ts and tests can
+// act on the decision without coupling to NextResponse.
+
+export type RestaurantAction =
+  | { kind: "rewrite";            to: string }
+  | { kind: "api-passthrough" }
+  | { kind: "static-passthrough" }
+  | { kind: "redirect";           to: string }
+  | { kind: "not-found" };
+
+/**
+ * Given a URL `pathname` and a restaurant `slug`, returns the action the proxy
+ * should take.  No side-effects; safe to call in tests without Edge Runtime.
+ *
+ * Rules (in priority order):
+ *   /api/*            → api-passthrough  (route handler adds x-mesa-restaurant-slug)
+ *   /_next/* /favicon /images → static-passthrough
+ *   / or ""           → rewrite to /r/<slug>
+ *   /pedido …         → rewrite to /r/<slug>/pedido…
+ *   /r/<slug>/*       → redirect to clean path (301 for bookmarks)
+ *   anything else     → not-found
+ */
+export function resolveRestaurantPath(
+  pathname: string,
+  slug: string,
+): RestaurantAction {
+  if (pathname.startsWith("/api/")) {
+    return { kind: "api-passthrough" };
+  }
+
+  if (
+    pathname.startsWith("/_next/") ||
+    pathname === "/favicon.ico" ||
+    pathname.startsWith("/images/")
+  ) {
+    return { kind: "static-passthrough" };
+  }
+
+  if (pathname === "/" || pathname === "") {
+    return { kind: "rewrite", to: `/r/${slug}` };
+  }
+
+  if (
+    pathname === "/pedido" ||
+    pathname === "/pedido/" ||
+    pathname.startsWith("/pedido/")
+  ) {
+    const subpath =
+      pathname === "/pedido" || pathname === "/pedido/"
+        ? ""
+        : pathname.slice("/pedido".length);
+    return { kind: "rewrite", to: `/r/${slug}/pedido${subpath}` };
+  }
+
+  // Old /r/<slug>/* bookmarks → redirect to clean URL on same domain
+  if (pathname.startsWith(`/r/${slug}`)) {
+    const remainder = pathname.slice(`/r/${slug}`.length) || "/";
+    return { kind: "redirect", to: remainder };
+  }
+
+  return { kind: "not-found" };
 }

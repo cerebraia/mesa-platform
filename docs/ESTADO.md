@@ -106,6 +106,11 @@
 | **Mobile: drawer oscuro, panel-mobile-header, sidebar oculto a ≤ 760 px** | ✅ |
 | **dashboard-top eliminado de todas las páginas del panel** | ✅ |
 | **Sin regresiones en sitio público ni /r/[slug]** | ✅ (estilos panel aislados en sección del panel de globals.css) |
+| **Subdominios de restaurante — routing en código** | ✅ **Implementado y probado** |
+| **extractPlatformSubdomainFor: función pura testeable** | ✅ **Exportada; 11 tests cubren válidos, reservados y edge cases** |
+| **resolveRestaurantPath: función pura testeable** | ✅ **Exportada; 8 tests cubren todas las decisiones de path** |
+| **proxy.ts refactorizado sobre funciones puras** | ✅ **Sin cambio de comportamiento** |
+| **tests/subdomains.test.ts — SD01-SD22** | ✅ **22/22 pasan (npm run test:subdomains)** |
 
 ---
 
@@ -980,3 +985,135 @@ El rol cocina no recibe métricas financieras ni datos de clientes. Solo ve:
 - Sin pedidos en el período → texto descriptivo, sin cifras cero falsas
 - Error de RPC → mensaje de error con enlace para reintentar; nunca cifras cero
 - Migración 022 no aplicada → el RPC falla, se muestra el error de conexión
+
+---
+
+## Subdominios de restaurante — arquitectura y configuración
+
+### Cómo funciona (código en producción hoy)
+
+El proxy en `src/proxy.ts` y las utilidades en `src/lib/host-resolver.ts` ya manejan la secuencia completa:
+
+```
+1. isPlatformHost(host)                → sitio comercial + panel (localhost, PLATFORM_HOST, APP_HOST)
+2. Bloqueo de rutas privadas           → /panel /admin /login /demo → 404 en dominios de restaurante
+3. extractPlatformSubdomain(host)      → slug.PLATFORM_SUBDOMAIN_BASE → reescritura a /r/[slug]
+4. couldBeRestaurantDomain(host)       → filtro de hosts claramente inválidos
+5. resolveCustomDomain(host)           → lookup DB via get_restaurant_slug_by_host
+6. Respuesta 404 controlada           → sin fuga de datos
+```
+
+Para `restaurante-alfa.DOMINIO_PROPIO/`:
+
+| Paso | Función | Resultado |
+|---|---|---|
+| Normalizar | `normalizeHost` | elimina puerto, FQDN dot, lowercase |
+| ¿Plataforma? | `isPlatformHost` | false (no es localhost ni PLATFORM_HOST) |
+| ¿Subdominio? | `extractPlatformSubdomainFor(host, PLATFORM_SUBDOMAIN_BASE)` | devuelve `"restaurante-alfa"` |
+| Acción | `resolveRestaurantPath("/", "restaurante-alfa")` | `{ kind: "rewrite", to: "/r/restaurante-alfa" }` |
+| Cookie checkout | `x-mesa-restaurant-slug` header en `/api/orders` | path `/pedido/`, redirectTo `/pedido/` |
+
+### Variables de entorno requeridas
+
+| Variable | Ejemplo | Descripción |
+|---|---|---|
+| `NEXT_PUBLIC_PLATFORM_HOST` | `mesa.app` | Dominio del sitio comercial y panel |
+| `NEXT_PUBLIC_APP_HOST` | *(vacío)* | Panel si difiere del anterior; hereda PLATFORM_HOST |
+| `PLATFORM_SUBDOMAIN_BASE` | `mesa.app` | Base para subdominios de restaurante |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://xxx.supabase.co` | URL Supabase |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `eyJ…` | Clave anon Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | `eyJ…` | Clave de servicio (privada) |
+| `NEXT_PUBLIC_SITE_URL` | `https://mesa.app` | Para invitaciones Supabase Auth |
+
+**Nota**: Si se usa el mismo dominio para sitio comercial y subdominios (`PLATFORM_SUBDOMAIN_BASE=mesa.app` y `NEXT_PUBLIC_PLATFORM_HOST=mesa.app`), el proxy diferencia correctamente porque `isPlatformHost` atrapa el apex antes de que llegue a `extractPlatformSubdomain`. Los subdominios reservados (www, app, admin, api, panel…) se bloquean explícitamente.
+
+### Pasos pendientes en Railway y DNS (no ejecutables sin dominio propio)
+
+Completar cuando se disponga de un dominio real (p. ej. `mesa.app`).
+
+**Antes de ejecutar cualquier paso: verificar la documentación vigente de Railway.**
+
+#### A. Dominio comercial y panel (`mesa.app`)
+
+1. Railway → Settings → Domains → Add custom domain → `mesa.app`
+2. DNS: `CNAME mesa.app → XXX.up.railway.app` (o registro `A` si Railway lo requiere para el apex)
+3. Railway emite TLS automáticamente (Let's Encrypt). Esperar a que el estado sea "Active".
+4. Variable: `NEXT_PUBLIC_PLATFORM_HOST=mesa.app`
+
+#### B. Host del panel (si es distinto, p. ej. `app.mesa.app`)
+
+1. Railway → Add custom domain → `app.mesa.app`
+2. DNS: `CNAME app.mesa.app → XXX.up.railway.app`
+3. Variable: `NEXT_PUBLIC_APP_HOST=app.mesa.app`
+
+#### C. Wildcard para restaurantes (`*.mesa.app` → `restaurante-alfa.mesa.app`)
+
+Railway Pro o Team admiten wildcard domains. Verificar disponibilidad en el plan activo antes de continuar.
+
+1. Railway → Settings → Domains → Add custom domain → `*.mesa.app`
+2. DNS en el proveedor del dominio:
+   ```
+   CNAME  *.mesa.app  XXX.up.railway.app
+   ```
+   Si el proveedor no admite CNAME en el apex, usar el wildcard en el nivel de subdominio específico (p. ej. `*.menu.mesa.app`).
+3. TLS wildcard: Railway lo gestiona automáticamente si el proveedor DNS soporta el challange DNS-01. Consultar la documentación de Railway sobre wildcard certificates en el momento de configurar.
+4. Variable: `PLATFORM_SUBDOMAIN_BASE=mesa.app`
+5. Redeploy en Railway para que las variables queden activas.
+
+#### D. Verificación tras configurar
+
+```bash
+# 1. Resolver DNS wildcard
+dig restaurante-alfa.mesa.app
+# Debe devolver la IP de Railway (misma que el apex o el CNAME).
+
+# 2. HTTPS
+curl -I https://restaurante-alfa.mesa.app/
+# Esperado: HTTP 200 o rewrite interno, certificado válido.
+
+# 3. Restaurante conocido
+# Si restaurante-alfa existe en la BD como slug 'restaurante-alfa':
+curl -I https://restaurante-alfa.mesa.app/
+# → 200 con el menú
+
+# 4. Subdominio reservado
+curl -I https://admin.mesa.app/
+# → 404 (extractPlatformSubdomain devuelve null para "admin")
+
+# 5. Subdominio desconocido
+curl -I https://no-existe-xyz.mesa.app/
+# → La página /r/no-existe-xyz renderiza 404 de Next.js (notFound())
+
+# 6. Checkout desde subdominio
+# POST /api/orders desde restaurante-alfa.mesa.app
+# La cookie debe tener Path=/pedido (no /r/restaurante-alfa/pedido)
+# y redirectTo=/pedido/ (no /r/restaurante-alfa/pedido/)
+```
+
+#### E. Acceso /r/[slug] durante la transición
+
+La ruta `/r/restaurante-alfa` en `mesa.app` sigue funcionando después de activar subdominios. No hay periodo de corte. Los dos formatos coexisten indefinidamente.
+
+### Seguridad
+
+| Punto | Mecanismo |
+|---|---|
+| Host header manipulado | Solo se lee `Host`; `X-Forwarded-Host` ignorado |
+| Slug inválido en subdominio | `SLUG_RE` + `RESERVED_SUBDOMAINS` rechazan antes de cualquier lookup |
+| Slug multi-nivel (`a.b.BASE`) | `sub.includes(".")` → null; no hay bypass posible |
+| Restaurante suspendido o inactivo | `get_restaurant_slug_by_host` (SECURITY DEFINER) solo devuelve slug si `status='active'` |
+| Suscripción vencida | `place_order` verifica suscripción dentro del RPC, no en el proxy |
+| Cookie cross-domain | Cookies host-only: `restaurante-alfa.mesa.app` no comparte cookies con `mesa.app` |
+| Header `x-mesa-restaurant-slug` spoofed | No es gate de seguridad; `restaurant_id` se valida en el RPC por ID |
+
+### Pruebas ejecutadas
+
+| Test | Tipo | Resultado |
+|---|---|---|
+| SD01-SD11: extractPlatformSubdomainFor | Pura (sin BD) | ✅ 11/11 |
+| SD12-SD19: resolveRestaurantPath | Pura (sin BD) | ✅ 8/8 |
+| SD20: flujo integrado normalizeHost + extract | Pura (sin BD) | ✅ 1/1 |
+| RESERVED_SUBDOMAINS invariante | Pura | ✅ 1/1 |
+| SLUG_RE válidos/inválidos | Pura | ✅ 1/1 |
+| DO01-DO10: dominios custom (DB) | Con BD | ✅ 13/13 (previos) |
+| Verificación con subdominio real | **PENDIENTE** | ⏳ Requiere dominio propio + Railway configurado |

@@ -8,7 +8,7 @@
 //   1. Platform host (NEXT_PUBLIC_PLATFORM_HOST / NEXT_PUBLIC_APP_HOST /
 //      localhost) → normal routing (landing, /r/[slug], /panel, /admin).
 //   2. Platform subdomain (slug.PLATFORM_SUBDOMAIN_BASE, if configured)
-//      → internal rewrite to /r/[slug].
+//      → internal rewrite to /r/[slug].  Slug must be non-reserved, valid.
 //   3. Custom restaurant domain (DB lookup via get_restaurant_slug_by_host RPC)
 //      → internal rewrite to /r/[slug].
 //   4. Unknown host → controlled 404 (no data leakage).
@@ -18,8 +18,8 @@
 //   - /panel, /admin and /login are never served on restaurant domains.
 //   - The x-mesa-restaurant-slug header added to rewrites is set server-side
 //     only; downstream routes use it to choose the correct cookie path for
-//     custom domains. It is NOT a security gate — the restaurant is always
-//     validated by restaurant_id in the RPC.
+//     custom/subdomain domains. It is NOT a security gate — the restaurant is
+//     always validated by restaurant_id in the RPC.
 
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
@@ -28,6 +28,8 @@ import {
   isPlatformHost,
   extractPlatformSubdomain,
   couldBeRestaurantDomain,
+  resolveRestaurantPath,
+  type RestaurantAction,
 } from "./lib/host-resolver";
 
 // ── Session-refresh helper (used for platform-host requests) ──────────────────
@@ -144,10 +146,37 @@ function unknownHostResponse(): NextResponse {
     "<title>No encontrado</title></head>" +
     "<body style='font-family:sans-serif;padding:40px'>" +
     "<h1>Dominio no configurado</h1>" +
-    "<p>Este dominio no está asociado a ningún restaurante.</p>" +
+    "<p>Este dominio no está asociado a ningún restaurante en Mesa.</p>" +
     "</body></html>",
     { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } },
   );
+}
+
+// Executes a RestaurantAction (from the pure resolveRestaurantPath) against
+// the actual NextRequest, producing a NextResponse.
+function executeRestaurantAction(
+  request: NextRequest,
+  action: RestaurantAction,
+  slug: string,
+): NextResponse {
+  switch (action.kind) {
+    case "api-passthrough": {
+      const headers = new Headers(request.headers);
+      headers.set("x-mesa-restaurant-slug", slug);
+      return NextResponse.next({ request: { headers } });
+    }
+    case "static-passthrough":
+      return NextResponse.next();
+    case "rewrite":
+      return rewriteForRestaurant(request, action.to, slug);
+    case "redirect": {
+      const url = request.nextUrl.clone();
+      url.pathname = action.to;
+      return NextResponse.redirect(url, { status: 301 });
+    }
+    case "not-found":
+      return new NextResponse("Not Found", { status: 404 });
+  }
 }
 
 function routeRestaurantPath(
@@ -155,52 +184,8 @@ function routeRestaurantPath(
   pathname: string,
   slug: string,
 ): NextResponse {
-  // API routes: pass through with slug header so /api/orders can
-  // set the correct cookie path for this domain.
-  if (pathname.startsWith("/api/")) {
-    const headers = new Headers(request.headers);
-    headers.set("x-mesa-restaurant-slug", slug);
-    return NextResponse.next({ request: { headers } });
-  }
-
-  // Static Next.js assets — pass through unchanged.
-  if (
-    pathname.startsWith("/_next/") ||
-    pathname === "/favicon.ico" ||
-    pathname.startsWith("/images/")
-  ) {
-    return NextResponse.next();
-  }
-
-  // Root → restaurant menu
-  if (pathname === "/" || pathname === "") {
-    return rewriteForRestaurant(request, `/r/${slug}`, slug);
-  }
-
-  // /pedido/* → confirmation page
-  if (
-    pathname === "/pedido" ||
-    pathname === "/pedido/" ||
-    pathname.startsWith("/pedido/")
-  ) {
-    const subpath =
-      pathname === "/pedido" || pathname === "/pedido/"
-        ? ""
-        : pathname.slice("/pedido".length);
-    return rewriteForRestaurant(request, `/r/${slug}/pedido${subpath}`, slug);
-  }
-
-  // Old-style /r/[slug] URLs on a restaurant domain: redirect to clean URL.
-  // Handles bookmarks from before custom-domain was enabled.
-  if (pathname.startsWith(`/r/${slug}`)) {
-    const remainder = pathname.slice(`/r/${slug}`.length) || "/";
-    const url = request.nextUrl.clone();
-    url.pathname = remainder;
-    return NextResponse.redirect(url, { status: 301 });
-  }
-
-  // Any other path on a restaurant domain → not found.
-  return new NextResponse("Not Found", { status: 404 });
+  const action = resolveRestaurantPath(pathname, slug);
+  return executeRestaurantAction(request, action, slug);
 }
 
 // ── Main proxy handler ────────────────────────────────────────────────────────
@@ -225,7 +210,8 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return new NextResponse("Not Found", { status: 404 });
   }
 
-  // ── 3. Platform subdomain (e.g. slug.mesa.app) ────────────
+  // ── 3. Platform subdomain (e.g. slug.PLATFORM_SUBDOMAIN_BASE) ─
+  // extractPlatformSubdomain validates: non-reserved, single label, SLUG_RE.
   const subdomainSlug = extractPlatformSubdomain(host);
   if (subdomainSlug !== null) {
     return routeRestaurantPath(request, pathname, subdomainSlug);
