@@ -40,6 +40,8 @@ interface Props {
   deliveryZones: PublicDeliveryZone[];
   paymentMethods: PublicPaymentMethod[];
   supabaseUrl: string;
+  // orders_enabled from restaurant_config (migration 024). DEFAULT true for existing businesses.
+  ordersEnabled: boolean;
 }
 
 type Step = "menu" | "checkout";
@@ -104,11 +106,13 @@ function ProductCard({
   product,
   imgBase,
   primaryColor,
+  ordersEnabled,
   onOpen,
 }: {
   product: AnonProduct;
   imgBase: string;
   primaryColor: string;
+  ordersEnabled: boolean;
   onOpen: () => void;
 }) {
   const img = product.product_images?.[0];
@@ -157,19 +161,186 @@ function ProductCard({
           )}
         </div>
       </div>
-      <button
-        className="menu-add-btn"
-        aria-label={`Agregar ${product.name} al carrito`}
-        style={{ background: primaryColor }}
-        onClick={onOpen}
-        tabIndex={-1}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          strokeWidth="3" strokeLinecap="round" aria-hidden="true">
-          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </button>
+
+      {/* Botón "+" — solo cuando los pedidos están habilitados */}
+      {ordersEnabled && (
+        <button
+          className="menu-add-btn"
+          aria-label={`Agregar ${product.name} al carrito`}
+          style={{ background: primaryColor }}
+          onClick={onOpen}
+          tabIndex={-1}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="3" strokeLinecap="round" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
+      )}
     </div>
+  );
+}
+
+// ── Catalog Product Dialog (solo catálogo, sin carrito) ───────
+// Muestra detalles del producto. Si existe WhatsApp, ofrece consulta.
+
+function CatalogProductDialog({
+  product,
+  imgBase,
+  primaryColor,
+  whatsapp,
+  restaurantName,
+  onClose,
+}: {
+  product: AnonProduct;
+  imgBase: string;
+  primaryColor: string;
+  whatsapp: string | null;
+  restaurantName: string;
+  onClose: () => void;
+}) {
+  const [variantId, setVariantId] = useState(
+    product.product_variants.length > 0 ? product.product_variants[0].id : null,
+  );
+  const [selected, setSelected] = useState<Record<string, string[]>>({});
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    dialogRef.current?.showModal();
+    return () => dialogRef.current?.close();
+  }, []);
+
+  const imgUrl = product.product_images?.[0]
+    ? `${imgBase}/${product.product_images[0].storage_path}` : null;
+
+  function toggleOption(groupId: string, optId: string, maxSel: number) {
+    setSelected((prev) => {
+      const cur = prev[groupId] ?? [];
+      if (cur.includes(optId)) return { ...prev, [groupId]: cur.filter((id) => id !== optId) };
+      if (cur.length >= maxSel) {
+        if (maxSel === 1) return { ...prev, [groupId]: [optId] };
+        return prev;
+      }
+      return { ...prev, [groupId]: [...cur, optId] };
+    });
+  }
+
+  function buildWhatsAppUrl() {
+    if (!whatsapp) return null;
+    const number = whatsapp.replace(/\D/g, "");
+    const variant = product.product_variants.find((v) => v.id === variantId);
+    const opts = product.option_groups.flatMap((g) =>
+      (selected[g.id] ?? []).map((id) => g.options.find((o) => o.id === id)?.name ?? ""),
+    ).filter(Boolean);
+
+    const lines = [
+      `Hola, me interesa este producto de *${restaurantName}*:`,
+      "",
+      `*${product.name}*`,
+    ];
+    if (variant) lines.push(`Variante: ${variant.name}`);
+    if (opts.length) lines.push(`Opciones: ${opts.join(", ")}`);
+    lines.push("", "¿Está disponible?");
+
+    return `https://wa.me/${number}?text=${encodeURIComponent(lines.join("\n"))}`;
+  }
+
+  const waUrl = buildWhatsAppUrl();
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="product-dialog"
+      onClick={(e) => { if (e.target === dialogRef.current) onClose(); }}
+      onCancel={onClose}
+    >
+      {imgUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={imgUrl} alt={product.name}
+          style={{ width: "100%", height: 240, objectFit: "cover", display: "block",
+            borderRadius: "18px 18px 0 0" }} />
+      )}
+
+      <div style={{ padding: imgUrl ? "20px 24px 0" : "24px 24px 0" }}>
+        <h2 style={{ fontSize: 22, letterSpacing: "-.5px", fontWeight: 700, lineHeight: 1.2 }}>
+          {product.name}
+        </h2>
+        {product.description && (
+          <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 6, lineHeight: 1.6 }}>
+            {product.description}
+          </p>
+        )}
+        <p style={{ fontSize: 15, fontWeight: 700, color: primaryColor, marginTop: 10 }}>
+          {money(product.promo_price_cents ?? (product.product_variants[0]?.price_cents ?? product.base_price_cents))}
+        </p>
+      </div>
+
+      {/* Variantes — modo informativo para contextualizar la consulta WA */}
+      {product.product_variants.length > 0 && (
+        <fieldset>
+          <legend>Variante <span style={{ background: "#f0eaff", color: "#703BE6", borderRadius: 20, padding: "2px 8px", fontSize: 11 }}>Selecciona</span></legend>
+          {product.product_variants.map((v) => (
+            <div key={v.id} className="option-row">
+              <span>
+                <input type="radio" name="catalog-variant" value={v.id}
+                  checked={variantId === v.id} onChange={() => setVariantId(v.id)}
+                  style={{ accentColor: primaryColor }} />
+                {v.name}
+              </span>
+              <span>{money(v.price_cents)}</span>
+            </div>
+          ))}
+        </fieldset>
+      )}
+
+      {/* Opciones — informativas */}
+      {product.option_groups.map((g) => (
+        <fieldset key={g.id}>
+          <legend>{g.name} <span style={{ background: "#f5f5f5", color: "#777", borderRadius: 20, padding: "2px 8px", fontSize: 11 }}>Opcional</span></legend>
+          {g.options.map((opt) => {
+            const isSel = (selected[g.id] ?? []).includes(opt.id);
+            return (
+              <div key={opt.id} className="option-row">
+                <span>
+                  <input type={g.max_selections === 1 ? "radio" : "checkbox"}
+                    name={`catalog-group-${g.id}`} checked={isSel}
+                    onChange={() => toggleOption(g.id, opt.id, g.max_selections)}
+                    style={{ accentColor: primaryColor }} />
+                  {opt.name}
+                </span>
+                {opt.price_delta_cents !== 0 && <span>+{money(opt.price_delta_cents)}</span>}
+              </div>
+            );
+          })}
+        </fieldset>
+      ))}
+
+      <div style={{ padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+        {waUrl ? (
+          <a
+            href={waUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="button full"
+            style={{ background: "#25d366", borderColor: "#25d366", textDecoration: "none" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+            </svg>
+            Consultar por WhatsApp
+          </a>
+        ) : (
+          <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>
+            Contacta al negocio para consultar disponibilidad.
+          </p>
+        )}
+        <button type="button" onClick={onClose}
+          style={{ background: "none", border: "1px solid var(--border)", borderRadius: 10,
+            padding: "10px", fontSize: 13, cursor: "pointer", color: "var(--muted)" }}>
+          Cerrar
+        </button>
+      </div>
+    </dialog>
   );
 }
 
@@ -597,13 +768,16 @@ function CheckoutForm({
 
 export function PublicMenuClient({
   restaurant, config, isOpen, categories,
-  deliveryZones, paymentMethods, supabaseUrl,
+  deliveryZones, paymentMethods, supabaseUrl, ordersEnabled,
 }: Props) {
   const [activeCategory, setActiveCategory] = useState(categories[0]?.id ?? "");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartEntry[]>([]);
   const [dialogProduct, setDialogProduct] = useState<AnonProduct | null>(null);
   const [step, setStep] = useState<Step>("menu");
+
+  // Catalog mode: orders are disabled for this business
+  const catalogOnly = !ordersEnabled;
 
   const imgBase = `${supabaseUrl}/storage/v1/object/public/product-images`;
   const assetBase = `${supabaseUrl}/storage/v1/object/public/restaurant-assets`;
@@ -766,10 +940,10 @@ export function PublicMenuClient({
             <input
               className="rm-search-input"
               type="search"
-              placeholder="¿Qué te provoca hoy?"
+              placeholder={catalogOnly ? "¿Qué estás buscando?" : "¿Qué te provoca hoy?"}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              aria-label="Buscar en el menú"
+              aria-label="Buscar en el catálogo"
             />
             {search && (
               <button
@@ -823,6 +997,7 @@ export function PublicMenuClient({
                   product={p}
                   imgBase={imgBase}
                   primaryColor={primaryColor}
+                  ordersEnabled={ordersEnabled}
                   onOpen={() => setDialogProduct(p)}
                 />
               ))}
@@ -836,8 +1011,8 @@ export function PublicMenuClient({
         Creado con <strong style={{ color: "var(--purple)", fontWeight: 600 }}>Mesa</strong>
       </footer>
 
-      {/* Cart FAB — desktop/tablet */}
-      {cartCount > 0 && (
+      {/* Cart FAB — desktop/tablet (orders mode only) */}
+      {!catalogOnly && cartCount > 0 && (
         <button
           className="cart-fab"
           style={{ background: primaryColor }}
@@ -851,8 +1026,8 @@ export function PublicMenuClient({
         </button>
       )}
 
-      {/* Cart bar — mobile */}
-      {cartCount > 0 && (
+      {/* Cart bar — mobile (orders mode only) */}
+      {!catalogOnly && cartCount > 0 && (
         <div
           className="cart-bar"
           style={{ background: primaryColor }}
@@ -871,14 +1046,26 @@ export function PublicMenuClient({
         </div>
       )}
 
-      {/* Product dialog */}
-      {dialogProduct && (
+      {/* Product dialog — orders mode */}
+      {!catalogOnly && dialogProduct && (
         <ProductDialog
           product={dialogProduct}
           imgBase={imgBase}
           primaryColor={primaryColor}
           onClose={() => setDialogProduct(null)}
           onAdd={addToCart}
+        />
+      )}
+
+      {/* Catalog dialog — catalog-only mode */}
+      {catalogOnly && dialogProduct && (
+        <CatalogProductDialog
+          product={dialogProduct}
+          imgBase={imgBase}
+          primaryColor={primaryColor}
+          whatsapp={config?.whatsapp ?? null}
+          restaurantName={restaurant.name}
+          onClose={() => setDialogProduct(null)}
         />
       )}
     </div>

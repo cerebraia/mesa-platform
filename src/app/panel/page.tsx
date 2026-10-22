@@ -347,6 +347,73 @@ function KitchenDashboard({ metrics, timezone }: { metrics: DashboardMetrics; ti
   );
 }
 
+// ── Catalog-only dashboard ────────────────────────────────────────
+
+function CatalogDashboard({ slug, productCount }: { slug: string; productCount: number | null }) {
+  const catalogUrl = `/r/${slug}`;
+
+  return (
+    <>
+      <div className="dashboard-card" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div className="metric-v2-icon" style={{ flexShrink: 0 }}><LayoutGrid size={20} /></div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#202337" }}>
+                {productCount === null
+                  ? "Tu catálogo"
+                  : productCount === 0
+                    ? "Sin productos publicados todavía"
+                    : `${productCount} ${productCount === 1 ? "producto publicado" : "productos publicados"}`}
+              </div>
+              <div style={{ fontSize: 12, color: "#667085", marginTop: 2 }}>
+                {productCount === 0
+                  ? "Añade productos para que tus clientes los vean."
+                  : "Visibles en tu catálogo público."}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Link href="/panel/menu/products/new" className="panel-quick-action panel-quick-action--primary">
+              <Plus size={13} /> Añadir producto
+            </Link>
+            <Link href={catalogUrl} target="_blank" rel="noopener noreferrer" className="panel-quick-action">
+              Ver catálogo ↗
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="dashboard-card">
+        <h2 style={{ fontSize: 15, fontWeight: 600, color: "#202337", marginBottom: 12 }}>
+          Comparte tu catálogo
+        </h2>
+        <p style={{ fontSize: 13, color: "#667085", marginBottom: 12 }}>
+          Copia el enlace de tu catálogo y compártelo en redes sociales o por WhatsApp.
+        </p>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <code style={{
+            fontSize: 13, background: "#F6F7FB", border: "1px solid #E5E7EB",
+            borderRadius: 8, padding: "8px 14px", color: "#202337", flex: "1 1 auto",
+            wordBreak: "break-all", minWidth: 0,
+          }}>
+            {catalogUrl}
+          </code>
+          <Link href={catalogUrl} target="_blank" rel="noopener noreferrer" className="panel-quick-action">
+            Abrir
+          </Link>
+        </div>
+        <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 10 }}>
+          Los pedidos en línea están desactivados. Los clientes pueden explorar el catálogo y consultar por WhatsApp si está configurado.
+        </p>
+        <Link href="/panel/configuracion?tab=general" className="panel-breadcrumb-link" style={{ marginTop: 8, display: "inline-flex", fontSize: 12 }}>
+          Activar pedidos en línea →
+        </Link>
+      </div>
+    </>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────
 
 export default async function PanelPage({
@@ -367,33 +434,39 @@ export default async function PanelPage({
 
   const { role, restaurant } = active;
 
-  const { data: rest } = await supabase
-    .from("restaurants")
-    .select("status, timezone, currency")
-    .eq("id", active.restaurantId)
-    .single();
+  const [{ data: rest }, { data: configRow }] = await Promise.all([
+    supabase.from("restaurants").select("status, timezone, currency").eq("id", active.restaurantId).single(),
+    supabase.from("restaurant_config").select("orders_enabled").eq("restaurant_id", active.restaurantId).maybeSingle(),
+  ]);
 
-  const timezone = rest?.timezone ?? "America/Caracas";
-  const currency = rest?.currency ?? "USD";
-  const status   = rest?.status;
+  const timezone      = rest?.timezone ?? "America/Caracas";
+  const currency      = rest?.currency ?? "USD";
+  const status        = rest?.status;
+  const ordersEnabled = configRow?.orders_enabled ?? true;
 
   let metrics:      DashboardMetrics | null = null;
   let metricsError: string | null           = null;
 
-  const { data: raw, error: rpcErr } = await supabase.rpc("get_dashboard_metrics", {
-    p_restaurant_id: active.restaurantId,
-    p_period:        periodo,
-    p_timezone:      timezone,
-  });
+  const isKitchen   = role === "kitchen";
+  const catalogOnly = !ordersEnabled;
 
-  if (rpcErr)      metricsError = rpcErr.message;
-  else if (raw)    metrics = raw as DashboardMetrics;
+  // Only fetch order metrics when orders are enabled (avoid noise in catalog-only mode)
+  if (!catalogOnly || isKitchen) {
+    const { data: raw, error: rpcErr } = await supabase.rpc("get_dashboard_metrics", {
+      p_restaurant_id: active.restaurantId,
+      p_period:        periodo,
+      p_timezone:      timezone,
+    });
+    if (rpcErr)   metricsError = rpcErr.message;
+    else if (raw) metrics = raw as DashboardMetrics;
+  }
 
-  const isKitchen = role === "kitchen";
   const pageTitle = isKitchen ? "Cocina" : role === "attention" ? "Atención" : restaurant.name;
   const pageDesc  = isKitchen
     ? "Pedidos aceptados y en preparación."
-    : `${restaurant.name} · ${ROLE_LABEL[role]}`;
+    : catalogOnly
+      ? `${restaurant.name} · catálogo`
+      : `${restaurant.name} · ${ROLE_LABEL[role]}`;
 
   return (
     <>
@@ -401,7 +474,7 @@ export default async function PanelPage({
         title={pageTitle}
         description={pageDesc}
         actions={
-          !isKitchen ? (
+          (!isKitchen && !catalogOnly) ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               {status && (
                 <span className="tag" style={{ fontSize: 11 }}>
@@ -423,33 +496,46 @@ export default async function PanelPage({
           </div>
         )}
 
-        {metricsError && (
-          <div className="auth-error" role="alert" style={{ marginBottom: 16 }}>
-            No se pudieron cargar las métricas: {metricsError}.{" "}
-            <a href="/panel" style={{ color: "inherit", textDecoration: "underline" }}>Reintentar</a>
-          </div>
-        )}
-
-        {metrics && !metricsError && (
-          isKitchen ? (
-            <KitchenDashboard metrics={metrics} timezone={timezone} />
-          ) : (
-            <OwnerDashboard
-              metrics={metrics}
-              periodo={periodo}
-              currency={currency}
-              timezone={timezone}
-              slug={restaurant.slug}
-            />
-          )
-        )}
-
-        {!metrics && !metricsError && (
-          <EmptyState
-            icon={ClipboardList}
-            title="Cargando datos…"
-            description="Las métricas del restaurante aparecerán aquí en un momento."
+        {/* Catalog-only mode: show catalog summary instead of order metrics */}
+        {catalogOnly && !isKitchen && (
+          <CatalogDashboard
+            slug={restaurant.slug}
+            productCount={metrics?.published_products ?? null}
           />
+        )}
+
+        {/* Orders mode: regular dashboards */}
+        {!catalogOnly && (
+          <>
+            {metricsError && (
+              <div className="auth-error" role="alert" style={{ marginBottom: 16 }}>
+                No se pudieron cargar las métricas: {metricsError}.{" "}
+                <a href="/panel" style={{ color: "inherit", textDecoration: "underline" }}>Reintentar</a>
+              </div>
+            )}
+
+            {metrics && !metricsError && (
+              isKitchen ? (
+                <KitchenDashboard metrics={metrics} timezone={timezone} />
+              ) : (
+                <OwnerDashboard
+                  metrics={metrics}
+                  periodo={periodo}
+                  currency={currency}
+                  timezone={timezone}
+                  slug={restaurant.slug}
+                />
+              )
+            )}
+
+            {!metrics && !metricsError && (
+              <EmptyState
+                icon={ClipboardList}
+                title="Cargando datos…"
+                description="Las métricas del catálogo aparecerán aquí en un momento."
+              />
+            )}
+          </>
         )}
       </div>
     </>

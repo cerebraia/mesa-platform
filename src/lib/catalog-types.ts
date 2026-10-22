@@ -186,6 +186,8 @@ export interface RestaurantConfig {
   is_temporarily_closed: boolean;
   closed_until: string | null;
   closed_message: string | null;
+  // Added in migration 024. DEFAULT true.
+  orders_enabled: boolean;
   updated_at: string;
 }
 
@@ -224,7 +226,7 @@ export interface PaymentMethod {
   updated_at: string;
 }
 
-// Public-facing config: anon can read these fields (migration 012 grants).
+// Public-facing config: anon can read these fields (migrations 012 + 024 grants).
 // payment_methods.instructions is NOT included — private.
 export interface PublicRestaurantConfig {
   restaurant_id: string;
@@ -244,6 +246,8 @@ export interface PublicRestaurantConfig {
   delivery_enabled: boolean;
   is_temporarily_closed: boolean;
   closed_message: string | null;
+  // Added in migration 024. DEFAULT true → negocios existentes conservan pedidos.
+  orders_enabled: boolean;
 }
 
 export interface PublicDeliveryZone {

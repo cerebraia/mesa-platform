@@ -945,6 +945,72 @@ Ver lista completa en `tests/unsaved-changes.test.ts`. Sin navegador no se puede
 
 ---
 
+## Reposicionamiento y modalidad del catálogo (22/10/2026)
+
+### Cambio de posicionamiento
+
+Mesa pasa de plataforma de pedidos para restaurantes a **plataforma de catálogos digitales para negocios**. El texto de la one-page, los planes y el panel reflejan este cambio. Los pedidos son una función adicional activable, no la función principal.
+
+### Migración 024 — Modalidad del catálogo
+
+| Componente | Estado |
+|---|---|
+| Archivo SQL | ✅ `supabase/migrations/20261022000024_catalog_mode.sql` |
+| `orders_enabled` column | ⏳ **Pendiente DDL** — aplicar en Supabase Dashboard |
+| GRANT anon SELECT orders_enabled | ⏳ Requiere DDL |
+| `save_restaurant_config` actualizado | ⏳ Requiere DDL |
+| Trigger `trg_guard_orders_enabled` en orders | ⏳ Requiere DDL |
+
+**Instrucciones**: SQL Editor → Nueva consulta → pegar `20261022000024_catalog_mode.sql` → Ejecutar.
+
+### Comportamiento antes y después del DDL
+
+| Comportamiento | Antes del DDL | Después del DDL |
+|---|---|---|
+| `orders_enabled` en config | Null → `?? true` (pedidos ON) | Columna existe; el propietario puede cambiarla |
+| Placeholder del buscador | "¿Qué te provoca hoy?" | "¿Qué estás buscando?" cuando `orders_enabled=false` |
+| Botón "+" en tarjetas | Siempre visible | Oculto en modo catálogo |
+| Carrito/FAB | Siempre visible | Oculto en modo catálogo |
+| Diálogo de producto | OrderDialog con carrito | CatalogDialog con WhatsApp en modo catálogo |
+| Bloqueo DB de pedidos | No | Trigger bloquea INSERT en orders |
+
+### Archivos modificados
+
+| Archivo | Cambio |
+|---|---|
+| `supabase/migrations/20261022000024_catalog_mode.sql` | DDL: columna, grant, RPC, trigger |
+| `src/lib/catalog-types.ts` | `orders_enabled` en `PublicRestaurantConfig` y `RestaurantConfig` |
+| `src/lib/plan-catalog.ts` | Descripciones con catálogo primero |
+| `src/app/r/[slug]/page.tsx` | Añade `orders_enabled` al SELECT; pasa `ordersEnabled` al cliente |
+| `src/app/r/[slug]/public-menu-client.tsx` | Props `ordersEnabled`, `CatalogProductDialog`, buscador condicional |
+| `src/app/panel/configuracion/config-form.tsx` | Toggle de modalidad; "Nombre del negocio" |
+| `src/app/panel/configuracion/actions.ts` | `orders_enabled` en config |
+| `src/app/panel/page.tsx` | `CatalogDashboard` cuando pedidos desactivados |
+| `src/app/page.tsx` | Reescritura completa — nuevo posicionamiento |
+| `docs/PROPUESTA.md` | Actualizado con nuevo enfoque |
+| `scripts/apply-migration-024.ts` | Script de verificación |
+
+### Verificaciones de código
+
+| Verificación | Resultado |
+|---|---|
+| `npm run typecheck` | ✅ limpio |
+| `npm run build` | ✅ limpio |
+| `npm test` | ✅ 5/5 |
+| SSR one-page: título "vitrina", CTA "Solicitar", FAQ nuevas preguntas | ✅ |
+| `plan-card-billing` dice "por negocio" | ✅ |
+
+### Verificaciones visuales pendientes
+
+1. **One-page** — Título "Tus productos, en una vitrina digital propia." visible; CTA "Solicitar mi catálogo" abre mailto; "Ver demostración" lleva a /demo/menu; plan cards a 360/768/1440 px; FAQ expandible con 8 preguntas
+2. **Catálogo modo solo catálogo** — Activar "Solo catálogo" en /panel/configuracion (requiere DDL 024); verificar: sin botón "+", sin carrito, placeholder "¿Qué estás buscando?", diálogo con WhatsApp
+3. **Catálogo con pedidos** — Flujo completo sin cambios (requiere restaurante con pedidos activos)
+4. **Panel home en modo catálogo** — `CatalogDashboard` con enlace y acciones de catálogo; sin métricas de ventas
+5. **Panel config** — Toggle "Solo catálogo / Catálogo con pedidos" visible en pestaña General
+6. **Intento directo de pedido con orders_enabled=false** — Verificar que el trigger bloquea (requiere DDL 024)
+
+---
+
 ## Entrega visual y planes comerciales (22/10/2026)
 
 ### Resumen de cambios

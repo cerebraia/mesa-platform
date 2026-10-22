@@ -70,7 +70,7 @@ export default async function PublicMenuPage({
         "restaurant_id, description, logo_path, cover_path, primary_color, " +
         "phone, whatsapp, instagram_url, facebook_url, twitter_url, " +
         "address, pickup_enabled, pickup_address, pickup_notes, " +
-        "delivery_enabled, is_temporarily_closed, closed_message",
+        "delivery_enabled, is_temporarily_closed, closed_message, orders_enabled",
       )
       .eq("restaurant_id", restaurant.id)
       .maybeSingle<PublicRestaurantConfig>(),
@@ -140,6 +140,9 @@ export default async function PublicMenuPage({
   // Only show categories that have at least one product returned by RLS.
   const activeCats = categories.filter((c) => c.products.length > 0);
 
+  // orders_enabled: migration 024. Null row (new businesses) defaults to true (backward compat).
+  const ordersEnabled = config?.orders_enabled ?? true;
+
   return (
     <PublicMenuClient
       restaurant={restaurant}
@@ -149,6 +152,7 @@ export default async function PublicMenuPage({
       deliveryZones={deliveryZones ?? []}
       paymentMethods={paymentMethods ?? []}
       supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL!}
+      ordersEnabled={ordersEnabled}
     />
   );
 }

@@ -57,6 +57,7 @@ export async function saveConfig(
     delivery_enabled:      formData.get("delivery_enabled") === "true",
     is_temporarily_closed: formData.get("is_temporarily_closed") === "true",
     closed_message:        String(formData.get("closed_message") ?? "").trim(),
+    orders_enabled:        formData.get("orders_enabled") === "true",
   };
 
   const { error } = await supabase.rpc("save_restaurant_config", {

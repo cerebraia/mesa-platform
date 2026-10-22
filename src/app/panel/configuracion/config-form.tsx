@@ -83,7 +83,7 @@ export function ConfigForm({ restaurant, config, timezones, supabaseUrl, restaur
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div className="field">
-          <label htmlFor="cf-name">Nombre del restaurante *</label>
+          <label htmlFor="cf-name">Nombre del negocio *</label>
           <input id="cf-name" name="name" type="text" maxLength={100} required defaultValue={restaurant.name} />
         </div>
         <div className="field">
@@ -212,6 +212,50 @@ export function ConfigForm({ restaurant, config, timezones, supabaseUrl, restaur
         <label htmlFor="cf-closed-msg">Mensaje de cierre</label>
         <input id="cf-closed-msg" name="closed_message" type="text" maxLength={200} defaultValue={config?.closed_message ?? ""} placeholder="Ej: Volvemos mañana a las 11:00" />
       </div>
+
+      {/* ── Modalidad del catálogo ── */}
+      <h3 style={{ fontSize: 14, fontWeight: 600, margin: "28px 0 14px", color: "var(--muted)", letterSpacing: 1 }}>MODALIDAD DEL CATÁLOGO</h3>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {/* hidden default para submit sin interacción */}
+        <input type="hidden" name="orders_enabled" value="false" />
+
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 16px", background: "var(--bg)", borderRadius: 10, border: "1.5px solid var(--border)", cursor: "pointer" }}>
+          <input
+            type="radio"
+            name="orders_enabled"
+            value="false"
+            defaultChecked={!(config?.orders_enabled ?? true)}
+            style={{ marginTop: 2, accentColor: "var(--purple)", width: 16, height: 16, flexShrink: 0 }}
+          />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>Solo catálogo</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3, lineHeight: 1.5 }}>
+              Los clientes exploran los productos y pueden consultar por WhatsApp. Sin carrito ni pedidos en línea.
+            </div>
+          </div>
+        </label>
+
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 16px", background: "var(--bg)", borderRadius: 10, border: "1.5px solid var(--border)", cursor: "pointer" }}>
+          <input
+            type="radio"
+            name="orders_enabled"
+            value="true"
+            defaultChecked={config?.orders_enabled ?? true}
+            style={{ marginTop: 2, accentColor: "var(--purple)", width: 16, height: 16, flexShrink: 0 }}
+          />
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink)" }}>Catálogo con pedidos</div>
+            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3, lineHeight: 1.5 }}>
+              Los clientes pueden añadir productos al carrito y enviar pedidos en línea. Requiere zonas de delivery o retiro configurados.
+            </div>
+          </div>
+        </label>
+      </div>
+
+      <p style={{ fontSize: 11, color: "var(--muted)", marginTop: 8 }}>
+        Cambiar la modalidad no borra el historial de pedidos. Los pedidos existentes permanecen accesibles.
+      </p>
 
       {state.error && <p className="auth-error" role="alert">{state.error}</p>}
       {state.success && <p style={{ color: "#2e7d32", fontSize: 13, padding: "8px 14px", background: "#e8f5e9", borderRadius: 8, marginBottom: 12 }}>Configuración guardada.</p>}
