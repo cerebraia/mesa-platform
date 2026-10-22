@@ -41,6 +41,15 @@ export default async function MenuPage() {
   const imageBase   = `${supabaseUrl}/storage/v1/object/public/product-images`;
   const cats        = categories ?? [];
 
+  // Fetch plan usage for the limit banner (graceful fallback if RPC not yet deployed)
+  type PlanUsageLite = { product_count: number; max_products: number | null; plan_name: string | null };
+  const { data: planUsageRaw } = await supabase.rpc("get_plan_usage", {
+    p_restaurant_id: restaurantId,
+  });
+  const planUsage = planUsageRaw as PlanUsageLite | null;
+
+  const atLimit = planUsage?.max_products != null && planUsage.product_count >= planUsage.max_products;
+
   return (
     <>
       <PageHeader
@@ -51,7 +60,12 @@ export default async function MenuPage() {
             <Link href="/panel/menu/categories/new" className="panel-quick-action">
               <Plus size={13} /> Categoría
             </Link>
-            <Link href="/panel/menu/products/new" className="panel-quick-action panel-quick-action--primary">
+            <Link
+              href={atLimit ? "/panel/configuracion?tab=plan" : "/panel/menu/products/new"}
+              className={`panel-quick-action${atLimit ? "" : " panel-quick-action--primary"}`}
+              aria-disabled={atLimit}
+              style={atLimit ? { opacity: .55, pointerEvents: "none" } : undefined}
+            >
               <Plus size={13} /> Nuevo producto
             </Link>
           </div>
@@ -59,6 +73,41 @@ export default async function MenuPage() {
       />
 
       <div className="panel-content">
+        {atLimit && planUsage && (
+          <div
+            role="alert"
+            style={{
+              background: "#FEF3C7", border: "1px solid #FCD34D", borderRadius: 10,
+              padding: "12px 16px", marginBottom: 16,
+              display: "flex", alignItems: "flex-start", gap: 10,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#92400E"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ flexShrink: 0, marginTop: 1 }} aria-hidden="true">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <div>
+              <span style={{ fontWeight: 600, fontSize: 13, color: "#92400E" }}>
+                Límite de productos alcanzado ({planUsage.product_count} de {planUsage.max_products})
+              </span>
+              <p style={{ fontSize: 12, color: "#92400E", margin: "3px 0 0" }}>
+                Puedes editar los productos existentes. Para crear nuevos,{" "}
+                <Link href="/panel/configuracion?tab=plan" style={{ color: "#92400E", fontWeight: 600, textDecoration: "underline" }}>
+                  revisa tu plan actual
+                </Link>.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {planUsage?.max_products != null && !atLimit && (
+          <div style={{ fontSize: 12, color: "#667085", marginBottom: 12, textAlign: "right" }}>
+            {planUsage.product_count} de {planUsage.max_products} productos del plan
+          </div>
+        )}
+
         <MenuCatalogClient
           cats={cats}
           imageBase={imageBase}

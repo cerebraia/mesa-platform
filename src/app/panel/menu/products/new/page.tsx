@@ -35,7 +35,7 @@ export default async function NewProductPage({
       <PageHeader
         title="Nuevo producto"
         description="Añade nombre, precio, imagen y opciones para este producto."
-        actions={<a href="/panel/menu" className="btn-ver-menu">← Catálogo</a>}
+        breadcrumb={<a href="/panel/menu" className="panel-breadcrumb-link">← Catálogo</a>}
       />
       <ProductFormPage
         mode="new"

@@ -5,6 +5,7 @@ import {
   Truck,
   CreditCard,
   Globe,
+  LayoutGrid,
 } from "lucide-react";
 import { createServerClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/panel-context";
@@ -21,6 +22,7 @@ import { HoursEditor }    from "./hours-editor";
 import { ZonesEditor }    from "./zones-editor";
 import { PaymentsEditor } from "./payments-editor";
 import { DomainSection }  from "./domain-section";
+import { PlanWidget }     from "@/components/panel/plan-widget";
 
 const TIMEZONES = [
   "America/Caracas",
@@ -35,14 +37,15 @@ const TIMEZONES = [
   "UTC",
 ];
 
-type Tab = "general" | "horarios" | "entregas" | "pagos" | "dominio";
+type Tab = "general" | "horarios" | "entregas" | "pagos" | "dominio" | "plan";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: "general",  label: "General",          icon: <Settings  size={14} /> },
-  { id: "horarios", label: "Horarios",          icon: <Clock     size={14} /> },
-  { id: "entregas", label: "Entregas",          icon: <Truck     size={14} /> },
+  { id: "general",  label: "General",          icon: <Settings   size={14} /> },
+  { id: "horarios", label: "Horarios",          icon: <Clock      size={14} /> },
+  { id: "entregas", label: "Entregas",          icon: <Truck      size={14} /> },
   { id: "pagos",    label: "Pagos",             icon: <CreditCard size={14} /> },
-  { id: "dominio",  label: "Dominio propio",    icon: <Globe     size={14} /> },
+  { id: "dominio",  label: "Dominio propio",    icon: <Globe      size={14} /> },
+  { id: "plan",     label: "Plan",              icon: <LayoutGrid size={14} /> },
 ];
 
 function SectionCard({
@@ -234,6 +237,13 @@ export default async function ConfiguracionPage({
               }
             />
           </SectionCard>
+        )}
+
+        {/* ── Plan ─── */}
+        {tab === "plan" && (
+          <div style={{ maxWidth: 640 }}>
+            <PlanWidget restaurantId={restaurantId} />
+          </div>
         )}
       </div>
     </>

@@ -1,4 +1,4 @@
-# Estado Mesa Platform — 22 de octubre de 2026 (rediseño menú público)
+# Estado Mesa Platform — 22 de octubre de 2026
 
 ## Resumen ejecutivo
 
@@ -945,57 +945,61 @@ Ver lista completa en `tests/unsaved-changes.test.ts`. Sin navegador no se puede
 
 ---
 
-## Rediseño menú público /r/[slug] (22/10/2026)
+## Entrega visual y planes comerciales (22/10/2026)
 
-### Cambios
+### Resumen de cambios
 
-| Elemento | Cambio |
+| Área | Qué cambió |
 |---|---|
-| Portada panorámica (`rm-cover`) | Imagen del restaurante con overlay oscuro; ~220 px escritorio, ~170 px móvil; fallback gradiente Mesa |
-| Identidad | Logo con borde/fondo translúcido, nombre, descripción, píldora Abierto/Cerrado con punto de estado |
-| Buscador | Wrap con icono SVG, placeholder "¿Qué te provoca hoy?", botón limpiar, foco con ring púrpura |
-| Navegación de categorías | Sticky con scroll offset correcto (108 px); IntersectionObserver actualiza categoría activa; sin conflicto con scroll programático |
-| Estado sin resultados | Ícono + texto + botón "Limpiar búsqueda" con borde redondeado |
-| Tarjetas de producto | Radio 14 px, sombra ligera en hover, imagen `align-self:stretch`, descripción clamped 2 líneas, precio de promo tachado si existe |
-| Placeholder sin imagen | Icono SVG CupIcon neutro (sin emoji) |
-| Botón "+" | Fuera del `div` clickeable para evitar botones anidados; aria-label accesible |
-| Carrito desktop | FAB con icono SVG + "Ver pedido" + total + contador |
-| Carrito móvil | Barra inferior con `padding-bottom: env(safe-area-inset-bottom)` para área segura |
-| Pie de página | "Creado con Mesa" discreto, espacio para barra del carrito |
-| Accesibilidad | role=button + onKeyDown en tarjetas, aria-selected en tabs, aria-live en estado vacío, Escape cierra modal, foco preservado |
-
-### Archivos modificados
-
-| Archivo | Tipo |
-|---|---|
-| `src/app/r/[slug]/public-menu-client.tsx` | Rediseño completo — lógica preservada |
-| `src/app/globals.css` | Clases `rm-*` añadidas; `menu-card-*` refinadas; responsive actualizado |
+| **globals.css** | Reescritura completa y organizada; variables `--trans`, `--radius-*`; sin minificar |
+| **Menú público** | Portada 260 px/200 px móvil; 2 columnas (era 3); imagen tarjeta 140 px/160 px (era 110 px); botón "+" 44×44 px área táctil / 36 px círculo visual; section spacing 52 px |
+| **Hover** | `@media(hover:hover)` en tarjetas, botones y plan cards; `translateY` máx. 2 px; `prefers-reduced-motion` desactiva todo |
+| **Product dialog** | Imagen 240 px al borde superior del modal (border-radius 18 px); contenido con 24 px padding lateral |
+| **One page** | Secciones 96 px desktop / 56 px móvil; plan cards con hover elevation; FAQ summary 15 px |
+| **Admin shell** | Sidebar oscuro unificado (`AdminShell`); breadcrumbs; layout 2 columnas en detalle de restaurante |
+| **Planes comerciales** | `src/lib/plan-catalog.ts` como fuente única; 3 planes en one-page + formulario admin + widget panel; migración 023 preparada |
 
 ### Verificaciones de código
 
 | Verificación | Resultado |
 |---|---|
 | `npm run typecheck` | ✅ limpio |
-| `npm test` (precios) | ✅ 5/5 |
 | `npm run build` | ✅ limpio |
+| `npm test` (precios) | ✅ 5/5 |
+| `npm run test:plans` | ✅ 10/10 (PL01/02/03/06/07/08 con ⚠ skip — DDL 023 pendiente en BD) |
 
-### Verificaciones visuales pendientes (sin acceso a browser)
+### Migración 023 (planes comerciales) — estado
 
-- Portada con imagen real del restaurante (coverUrl cargada desde Storage)
-- Logo circular vs. iniciales en fallback
-- Categorías con desplazamiento horizontal en táctil (360 px, 390 px)
-- Descripción cortada en 2 líneas para nombres y descripciones largas
-- Modal de producto en móvil (pantalla completa vs. centrado)
-- Barra de carrito sobre área segura (iPhone con notch)
-- Contraste de la píldora Abierto/Cerrado con imágenes oscuras
+| Componente | Estado |
+|---|---|
+| Archivo SQL | ✅ `supabase/migrations/20261022000023_commercial_plans.sql` |
+| Planes en BD | ⏳ **Pendiente DDL** — aplicar en Supabase Dashboard → SQL Editor |
+| `get_plan_usage` RPC | ⏳ Requiere DDL |
+| `upsert_product` con límites | ⏳ Requiere DDL |
+| Trigger `trg_check_member_limit` | ⏳ Requiere DDL |
 
----
+Instrucciones: SQL Editor → Nueva consulta → pegar `20261022000023_commercial_plans.sql` → Ejecutar → relanzar `npm run test:plans`.
 
-## Pendientes
+### Datos de demostración (restaurante-alfa)
 
-1. **Aplicar migración 022** (`npx supabase db push`) para activar la RPC `get_dashboard_metrics` (sin esto el dashboard muestra error de RPC, no datos)
-2. **Verificación visual en navegador** (sin acceso a browser; pendiente): escritorio, 768 px y 360 px en /panel, /panel/menu (tabs), /panel/pedidos, /panel/configuracion (tabs), formularios de producto, detalle de pedido
-3. **Formulario de producto**: los bloques internos (información, imágenes, precio, variantes, opciones, publicación) conservan su estructura; la mejora visual de sus secciones internas queda pendiente de una segunda pasada
+Seed idempotente ejecutado con `scripts/seed-demo.ts`. Solo modifica restaurante-alfa.
+Portada ✅ · Horarios 11–22 h todos los días ✅ · 3 categorías · 8 productos · Checkout funcional ✅.
+Imágenes de productos pendientes: 7 productos sin foto real (subir desde `/panel/menu/products/[id]/edit`).
+
+### Pendientes de revisión visual en navegador
+
+1. **Menú público** — Portada con imagen real y overlay en distintos fondos; scroll táctil de categorías a 360/390 px; tarjetas hover `translateY`; modal con imagen al borde; barra carrito sobre notch iPhone; color E63B3B en acentos
+2. **One page** — Plan cards hover elevation a 1440 px; FAQ expandible; sección de precios a 768/390 px
+3. **Admin** — Sidebar oscuro; breadcrumbs en detail/new; layout 2 col a 1440 px; filtros stacked a 360 px
+4. **Panel** — Tab "Plan" en configuración; banner de límite en catálogo; inputs focus ring
+5. **Flujo completo** — Producto → variantes → carrito → checkout → confirmación a 390 px
+
+### Pendientes técnicos
+
+1. **Migración 022** — `get_dashboard_metrics` pendiente de aplicar en BD (dashboard muestra error de RPC)
+2. **Migración 023** — DDL planes pendiente (ver tabla arriba)
+3. **Canal de contacto** — `mailto:contacto@mesa.app` es placeholder; configurar dirección real antes del lanzamiento
+4. **Formulario de producto** — Secciones internas (variantes, opciones) sin refinamiento visual pendiente
 4. **sidebar-bottom (móvil)**: el fix de !important de la sesión anterior puede quedar obsoleto; revisar botón "Cerrar sesión" en drawer móvil
 0. ← desplaza los pendientes anteriores a continuación
 2. **Configurar las 5 variables en Railway** → redeploy → verificar HTTP 200 en /

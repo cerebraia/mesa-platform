@@ -76,7 +76,11 @@ export default async function EditProductPage({
       <PageHeader
         title={`Editar: ${product!.name}`}
         description="Modifica los datos, imagen, precio y opciones del producto."
-        actions={<a href="/panel/menu" className="btn-ver-menu">← Catálogo</a>}
+        breadcrumb={
+          <a href="/panel/menu" className="panel-breadcrumb-link">
+            ← Catálogo
+          </a>
+        }
       />
       <ProductFormPage
         mode="edit"

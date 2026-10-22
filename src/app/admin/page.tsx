@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
-import { Brand } from "@/components/brand";
-import { SignOutButton } from "@/components/sign-out-button";
+import { Plus, Search } from "lucide-react";
 
 const STATUS_LABEL: Record<string, string> = {
   onboarding: "En configuración",
@@ -10,10 +9,16 @@ const STATUS_LABEL: Record<string, string> = {
   suspended:  "Suspendido",
 };
 
-const STATUS_COLOR: Record<string, string> = {
-  onboarding: "#703BE6",
-  active:     "#2e7d32",
-  suspended:  "#c62828",
+const STATUS_BADGE: Record<string, string> = {
+  onboarding: "badge-accepted",
+  active:     "badge-ready",
+  suspended:  "badge-rejected",
+};
+
+const SUB_BADGE: Record<string, string> = {
+  active:    "badge-ready",
+  expired:   "badge-rejected",
+  cancelled: "badge-cancelled",
 };
 
 export default async function AdminPage({
@@ -34,8 +39,8 @@ export default async function AdminPage({
 
   let query = supabase
     .from("restaurants")
-    .select(`id, name, slug, status, currency, timezone, created_at,
-      subscriptions ( id, status, ends_at, plan_id, plans ( name ) )
+    .select(`id, name, slug, status, currency, created_at,
+      subscriptions ( id, status, ends_at, plans ( name ) )
     `)
     .order("created_at", { ascending: false });
 
@@ -46,14 +51,14 @@ export default async function AdminPage({
 
   const { data: restaurants, error } = await query;
 
-  const [{ count: total }] = await Promise.all([
-    supabase.from("restaurants").select("*", { count: "exact", head: true }),
-  ]);
+  const { count: total } = await supabase
+    .from("restaurants")
+    .select("*", { count: "exact", head: true });
 
   type RestaurantRow = {
     id: string; name: string; slug: string; status: string;
-    currency: string; timezone: string; created_at: string;
-    subscriptions: Array<{ id: string; status: string; ends_at: string | null; plan_id: string; plans: { name: string } | null }>;
+    currency: string; created_at: string;
+    subscriptions: Array<{ id: string; status: string; ends_at: string | null; plans: { name: string } | null }>;
   };
 
   const rows = (restaurants ?? []) as unknown as RestaurantRow[];
@@ -64,131 +69,137 @@ export default async function AdminPage({
     ) ?? null;
   }
 
+  const hasFilters = q || status;
+
   return (
-    <div className="dashboard">
-      <aside className="sidebar">
-        <Brand />
-        <div className="workspace">
-          <div className="avatar">{(user.email ?? "").slice(0, 2).toUpperCase()}</div>
-          <div>
-            <b style={{ fontSize: 12, display: "block" }}>Administración</b>
-            <span className="muted" style={{ fontSize: 11 }}>Platform Admin</span>
-          </div>
+    <>
+      <div className="panel-page-header">
+        <div>
+          <h1 className="panel-page-title">Restaurantes</h1>
+          <p className="panel-page-desc">
+            {total != null ? `${total} registrado${total !== 1 ? "s" : ""}` : "Todos los negocios de la plataforma"}
+          </p>
         </div>
-        <nav aria-label="Admin">
-          <Link href="/admin" style={{ display: "flex", gap: 14, textAlign: "left", border: 0, background: "var(--soft)", color: "var(--purple)", padding: "12px 14px", borderRadius: 9, fontSize: 13, textDecoration: "none", fontWeight: 600 }}>
-            Restaurantes
+        <div className="panel-page-actions">
+          <Link href="/admin/restaurants/new" className="button small" style={{ fontSize: 13 }}>
+            <Plus size={14} />
+            Nuevo restaurante
           </Link>
-          <Link href="/admin/planes" style={{ display: "flex", gap: 14, textAlign: "left", border: 0, background: "none", color: "var(--muted)", padding: "12px 14px", borderRadius: 9, fontSize: 13, textDecoration: "none" }}>
-            Planes
-          </Link>
-          <button disabled className="muted">Dominios</button>
-        </nav>
-        <div className="sidebar-bottom">
-          <span style={{ fontSize: 11 }}>{user.email}</span>
-          <SignOutButton />
         </div>
-      </aside>
+      </div>
 
-      <main className="dashboard-main">
-        <div className="dashboard-top">
-          <span>ADMINISTRACIÓN DE PLATAFORMA</span>
-          <span>{total ?? 0} restaurantes</span>
-        </div>
-
-        <div className="dashboard-content">
-          <div className="dashboard-heading">
-            <div>
-              <h1>Restaurantes</h1>
-              <p>Gestión de todos los negocios de la plataforma.</p>
-            </div>
-            <Link href="/admin/restaurants/new" className="button" style={{ fontSize: 13 }}>
-              + Nuevo restaurante
-            </Link>
+      <div className="panel-content">
+        {error && (
+          <div className="auth-error" role="alert" style={{ marginBottom: 16 }}>
+            Error al cargar: {error.message}
           </div>
+        )}
 
-          {error && (
-            <div className="auth-error" role="alert" style={{ marginBottom: 16 }}>
-              Error al cargar: {error.message}
-            </div>
-          )}
-
-          {/* Search + filters */}
-          <form style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+        {/* Filter bar */}
+        <form className="panel-filter-bar">
+          <div className="filter-search-wrap">
+            <Search size={14} />
             <input
-              name="q" type="search" defaultValue={q}
+              name="q"
+              type="search"
+              defaultValue={q}
               placeholder="Buscar por nombre…"
-              style={{ fontSize: 13, padding: "8px 12px", minWidth: 200 }}
+              aria-label="Buscar restaurante"
             />
-            <select name="status" defaultValue={status} style={{ fontSize: 13, padding: "8px 10px" }}>
-              <option value="">Todos los estados</option>
-              <option value="onboarding">En configuración</option>
-              <option value="active">Activo</option>
-              <option value="suspended">Suspendido</option>
-            </select>
-            <button type="submit" className="button small" style={{ fontSize: 12 }}>Buscar</button>
-            {(q || status) && (
-              <Link href="/admin" className="button secondary small" style={{ fontSize: 12 }}>
-                Limpiar
+          </div>
+          <select name="status" defaultValue={status}>
+            <option value="">Todos los estados</option>
+            <option value="onboarding">En configuración</option>
+            <option value="active">Activo</option>
+            <option value="suspended">Suspendido</option>
+          </select>
+          <button type="submit" className="button small" style={{ fontSize: 12 }}>
+            Buscar
+          </button>
+          {hasFilters && (
+            <Link href="/admin" className="filter-clear">
+              Limpiar filtros
+            </Link>
+          )}
+          <span className="filter-count">{rows.length} resultado{rows.length !== 1 ? "s" : ""}</span>
+        </form>
+
+        {rows.length === 0 ? (
+          <div className="panel-empty">
+            <div className="panel-empty-icon">
+              <Search size={24} strokeWidth={1.5} />
+            </div>
+            <p className="panel-empty-title">
+              {hasFilters ? "Sin resultados" : "Sin restaurantes"}
+            </p>
+            <p className="panel-empty-desc">
+              {hasFilters
+                ? "Ningún restaurante coincide con los filtros aplicados."
+                : "Crea el primer restaurante de la plataforma."}
+            </p>
+            {hasFilters && (
+              <Link href="/admin" className="button secondary small" style={{ marginTop: 4 }}>
+                Limpiar filtros
               </Link>
             )}
-          </form>
-
-          {rows.length === 0 ? (
-            <div className="dashboard-card" style={{ textAlign: "center", padding: "40px 20px" }}>
-              <p style={{ fontSize: 14, color: "var(--muted)" }}>
-                {q || status ? "No hay resultados para estos filtros." : "No hay restaurantes registrados."}
-              </p>
-            </div>
-          ) : (
+          </div>
+        ) : (
+          <div className="dashboard-card" style={{ padding: 0, overflow: "hidden" }}>
             <div className="table-scroll">
               <table>
                 <thead>
                   <tr>
                     <th>Restaurante</th>
                     <th>Estado</th>
-                    <th>Plan / Suscripción</th>
+                    <th>Plan activo</th>
                     <th>Vencimiento</th>
+                    <th>Moneda</th>
                     <th />
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((r) => {
-                    const activeSub = getActiveSub(r);
-                    const isExpired = activeSub?.ends_at && new Date(activeSub.ends_at) < new Date();
+                    const activeSub  = getActiveSub(r);
+                    const isExpired  = activeSub?.ends_at && new Date(activeSub.ends_at) < new Date();
                     return (
                       <tr key={r.id}>
                         <td>
-                          <Link href={`/admin/restaurants/${r.id}`} style={{ fontWeight: 600, color: "var(--purple)" }}>
-                            {r.name}
-                          </Link>
-                          <div style={{ fontSize: 11, color: "var(--muted)" }}>{r.slug} · {r.currency}</div>
+                          <div style={{ fontWeight: 600, color: "#202337" }}>{r.name}</div>
+                          <div style={{ fontSize: 11, color: "#667085", marginTop: 2 }}>/{r.slug}</div>
                         </td>
                         <td>
-                          <span className="tag" style={{
-                            background: `${STATUS_COLOR[r.status] ?? "#777"}18`,
-                            color: STATUS_COLOR[r.status] ?? "#777",
-                          }}>
+                          <span className={`order-status-badge ${STATUS_BADGE[r.status] ?? "badge-cancelled"}`}>
                             {STATUS_LABEL[r.status] ?? r.status}
                           </span>
                         </td>
                         <td>
-                          {activeSub
-                            ? <span style={{ fontSize: 12 }}>{activeSub.plans?.name ?? "—"}</span>
-                            : <span style={{ fontSize: 12, color: "var(--muted)" }}>Sin suscripción</span>}
+                          {activeSub ? (
+                            <span className="order-status-badge badge-ready" style={{ fontSize: 11 }}>
+                              {activeSub.plans?.name ?? "—"}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 12, color: "#667085" }}>Sin suscripción</span>
+                          )}
                         </td>
                         <td>
                           {activeSub?.ends_at ? (
-                            <span style={{ fontSize: 12, color: isExpired ? "#c62828" : "inherit" }}>
+                            <span style={{ fontSize: 12, color: isExpired ? "#c62828" : "#667085" }}>
                               {new Date(activeSub.ends_at).toLocaleDateString("es-VE")}
                             </span>
                           ) : activeSub ? (
-                            <span style={{ fontSize: 12, color: "var(--muted)" }}>Indefinida</span>
-                          ) : "—"}
+                            <span style={{ fontSize: 12, color: "#667085" }}>Indefinida</span>
+                          ) : (
+                            <span style={{ color: "#667085" }}>—</span>
+                          )}
                         </td>
+                        <td style={{ fontSize: 12, color: "#667085" }}>{r.currency}</td>
                         <td>
-                          <Link href={`/admin/restaurants/${r.id}`} className="button secondary small" style={{ fontSize: 11 }}>
-                            Ver
+                          <Link
+                            href={`/admin/restaurants/${r.id}`}
+                            className="button secondary small"
+                            style={{ fontSize: 12, whiteSpace: "nowrap" }}
+                          >
+                            Ver restaurante
                           </Link>
                         </td>
                       </tr>
@@ -197,26 +208,33 @@ export default async function AdminPage({
                 </tbody>
               </table>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Pagination */}
-          {rows.length === perPage && (
-            <div style={{ display: "flex", gap: 12, marginTop: 16, justifyContent: "flex-end" }}>
-              {page > 1 && (
-                <Link href={`/admin?pagina=${page - 1}${q ? `&q=${q}` : ""}${status ? `&status=${status}` : ""}`}
-                  className="button secondary small" style={{ fontSize: 12 }}>
-                  ← Anterior
-                </Link>
-              )}
-              <Link href={`/admin?pagina=${page + 1}${q ? `&q=${q}` : ""}${status ? `&status=${status}` : ""}`}
-                className="button secondary small" style={{ fontSize: 12 }}>
+        {/* Pagination */}
+        {(rows.length === perPage || page > 1) && (
+          <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end", alignItems: "center" }}>
+            {page > 1 && (
+              <Link
+                href={`/admin?pagina=${page - 1}${q ? `&q=${encodeURIComponent(q)}` : ""}${status ? `&status=${status}` : ""}`}
+                className="button secondary small"
+              >
+                ← Anterior
+              </Link>
+            )}
+            <span style={{ fontSize: 12, color: "#667085" }}>Página {page}</span>
+            {rows.length === perPage && (
+              <Link
+                href={`/admin?pagina=${page + 1}${q ? `&q=${encodeURIComponent(q)}` : ""}${status ? `&status=${status}` : ""}`}
+                className="button secondary small"
+              >
                 Siguiente →
               </Link>
-            </div>
-          )}
-        </div>
-      </main>
-    </div>
+            )}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

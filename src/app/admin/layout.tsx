@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
+import { AdminShell } from "./admin-shell";
 
 export default async function AdminLayout({
   children,
@@ -12,21 +13,19 @@ export default async function AdminLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/login");
-  }
+  if (!user) redirect("/login");
 
-  // Authorization: check platform_admins table — never trust token claims.
-  // RLS on platform_admins_select only returns rows if the caller IS an admin.
+  // Authorization: check platform_admins — never trust token claims.
   const { data: adminRow } = await supabase
     .from("platform_admins")
     .select("user_id")
     .maybeSingle();
 
-  if (!adminRow) {
-    // Authenticated but not a platform admin.
-    redirect("/panel");
-  }
+  if (!adminRow) redirect("/panel");
 
-  return <>{children}</>;
+  return (
+    <AdminShell userEmail={user.email ?? ""}>
+      {children}
+    </AdminShell>
+  );
 }

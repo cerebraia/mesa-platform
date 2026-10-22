@@ -34,9 +34,7 @@ export default async function EditCategoryPage({
       <PageHeader
         title={`Editar: ${category.name}`}
         description="Modifica el nombre y estado de la categoría."
-        actions={
-          <a href="/panel/menu" className="btn-ver-menu">← Catálogo</a>
-        }
+        breadcrumb={<a href="/panel/menu" className="panel-breadcrumb-link">← Catálogo</a>}
       />
       <CategoryFormPage mode="edit" category={category} />
     </>

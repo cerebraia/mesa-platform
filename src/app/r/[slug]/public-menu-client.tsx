@@ -262,13 +262,21 @@ function ProductDialog({
       onClick={(e) => { if (e.target === dialogRef.current) onClose(); }}
       onCancel={onClose}
     >
+      {/* Imagen al borde — sin padding para que llegue al radio del dialog */}
       {imgUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={imgUrl} alt={product.name}
-          style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 10, display: "block", marginBottom: 8 }} />
+          style={{ width: "100%", height: 240, objectFit: "cover", display: "block",
+            borderRadius: "18px 18px 0 0" }} />
       )}
-      <h2>{product.name}</h2>
-      {product.description && <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>{product.description}</p>}
+
+      {/* Contenido con padding lateral */}
+      <div style={{ padding: imgUrl ? "20px 24px 0" : "24px 24px 0" }}>
+        <h2 style={{ fontSize: 22, letterSpacing: "-.5px", fontWeight: 700, lineHeight: 1.2 }}>{product.name}</h2>
+        {product.description && (
+          <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 6, lineHeight: 1.6 }}>{product.description}</p>
+        )}
+      </div>
 
       {hasVariants && (
         <fieldset>
@@ -335,13 +343,15 @@ function ProductDialog({
           style={{ width: 70 }} />
       </div>
 
-      {validationError && <p className="error">{validationError}</p>}
+      {validationError && <p className="error" style={{ padding: "0 24px 8px" }}>{validationError}</p>}
 
-      <button type="button" className="button full"
-        style={{ background: primaryColor, borderColor: primaryColor }}
-        onClick={handleAdd}>
-        Agregar · {money(total)}
-      </button>
+      <div style={{ padding: "0 24px 24px" }}>
+        <button type="button" className="button full"
+          style={{ background: primaryColor, borderColor: primaryColor }}
+          onClick={handleAdd}>
+          Agregar · {money(total)}
+        </button>
+      </div>
     </dialog>
   );
 }

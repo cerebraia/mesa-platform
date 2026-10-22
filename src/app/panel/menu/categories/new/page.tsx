@@ -8,11 +8,7 @@ export default function NewCategoryPage() {
       <PageHeader
         title="Nueva categoría"
         description="Las categorías organizan los productos de tu menú."
-        actions={
-          <Link href="/panel/menu" className="btn-ver-menu">
-            ← Catálogo
-          </Link>
-        }
+        breadcrumb={<Link href="/panel/menu" className="panel-breadcrumb-link">← Catálogo</Link>}
       />
       <CategoryFormPage mode="new" />
     </>

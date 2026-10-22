@@ -3,9 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { createRestaurant } from "../../actions";
-import { Brand } from "@/components/brand";
-import { SignOutButton } from "@/components/sign-out-button";
 
 const TIMEZONES = [
   "America/Caracas",
@@ -31,9 +30,9 @@ function slugify(name: string): string {
 export default function NewRestaurantPage() {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
+  const [error, setError]           = useState<string | null>(null);
+  const [name, setName]             = useState("");
+  const [slug, setSlug]             = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
 
   function handleNameChange(v: string) {
@@ -62,65 +61,29 @@ export default function NewRestaurantPage() {
   }
 
   return (
-    <div className="dashboard">
-      <aside className="sidebar">
-        <Brand />
-        <div className="workspace">
-          <div className="avatar">AD</div>
-          <div>
-            <b style={{ fontSize: 12, display: "block" }}>Administración</b>
-            <span className="muted" style={{ fontSize: 11 }}>Platform Admin</span>
+    <>
+      <div className="panel-page-header">
+        <div>
+          <div className="panel-breadcrumb">
+            <Link href="/admin" className="panel-breadcrumb-link">
+              <ArrowLeft size={13} />
+              Restaurantes
+            </Link>
           </div>
+          <h1 className="panel-page-title">Nuevo restaurante</h1>
+          <p className="panel-page-desc">Registra un nuevo negocio en la plataforma.</p>
         </div>
-        <nav aria-label="Admin">
-          <Link
-            href="/admin"
-            style={{
-              display: "flex", gap: 14, textAlign: "left", border: 0,
-              background: "var(--soft)", color: "var(--purple)",
-              padding: "12px 14px", borderRadius: 9, fontSize: 13,
-              textDecoration: "none", fontWeight: 600,
-            }}
-          >
-            Restaurantes
-          </Link>
-          <Link
-            href="/admin/planes"
-            style={{
-              display: "flex", gap: 14, textAlign: "left", border: 0,
-              background: "none", color: "var(--muted)",
-              padding: "12px 14px", borderRadius: 9, fontSize: 13,
-              textDecoration: "none",
-            }}
-          >
-            Planes
-          </Link>
-        </nav>
-        <div className="sidebar-bottom">
-          <SignOutButton />
-        </div>
-      </aside>
+      </div>
 
-      <main className="dashboard-main">
-        <div className="dashboard-top">
-          <span>ADMINISTRACIÓN DE PLATAFORMA</span>
-          <Link href="/admin" className="muted" style={{ fontSize: 11, textDecoration: "none" }}>
-            ← Volver
-          </Link>
-        </div>
-
-        <div className="dashboard-content">
-          <div className="dashboard-heading">
-            <div>
-              <h1>Nuevo restaurante</h1>
-              <p>Crea un negocio en la plataforma.</p>
-            </div>
-          </div>
-
-          <div className="settings-card">
+      <div className="panel-content">
+        <div style={{ maxWidth: 560 }}>
+          <div className="dashboard-card">
+            <h2 style={{ fontSize: 14, fontWeight: 600, color: "#667085", textTransform: "uppercase", letterSpacing: ".6px", marginBottom: 20 }}>
+              Datos del negocio
+            </h2>
             <form onSubmit={handleSubmit}>
-              <label className="field-label">
-                Nombre del restaurante
+              <div className="field" style={{ marginBottom: 16 }}>
+                <label>Nombre del restaurante</label>
                 <input
                   name="name"
                   type="text"
@@ -131,10 +94,10 @@ export default function NewRestaurantPage() {
                   onChange={(e) => handleNameChange(e.target.value)}
                   placeholder="Ej. Restaurante Ejemplo"
                 />
-              </label>
+              </div>
 
-              <label className="field-label" style={{ marginTop: 16 }}>
-                Slug (URL pública)
+              <div className="field" style={{ marginBottom: 16 }}>
+                <label>Slug (URL pública)</label>
                 <input
                   name="slug"
                   type="text"
@@ -146,50 +109,51 @@ export default function NewRestaurantPage() {
                   placeholder="restaurante-ejemplo"
                 />
                 {slug && (
-                  <span className="caption" style={{ marginTop: 4 }}>
+                  <span className="caption" style={{ marginTop: 6, display: "block" }}>
                     Menú en: /r/{slug}
                   </span>
                 )}
-              </label>
+              </div>
 
-              <label className="field-label" style={{ marginTop: 16 }}>
-                Moneda
-                <select name="currency" defaultValue="USD">
-                  <option value="USD">USD</option>
-                  <option value="VES">VES</option>
-                  <option value="COP">COP</option>
-                  <option value="MXN">MXN</option>
-                  <option value="PEN">PEN</option>
-                </select>
-              </label>
-
-              <label className="field-label" style={{ marginTop: 16 }}>
-                Zona horaria
-                <select name="timezone" defaultValue="America/Caracas">
-                  {TIMEZONES.map((tz) => (
-                    <option key={tz} value={tz}>{tz}</option>
-                  ))}
-                </select>
-              </label>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
+                <div className="field">
+                  <label>Moneda</label>
+                  <select name="currency" defaultValue="USD">
+                    <option value="USD">USD</option>
+                    <option value="VES">VES</option>
+                    <option value="COP">COP</option>
+                    <option value="MXN">MXN</option>
+                    <option value="PEN">PEN</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Zona horaria</label>
+                  <select name="timezone" defaultValue="America/Caracas">
+                    {TIMEZONES.map((tz) => (
+                      <option key={tz} value={tz}>{tz}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
               {error && (
-                <div className="auth-error" role="alert" style={{ marginTop: 16 }}>
+                <div className="auth-error" role="alert" style={{ marginBottom: 16 }}>
                   {error}
                 </div>
               )}
 
-              <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
-                <button type="submit" className="button" disabled={pending}>
+              <div style={{ display: "flex", gap: 10, paddingTop: 4 }}>
+                <button type="submit" className="button small" disabled={pending}>
                   {pending ? "Creando…" : "Crear restaurante"}
                 </button>
-                <Link href="/admin" className="button secondary">
+                <Link href="/admin" className="button secondary small">
                   Cancelar
                 </Link>
               </div>
             </form>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </>
   );
 }
