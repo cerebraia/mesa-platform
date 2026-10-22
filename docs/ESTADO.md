@@ -945,6 +945,71 @@ Ver lista completa en `tests/unsaved-changes.test.ts`. Sin navegador no se puede
 
 ---
 
+## Demo Tech Store — Solo catálogo (22/10/2026)
+
+### Migración 024 — aplicada
+
+| Componente | Estado |
+|---|---|
+| `orders_enabled` column | ✅ Aplicada vía pooler (`scripts/run-migration-024.ts`) |
+| GRANT anon SELECT orders_enabled | ✅ |
+| `save_restaurant_config` actualizado | ✅ |
+| Trigger `trg_guard_orders_enabled` | ✅ Bloquea INSERT en orders con `ORDERS_DISABLED` hint |
+
+Verificado: `curl -X POST /rest/v1/orders` con service_role en demo-tech devuelve `{"hint":"ORDERS_DISABLED","message":"Los pedidos no están habilitados para este negocio."}` (code 23514).
+
+### Negocio de demostración — Demo Tech Store
+
+| Campo | Valor |
+|---|---|
+| Nombre | Demo Tech Store |
+| Slug | `demo-tech` |
+| ID | `26036c03-b8de-4265-bf19-39b5ad822464` |
+| Owner | `noaccess@test.mesa` |
+| Modalidad | Solo catálogo (`orders_enabled = false`) |
+| Color | `#0F4C81` (azul tecnología) |
+| WhatsApp | `+584125550042` (número de prueba) |
+| Horarios | Lunes–viernes 09:00–18:00 |
+| Categorías | Accesorios y cables · Gadgets |
+| Productos | 4 (Cable USB-C con variantes, Hub USB-C, Soporte laptop, Auriculares NC con variantes) |
+
+### Comprobaciones realizadas (sin navegador)
+
+| Comprobación | Método | Resultado |
+|---|---|---|
+| SSR catálogo demo-tech | curl HTML | ✅ `Demo Tech Store`, categorías y productos en HTML |
+| Placeholder buscador catálogo | grep HTML | ✅ `¿Qué estás buscando?` presente |
+| Carrito/FAB ausente en SSR | grep HTML | ✅ `cart-fab` y `cart-bar` ausentes del body |
+| `menu-add-btn` ausente en body | grep HTML | ✅ ausente del body (solo en CSS externo) |
+| Bloqueo DB INSERT orders | REST API directo | ✅ `ORDERS_DISABLED` (trigger activo) |
+| One-page: precios 19/39/69 | grep HTML | ✅ renderizados como USD enteros |
+| One-page: "por negocio" | grep HTML | ✅ presente |
+| One-page: plan Negocio featured | grep HTML | ✅ `plan-card--featured` |
+| `npm run typecheck` | CLI | ✅ limpio |
+| `npm run build` | CLI | ✅ limpio |
+| `npm test` | CLI | ✅ 5/5 |
+
+### URLs locales para revisión
+
+| URL | Descripción |
+|---|---|
+| `http://localhost:3001/r/demo-tech` | Catálogo público Demo Tech (Solo catálogo) |
+| `http://localhost:3001/panel` | Panel (ingresar como `noaccess@test.mesa`) |
+| `http://localhost:3001/r/restaurante-alfa` | Catálogo Alfa (con pedidos, para contraste) |
+| `http://localhost:3001/` | One-page con nuevo posicionamiento |
+
+### Verificaciones visuales pendientes (requieren browser)
+
+1. **Catálogo demo-tech** — Sin botón "+", sin carrito; al abrir producto aparece diálogo con botón "Consultar por WhatsApp" (usa `+584125550042`); mensaje WA incluye nombre del producto y variante seleccionada
+2. **Panel como `noaccess@test.mesa`** — `CatalogDashboard` visible (sin métricas de ventas); acciones: "Añadir producto", "Ver catálogo"; enlace `/r/demo-tech` copiable
+3. **Configuración → Modalidad** — Toggle "Solo catálogo / Catálogo con pedidos" visible; cambiar a "Con pedidos" y volver a guardar como "Solo catálogo"
+4. **Publicar/despublicar** — Producto publicado visible en `/r/demo-tech`; despublicado desaparece (RLS filtra)
+5. **Contraste con Alfa** — `/r/restaurante-alfa` sí muestra botón "+", carrito y FAB; placeholder "¿Qué te provoca hoy?"
+6. **One-page a 360/768/1440** — Plan cards, CTA "Solicitar mi catálogo" abre cliente de correo; "Ver demostración" abre `/demo/menu`
+7. **WhatsApp con variantes** — Abrir Auriculares, seleccionar "Azul medianoche", tocar "Consultar" → mensaje WA con variante incluida
+
+---
+
 ## Reposicionamiento y modalidad del catálogo (22/10/2026)
 
 ### Cambio de posicionamiento

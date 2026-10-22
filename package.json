@@ -33,8 +33,10 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "pg": "^8.23.1",
     "supabase": "^2.120.0",
     "typescript": "5.9.3"
   }
