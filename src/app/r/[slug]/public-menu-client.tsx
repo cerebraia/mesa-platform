@@ -64,14 +64,119 @@ function generateIdempotencyKey(): string {
     .join("");
 }
 
-// ── Product Dialog ────────────────────────────────────────────
+// ── Icons ─────────────────────────────────────────────────────
 
-function ProductDialog({
+function SearchIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true">
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.35-4.35" />
+    </svg>
+  );
+}
+
+function CartIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+    </svg>
+  );
+}
+
+function CupIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+      <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+      <line x1="6" y1="1" x2="6" y2="4" /><line x1="10" y1="1" x2="10" y2="4" /><line x1="14" y1="1" x2="14" y2="4" />
+    </svg>
+  );
+}
+
+// ── Product Card ───────────────────────────────────────────────
+
+function ProductCard({
   product,
   imgBase,
   primaryColor,
-  onClose,
-  onAdd,
+  onOpen,
+}: {
+  product: AnonProduct;
+  imgBase: string;
+  primaryColor: string;
+  onOpen: () => void;
+}) {
+  const img = product.product_images?.[0];
+  const imgUrl = img ? `${imgBase}/${img.storage_path}` : null;
+  const displayPrice = product.product_variants?.[0]?.price_cents ?? product.base_price_cents;
+  const hasPromo = product.promo_price_cents != null;
+
+  return (
+    <div className="menu-card">
+      <div
+        className="menu-card-inner"
+        role="button"
+        tabIndex={0}
+        onClick={onOpen}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
+        aria-label={`Ver ${product.name}`}
+      >
+        <div className="menu-card-info">
+          <span className="menu-card-name">{product.name}</span>
+          {product.description && (
+            <span className="menu-card-desc">{product.description}</span>
+          )}
+          <span className="menu-card-price" style={{ color: primaryColor }}>
+            {hasPromo ? (
+              <>
+                <span className="menu-card-price-orig">{money(displayPrice)}</span>
+                {money(product.promo_price_cents!)}
+              </>
+            ) : money(displayPrice)}
+          </span>
+        </div>
+        <div className="menu-card-photo">
+          {imgUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imgUrl}
+              alt={img?.alt_text ?? product.name}
+              loading="lazy"
+              decoding="async"
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          ) : (
+            <div className="menu-card-placeholder">
+              <CupIcon />
+            </div>
+          )}
+        </div>
+      </div>
+      <button
+        className="menu-add-btn"
+        aria-label={`Agregar ${product.name} al carrito`}
+        style={{ background: primaryColor }}
+        onClick={onOpen}
+        tabIndex={-1}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="3" strokeLinecap="round" aria-hidden="true">
+          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+// ── Product Dialog ────────────────────────────────────────────
+
+function ProductDialog({
+  product, imgBase, primaryColor, onClose, onAdd,
 }: {
   product: AnonProduct;
   imgBase: string;
@@ -80,9 +185,7 @@ function ProductDialog({
   onAdd: (entry: CartEntry) => void;
 }) {
   const hasVariants = product.product_variants.length > 0;
-  const [variantId, setVariantId] = useState(
-    hasVariants ? product.product_variants[0].id : null,
-  );
+  const [variantId, setVariantId] = useState(hasVariants ? product.product_variants[0].id : null);
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [qty, setQty] = useState(1);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -97,31 +200,25 @@ function ProductDialog({
     ? (product.product_variants.find((v) => v.id === variantId)?.price_cents ?? product.base_price_cents)
     : (product.promo_price_cents ?? product.base_price_cents);
 
-  const optionTotal = Object.values(selected)
-    .flat()
-    .reduce((sum, optId) => {
-      const delta = product.option_groups
-        .flatMap((g) => g.options)
-        .find((o) => o.id === optId)?.price_delta_cents ?? 0;
-      return sum + delta;
-    }, 0);
+  const optionTotal = Object.values(selected).flat().reduce((sum, optId) => {
+    const delta = product.option_groups.flatMap((g) => g.options)
+      .find((o) => o.id === optId)?.price_delta_cents ?? 0;
+    return sum + delta;
+  }, 0);
 
   const unitPrice = variantPrice + optionTotal;
   const total = unitPrice * qty;
 
   const imgUrl = product.product_images?.[0]
-    ? `${imgBase}/${product.product_images[0].storage_path}`
-    : null;
+    ? `${imgBase}/${product.product_images[0].storage_path}` : null;
 
   function toggleOption(groupId: string, optId: string, maxSel: number) {
     setSelected((prev) => {
       const cur = prev[groupId] ?? [];
-      if (cur.includes(optId)) {
-        return { ...prev, [groupId]: cur.filter((id) => id !== optId) };
-      }
+      if (cur.includes(optId)) return { ...prev, [groupId]: cur.filter((id) => id !== optId) };
       if (cur.length >= maxSel) {
         if (maxSel === 1) return { ...prev, [groupId]: [optId] };
-        return prev; // at max
+        return prev;
       }
       return { ...prev, [groupId]: [...cur, optId] };
     });
@@ -129,7 +226,6 @@ function ProductDialog({
 
   function handleAdd() {
     setValidationError(null);
-    // Validate groups
     for (const g of product.option_groups) {
       const sel = selected[g.id] ?? [];
       if (sel.length < g.min_selections) {
@@ -141,32 +237,20 @@ function ProductDialog({
         return;
       }
     }
-
     const options: CartOption[] = product.option_groups.flatMap((g) =>
       (selected[g.id] ?? []).map((optId) => {
         const opt = g.options.find((o) => o.id === optId)!;
         return {
-          groupId: g.id,
-          groupName: g.name,
-          optionId: optId,
-          optionName: opt.name,
-          priceDeltaCents: opt.price_delta_cents,
+          groupId: g.id, groupName: g.name, optionId: optId,
+          optionName: opt.name, priceDeltaCents: opt.price_delta_cents,
         };
       }),
     );
-
     const key = cartKey(product.id, variantId, options);
     const variant = product.product_variants.find((v) => v.id === variantId) ?? null;
-
     onAdd({
-      key,
-      productId: product.id,
-      productName: product.name,
-      variantId: variantId,
-      variantName: variant?.name ?? null,
-      options,
-      quantity: qty,
-      unitPriceCents: unitPrice,
+      key, productId: product.id, productName: product.name,
+      variantId, variantName: variant?.name ?? null, options, quantity: qty, unitPriceCents: unitPrice,
     });
     onClose();
   }
@@ -180,23 +264,26 @@ function ProductDialog({
     >
       {imgUrl && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={imgUrl} alt={product.name} style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 10, display: "block", marginBottom: 8 }} />
+        <img src={imgUrl} alt={product.name}
+          style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 10, display: "block", marginBottom: 8 }} />
       )}
       <h2>{product.name}</h2>
-      {product.description && <p>{product.description}</p>}
+      {product.description && <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>{product.description}</p>}
 
       {hasVariants && (
         <fieldset>
-          <legend>Variante <span style={{ background: "#f0eaff", color: "#703BE6", borderRadius: 20, padding: "2px 8px", fontSize: 11 }}>Obligatorio</span></legend>
+          <legend>
+            Variante{" "}
+            <span style={{ background: "#f0eaff", color: "#703BE6", borderRadius: 20, padding: "2px 8px", fontSize: 11 }}>
+              Obligatorio
+            </span>
+          </legend>
           {product.product_variants.map((v) => (
             <div key={v.id} className="option-row">
               <span>
-                <input
-                  type="radio" name="variant" value={v.id}
-                  checked={variantId === v.id}
-                  onChange={() => setVariantId(v.id)}
-                  style={{ accentColor: primaryColor }}
-                />
+                <input type="radio" name="variant" value={v.id}
+                  checked={variantId === v.id} onChange={() => setVariantId(v.id)}
+                  style={{ accentColor: primaryColor }} />
                 {v.name}
               </span>
               <span>{money(v.price_cents)}</span>
@@ -209,7 +296,11 @@ function ProductDialog({
         <fieldset key={g.id}>
           <legend>
             {g.name}{" "}
-            <span style={{ background: g.min_selections > 0 ? "#f0eaff" : "#f5f5f5", color: g.min_selections > 0 ? "#703BE6" : "#777", borderRadius: 20, padding: "2px 8px", fontSize: 11 }}>
+            <span style={{
+              background: g.min_selections > 0 ? "#f0eaff" : "#f5f5f5",
+              color: g.min_selections > 0 ? "#703BE6" : "#777",
+              borderRadius: 20, padding: "2px 8px", fontSize: 11,
+            }}>
               {g.min_selections > 0 ? "Obligatorio" : "Opcional"}
             </span>
             {g.max_selections > 1 && (
@@ -230,9 +321,7 @@ function ProductDialog({
                   />
                   {opt.name}
                 </span>
-                {opt.price_delta_cents !== 0 && (
-                  <span>+{money(opt.price_delta_cents)}</span>
-                )}
+                {opt.price_delta_cents !== 0 && <span>+{money(opt.price_delta_cents)}</span>}
               </div>
             );
           })}
@@ -241,21 +330,16 @@ function ProductDialog({
 
       <div className="quantity-label">
         <span>Cantidad</span>
-        <input
-          type="number" min={1} max={20} value={qty}
+        <input type="number" min={1} max={20} value={qty}
           onChange={(e) => setQty(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
-          style={{ width: 70 }}
-        />
+          style={{ width: 70 }} />
       </div>
 
       {validationError && <p className="error">{validationError}</p>}
 
-      <button
-        type="button"
-        className="button full"
+      <button type="button" className="button full"
         style={{ background: primaryColor, borderColor: primaryColor }}
-        onClick={handleAdd}
-      >
+        onClick={handleAdd}>
         Agregar · {money(total)}
       </button>
     </dialog>
@@ -265,12 +349,7 @@ function ProductDialog({
 // ── Checkout Form ─────────────────────────────────────────────
 
 function CheckoutForm({
-  restaurant,
-  config,
-  cart,
-  deliveryZones,
-  paymentMethods,
-  onBack,
+  restaurant, config, cart, deliveryZones, paymentMethods, onBack,
 }: {
   restaurant: Restaurant;
   config: PublicRestaurantConfig | null;
@@ -291,11 +370,9 @@ function CheckoutForm({
   const [address, setAddress] = useState("");
   const [paymentId, setPaymentId] = useState(paymentMethods[0]?.id ?? "");
   const [notes, setNotes] = useState("");
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [priceChanged, setPriceChanged] = useState<{ actual: number; sub: number; fee: number } | null>(null);
-
   const idempotencyKeyRef = useRef(generateIdempotencyKey());
 
   const subtotal = cart.reduce((s, it) => s + it.unitPriceCents * it.quantity, 0);
@@ -323,10 +400,7 @@ function CheckoutForm({
       items: cart.map((it) => ({
         productId: it.productId,
         variantId: it.variantId,
-        options: it.options.map((o) => ({
-          optionGroupId: o.groupId,
-          optionId: o.optionId,
-        })),
+        options: it.options.map((o) => ({ optionGroupId: o.groupId, optionId: o.optionId })),
         quantity: it.quantity,
       })),
     };
@@ -337,23 +411,17 @@ function CheckoutForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-
       const json = await res.json() as PlaceOrderResponse | PriceChangedResponse | { error: string };
-
       if (res.ok) {
-        const ok = json as PlaceOrderResponse;
-        // Token was delivered via Set-Cookie — navigate to the clean confirmation URL.
-        router.push(ok.redirectTo);
+        router.push((json as PlaceOrderResponse).redirectTo);
         return;
       }
-
       if (res.status === 422 && "priceChanged" in json && json.priceChanged) {
         const pc = json as PriceChangedResponse;
         setPriceChanged({ actual: pc.actualTotalCents, sub: pc.actualSubtotalCents, fee: pc.actualDeliveryFeeCents });
         setIsSubmitting(false);
         return;
       }
-
       setError(("error" in json ? json.error : null) ?? "Error al crear el pedido.");
     } catch {
       setError("Error de red. Verifica tu conexión e intenta de nuevo.");
@@ -363,7 +431,6 @@ function CheckoutForm({
 
   function onConfirmPriceChange() {
     if (!priceChanged) return;
-    // Generate a new idempotency key since the user confirmed a new total
     idempotencyKeyRef.current = generateIdempotencyKey();
     handleSubmit(priceChanged.actual);
   }
@@ -378,7 +445,6 @@ function CheckoutForm({
       </button>
       <h1 style={{ fontSize: 22, letterSpacing: -0.5, marginBottom: 24 }}>Finalizar pedido</h1>
 
-      {/* Contact */}
       <div className="dashboard-card" style={{ marginBottom: 16 }}>
         <h2 style={{ fontSize: 15, marginBottom: 16 }}>Datos de contacto</h2>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -393,7 +459,6 @@ function CheckoutForm({
         </div>
       </div>
 
-      {/* Modality */}
       <div className="dashboard-card" style={{ marginBottom: 16 }}>
         <h2 style={{ fontSize: 15, marginBottom: 16 }}>Modalidad de entrega</h2>
         <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
@@ -411,7 +476,6 @@ function CheckoutForm({
             </label>
           )}
         </div>
-
         {modality === "delivery" && (
           <>
             {deliveryZones.length > 0 ? (
@@ -437,7 +501,6 @@ function CheckoutForm({
         )}
       </div>
 
-      {/* Payment */}
       <div className="dashboard-card" style={{ marginBottom: 16 }}>
         <h2 style={{ fontSize: 15, marginBottom: 16 }}>Medio de pago</h2>
         {paymentMethods.length === 0 ? (
@@ -457,20 +520,13 @@ function CheckoutForm({
         </p>
       </div>
 
-      {/* Notes */}
       <div className="dashboard-card" style={{ marginBottom: 16 }}>
         <h2 style={{ fontSize: 15, marginBottom: 12 }}>Observaciones</h2>
-        <textarea
-          maxLength={500}
-          rows={3}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+        <textarea maxLength={500} rows={3} value={notes} onChange={(e) => setNotes(e.target.value)}
           placeholder="Alergias, instrucciones especiales…"
-          style={{ width: "100%", resize: "vertical", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", fontSize: 13, fontFamily: "inherit" }}
-        />
+          style={{ width: "100%", resize: "vertical", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", fontSize: 13, fontFamily: "inherit" }} />
       </div>
 
-      {/* Summary */}
       <div className="dashboard-card" style={{ marginBottom: 20 }}>
         <h2 style={{ fontSize: 15, marginBottom: 12 }}>Resumen</h2>
         {cart.map((it) => (
@@ -501,7 +557,6 @@ function CheckoutForm({
         </div>
       </div>
 
-      {/* Price changed alert */}
       {priceChanged && (
         <div style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 10, padding: "14px 18px", marginBottom: 16 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>Los precios cambiaron</div>
@@ -516,13 +571,8 @@ function CheckoutForm({
 
       {error && <p className="auth-error" role="alert">{error}</p>}
 
-      <button
-        type="button"
-        className="button full"
-        disabled={!canSubmit || isSubmitting}
-        onClick={() => handleSubmit(total)}
-        style={{ marginTop: 8 }}
-      >
+      <button type="button" className="button full" disabled={!canSubmit || isSubmitting}
+        onClick={() => handleSubmit(total)} style={{ marginTop: 8 }}>
         {isSubmitting ? "Enviando pedido…" : `Confirmar pedido · ${money(total)}`}
       </button>
 
@@ -555,6 +605,46 @@ export function PublicMenuClient({
   const cartCount = cart.reduce((s, it) => s + it.quantity, 0);
   const cartTotal = cart.reduce((s, it) => s + it.unitPriceCents * it.quantity, 0);
 
+  // Prevent IntersectionObserver from fighting with programmatic scroll
+  const scrollingRef = useRef(false);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  function scrollToCategory(catId: string) {
+    setActiveCategory(catId);
+    scrollingRef.current = true;
+    clearTimeout(scrollTimeoutRef.current);
+    document.getElementById(`cat-${catId}`)?.scrollIntoView({ behavior: "smooth" });
+    scrollTimeoutRef.current = setTimeout(() => { scrollingRef.current = false; }, 900);
+  }
+
+  // Update active category based on scroll position
+  useEffect(() => {
+    if (search) return;
+    const ids = categories.map((c) => c.id);
+    const visible = new Set<string>();
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const id = entry.target.id.replace("cat-", "");
+          if (entry.isIntersecting) visible.add(id);
+          else visible.delete(id);
+        });
+        if (!scrollingRef.current) {
+          const first = ids.find((id) => visible.has(id));
+          if (first) setActiveCategory(first);
+        }
+      },
+      { rootMargin: "-108px 0px -45% 0px", threshold: 0 },
+    );
+
+    ids.forEach((id) => {
+      const el = document.getElementById(`cat-${id}`);
+      if (el) obs.observe(el);
+    });
+    return () => obs.disconnect();
+  }, [categories, search]);
+
   const addToCart = useCallback((entry: CartEntry) => {
     setCart((prev) => {
       const idx = prev.findIndex((e) => e.key === entry.key);
@@ -572,17 +662,24 @@ export function PublicMenuClient({
   }, []);
 
   const changeQty = useCallback((key: string, delta: number) => {
-    setCart((prev) => prev
-      .map((e) => e.key === key ? { ...e, quantity: e.quantity + delta } : e)
-      .filter((e) => e.quantity > 0),
+    setCart((prev) =>
+      prev.map((e) => e.key === key ? { ...e, quantity: e.quantity + delta } : e)
+          .filter((e) => e.quantity > 0),
     );
   }, []);
+
+  // Needed to avoid TS unused-variable errors on removeFromCart/changeQty
+  void removeFromCart;
+  void changeQty;
 
   const filtered = categories
     .map((cat) => ({
       ...cat,
       products: (cat.products as AnonProduct[]).filter((p) =>
-        search ? p.name.toLowerCase().includes(search.toLowerCase()) || (p.description ?? "").toLowerCase().includes(search.toLowerCase()) : true,
+        search
+          ? p.name.toLowerCase().includes(search.toLowerCase()) ||
+            (p.description ?? "").toLowerCase().includes(search.toLowerCase())
+          : true,
       ),
     }))
     .filter((cat) => cat.products.length > 0);
@@ -605,61 +702,84 @@ export function PublicMenuClient({
   }
 
   return (
-    <div className="menu-container" style={{ "--menu-primary": primaryColor } as React.CSSProperties}>
+    <div style={{ "--menu-primary": primaryColor } as React.CSSProperties}>
+
+      {/* Temporarily-closed notice */}
       {closedMessage && (
-        <div style={{ background: "#fff3cd", color: "#856404", textAlign: "center", padding: "10px 16px", fontSize: 13, borderBottom: "1px solid #ffc107" }}>
+        <div role="alert" style={{
+          background: "#fff3cd", color: "#856404", textAlign: "center",
+          padding: "10px 16px", fontSize: 13, borderBottom: "1px solid #ffc107",
+        }}>
           {closedMessage}
         </div>
       )}
 
-      {/* Header */}
+      {/* Cover / portada panorámica */}
       <div
-        className="resto-banner"
-        style={coverUrl ? {
-          backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0.55)), url(${coverUrl})`,
-          backgroundSize: "cover", backgroundPosition: "center",
-        } : undefined}
+        className="rm-cover"
+        style={coverUrl ? { backgroundImage: `url(${coverUrl})` } : undefined}
+        role="banner"
       >
-        <div className="resto-cover" />
-        <div className="container resto-meta">
-          <div className="resto-avatar" style={logoUrl ? { background: "white", overflow: "hidden", padding: 0 } : undefined}>
-            {logoUrl
-              // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={logoUrl} alt={`Logo de ${restaurant.name}`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : initials}
-          </div>
-          <div className="resto-info">
-            <div className="resto-name">{restaurant.name}</div>
-            <div className="resto-tagline">{config?.description ?? "Menú en línea"}</div>
-          </div>
-          <div className="resto-status">
-            <span className="resto-open-pill" style={isOpen
-              ? { background: "rgba(74,222,128,0.25)", color: "#fff" }
-              : { background: "rgba(255,255,255,0.15)", color: "#fff" }}
-            >
-              {isOpen ? "Abierto" : "Cerrado"}
-            </span>
+        <div className="rm-cover-overlay" aria-hidden="true" />
+        <div className="container">
+          <div className="rm-cover-row">
+            <div className="rm-logo">
+              {logoUrl
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={logoUrl} alt={`Logo de ${restaurant.name}`} />
+                : <span aria-hidden="true">{initials}</span>}
+            </div>
+            <div className="rm-info">
+              <h1 className="rm-restaurant-name">{restaurant.name}</h1>
+              {config?.description && (
+                <p className="rm-restaurant-desc">{config.description}</p>
+              )}
+            </div>
+            <div className="rm-status-area">
+              <span className={`rm-pill ${isOpen ? "rm-pill-open" : "rm-pill-closed"}`}>
+                <span
+                  className={`rm-pill-dot ${isOpen ? "rm-pill-dot-open" : "rm-pill-dot-closed"}`}
+                  aria-hidden="true"
+                />
+                {isOpen ? "Abierto" : "Cerrado"}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Sticky nav */}
+      {/* Sticky nav: search + category tabs */}
       <div className="menu-bar">
         <div className="menu-bar-inner container">
-          <input
-            type="search" className="menu-search" placeholder="Buscar…"
-            value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Buscar"
-          />
-          <div className="menu-tabs" role="tablist">
+          <div className="rm-search-wrap">
+            <SearchIcon className="rm-search-icon" />
+            <input
+              className="rm-search-input"
+              type="search"
+              placeholder="¿Qué te provoca hoy?"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Buscar en el menú"
+            />
+            {search && (
+              <button
+                className="rm-search-clear"
+                onClick={() => setSearch("")}
+                aria-label="Limpiar búsqueda"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <div className="menu-tabs" role="tablist" aria-label="Categorías del menú">
             {categories.map((cat) => (
               <button
-                key={cat.id} role="tab" aria-selected={activeCategory === cat.id}
+                key={cat.id}
+                role="tab"
+                aria-selected={activeCategory === cat.id}
                 className={`menu-tab${activeCategory === cat.id ? " menu-tab--on" : ""}`}
                 style={activeCategory === cat.id ? { color: primaryColor, borderBottomColor: primaryColor } : undefined}
-                onClick={() => {
-                  setActiveCategory(cat.id);
-                  document.getElementById(`cat-${cat.id}`)?.scrollIntoView({ behavior: "smooth" });
-                }}
+                onClick={() => scrollToCategory(cat.id)}
               >
                 {cat.name}
               </button>
@@ -668,77 +788,78 @@ export function PublicMenuClient({
         </div>
       </div>
 
-      {/* Products */}
-      <div className="menu-main container">
+      {/* Catalog */}
+      <main className="container menu-main">
         {filtered.length === 0 && (
-          <p className="menu-empty muted">No hay productos que coincidan.</p>
+          <div className="rm-empty" role="status" aria-live="polite">
+            <span className="rm-empty-icon" aria-hidden="true">🔍</span>
+            <p className="rm-empty-text">No encontramos «{search}» en el menú.</p>
+            <button className="rm-empty-clear" onClick={() => setSearch("")}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+              Limpiar búsqueda
+            </button>
+          </div>
         )}
         {filtered.map((cat) => (
           <section key={cat.id} id={`cat-${cat.id}`} className="menu-section">
             <h2 className="menu-section-title">{cat.name}</h2>
             <div className="menu-grid">
-              {(cat.products as AnonProduct[]).map((p) => {
-                const img = p.product_images?.[0];
-                const imgUrl = img ? `${imgBase}/${img.storage_path}` : null;
-                const displayPrice = p.product_variants?.[0]?.price_cents ?? p.base_price_cents;
-                return (
-                  <button key={p.id} className="menu-card" style={{ all: "unset", cursor: "pointer", display: "block" }}
-                    onClick={() => setDialogProduct(p)}
-                  >
-                    <div className="menu-card-inner">
-                      <div className="menu-card-info">
-                        <span className="menu-card-name">{p.name}</span>
-                        {p.description && <span className="menu-card-desc">{p.description}</span>}
-                        <span className="menu-card-price" style={{ color: primaryColor }}>
-                          {p.promo_price_cents != null ? (
-                            <>
-                              <span style={{ textDecoration: "line-through", color: "var(--muted)", marginRight: 6, fontWeight: 400, fontSize: 11 }}>
-                                {money(displayPrice)}
-                              </span>
-                              {money(p.promo_price_cents)}
-                            </>
-                          ) : money(displayPrice)}
-                        </span>
-                      </div>
-                      <div className="menu-card-photo">
-                        {imgUrl
-                          // eslint-disable-next-line @next/next/no-img-element
-                          ? <img src={imgUrl} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          : <div className="menu-card-placeholder"><span style={{ fontSize: 24 }}>🍽️</span></div>}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+              {(cat.products as AnonProduct[]).map((p) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  imgBase={imgBase}
+                  primaryColor={primaryColor}
+                  onOpen={() => setDialogProduct(p)}
+                />
+              ))}
             </div>
           </section>
         ))}
-      </div>
+      </main>
 
-      {/* Cart — mobile bottom bar */}
+      {/* Footer */}
+      <footer className="rm-footer">
+        Creado con <strong style={{ color: "var(--purple)", fontWeight: 600 }}>Mesa</strong>
+      </footer>
+
+      {/* Cart FAB — desktop/tablet */}
       {cartCount > 0 && (
-        <div className="mobile-cart" style={{ background: primaryColor, color: "white", borderRadius: 12, padding: "12px 20px" }}>
-          <span style={{ fontWeight: 600 }}>{cartCount} {cartCount === 1 ? "producto" : "productos"}</span>
+        <button
+          className="cart-fab"
+          style={{ background: primaryColor }}
+          onClick={() => setStep("checkout")}
+          aria-label={`Ver pedido, ${cartCount} ${cartCount === 1 ? "producto" : "productos"}, total ${money(cartTotal)}`}
+        >
+          <CartIcon />
+          <span className="cart-fab-label">Ver pedido</span>
+          <span className="cart-fab-total" aria-hidden="true">{money(cartTotal)}</span>
+          <span className="cart-fab-count" aria-hidden="true">{cartCount}</span>
+        </button>
+      )}
+
+      {/* Cart bar — mobile */}
+      {cartCount > 0 && (
+        <div
+          className="cart-bar"
+          style={{ background: primaryColor }}
+          role="complementary"
+          aria-label="Resumen del pedido"
+        >
+          <span className="cart-bar-qty">
+            {cartCount} {cartCount === 1 ? "producto" : "productos"}
+          </span>
           <button
-            type="button"
-            style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "white", borderRadius: 8, padding: "8px 16px", fontWeight: 600, fontSize: 13, cursor: "pointer" }}
+            className="cart-bar-btn"
             onClick={() => setStep("checkout")}
           >
-            Ir al checkout · {money(cartTotal)}
+            Ver pedido · {money(cartTotal)}
           </button>
         </div>
       )}
-
-      {/* Cart — desktop sidebar (simplified) */}
-      {cartCount > 0 && (
-        <div style={{ position: "fixed", right: 24, bottom: 24, display: "none" }}>
-          {/* Desktop users use the mobile-cart bar which is always visible */}
-        </div>
-      )}
-
-      <div className="container" style={{ textAlign: "center", padding: "24px 0 80px", fontSize: 11, color: "var(--muted)" }}>
-        Menú en línea · {restaurant.name} · Desarrollado con Mesa
-      </div>
 
       {/* Product dialog */}
       {dialogProduct && (

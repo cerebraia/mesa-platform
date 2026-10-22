@@ -38,15 +38,7 @@ export function CategoryFormPage({
   }, [state.error, setDirty]);
 
   return (
-    <div className="dashboard-content">
-      <div className="dashboard-heading" style={{ marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 28 }}>
-            {mode === "new" ? "Nueva categoría" : "Editar categoría"}
-          </h1>
-        </div>
-      </div>
-
+    <div className="panel-content">
       <div className="settings-card">
         <form
           action={formAction}

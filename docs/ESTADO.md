@@ -1,4 +1,4 @@
-# Estado Mesa Platform — 15 de octubre de 2026 (rediseño panel v2)
+# Estado Mesa Platform — 22 de octubre de 2026 (rediseño menú público)
 
 ## Resumen ejecutivo
 
@@ -106,6 +106,7 @@
 | **Mobile: drawer oscuro, panel-mobile-header, sidebar oculto a ≤ 760 px** | ✅ |
 | **dashboard-top eliminado de todas las páginas del panel** | ✅ |
 | **Sin regresiones en sitio público ni /r/[slug]** | ✅ (estilos panel aislados en sección del panel de globals.css) |
+| **Rediseño menú público /r/[slug]** | ✅ **Implementado (22/10/2026)** |
 | **Subdominios de restaurante — routing en código** | ✅ **Implementado y probado** |
 | **extractPlatformSubdomainFor: función pura testeable** | ✅ **Exportada; 11 tests cubren válidos, reservados y edge cases** |
 | **resolveRestaurantPath: función pura testeable** | ✅ **Exportada; 8 tests cubren todas las decisiones de path** |
@@ -941,6 +942,52 @@ Si el usuario abre el formulario, lo hace sucio, y luego pulsa el botón Adelant
 ### Pruebas de navegador pendientes (GD-B01 a GD-B11)
 
 Ver lista completa en `tests/unsaved-changes.test.ts`. Sin navegador no se pueden ejecutar.
+
+---
+
+## Rediseño menú público /r/[slug] (22/10/2026)
+
+### Cambios
+
+| Elemento | Cambio |
+|---|---|
+| Portada panorámica (`rm-cover`) | Imagen del restaurante con overlay oscuro; ~220 px escritorio, ~170 px móvil; fallback gradiente Mesa |
+| Identidad | Logo con borde/fondo translúcido, nombre, descripción, píldora Abierto/Cerrado con punto de estado |
+| Buscador | Wrap con icono SVG, placeholder "¿Qué te provoca hoy?", botón limpiar, foco con ring púrpura |
+| Navegación de categorías | Sticky con scroll offset correcto (108 px); IntersectionObserver actualiza categoría activa; sin conflicto con scroll programático |
+| Estado sin resultados | Ícono + texto + botón "Limpiar búsqueda" con borde redondeado |
+| Tarjetas de producto | Radio 14 px, sombra ligera en hover, imagen `align-self:stretch`, descripción clamped 2 líneas, precio de promo tachado si existe |
+| Placeholder sin imagen | Icono SVG CupIcon neutro (sin emoji) |
+| Botón "+" | Fuera del `div` clickeable para evitar botones anidados; aria-label accesible |
+| Carrito desktop | FAB con icono SVG + "Ver pedido" + total + contador |
+| Carrito móvil | Barra inferior con `padding-bottom: env(safe-area-inset-bottom)` para área segura |
+| Pie de página | "Creado con Mesa" discreto, espacio para barra del carrito |
+| Accesibilidad | role=button + onKeyDown en tarjetas, aria-selected en tabs, aria-live en estado vacío, Escape cierra modal, foco preservado |
+
+### Archivos modificados
+
+| Archivo | Tipo |
+|---|---|
+| `src/app/r/[slug]/public-menu-client.tsx` | Rediseño completo — lógica preservada |
+| `src/app/globals.css` | Clases `rm-*` añadidas; `menu-card-*` refinadas; responsive actualizado |
+
+### Verificaciones de código
+
+| Verificación | Resultado |
+|---|---|
+| `npm run typecheck` | ✅ limpio |
+| `npm test` (precios) | ✅ 5/5 |
+| `npm run build` | ✅ limpio |
+
+### Verificaciones visuales pendientes (sin acceso a browser)
+
+- Portada con imagen real del restaurante (coverUrl cargada desde Storage)
+- Logo circular vs. iniciales en fallback
+- Categorías con desplazamiento horizontal en táctil (360 px, 390 px)
+- Descripción cortada en 2 líneas para nombres y descripciones largas
+- Modal de producto en móvil (pantalla completa vs. centrado)
+- Barra de carrito sobre área segura (iPhone con notch)
+- Contraste de la píldora Abierto/Cerrado con imágenes oscuras
 
 ---
 

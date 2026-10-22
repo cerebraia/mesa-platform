@@ -299,13 +299,7 @@ export function ProductFormPage({
     : null;
 
   return (
-    <div className="dashboard-content">
-      <div className="dashboard-heading" style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 28 }}>
-          {mode === "new" ? "Nuevo producto" : "Editar producto"}
-        </h1>
-      </div>
-
+    <div className="panel-content">
       <form
         onSubmit={handleSubmit}
         // Propagate changes to the shared guard. Image picker
