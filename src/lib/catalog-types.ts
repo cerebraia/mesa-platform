@@ -22,6 +22,8 @@ export interface Product {
   is_available: boolean;
   is_published: boolean;
   position: number;
+  // Added in migration 026. null → 'cover' (default). 'contain' → show full product.
+  image_fit: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +33,8 @@ export interface ProductImage {
   product_id: string;
   restaurant_id: string;
   storage_path: string;
+  // Added in migration 027. If set, used as the card thumbnail.
+  thumbnail_path: string | null;
   alt_text: string | null;
   position: number;
   created_at: string;
@@ -96,6 +100,7 @@ export interface ProductInput {
   is_available?: boolean;
   is_published?: boolean;
   position?: number;
+  image_fit?: string;
 }
 
 // ── Public menu types ─────────────────────────────────────────
@@ -110,6 +115,8 @@ export interface PublicProductImage {
   product_id: string;
   restaurant_id: string;
   storage_path: string;
+  // Added in migration 027. Card uses this when available.
+  thumbnail_path?: string | null;
   alt_text: string | null;
   position: number;
 }
@@ -152,6 +159,8 @@ export interface PublicProduct {
   base_price_cents: number;
   promo_price_cents: number | null;
   position: number;
+  // Added in migration 026. null → cover. 'contain' → show full product without cropping.
+  image_fit?: string | null;
   product_images: PublicProductImage[];
   product_variants: PublicProductVariant[];
   option_groups: PublicOptionGroup[];
@@ -173,6 +182,10 @@ export interface RestaurantConfig {
   logo_path: string | null;
   cover_path: string | null;
   primary_color: string | null;
+  // Added in migration 025.
+  background_color: string | null;
+  secondary_color: string | null;
+  font_family: string | null;
   phone: string | null;
   whatsapp: string | null;
   instagram_url: string | null;
@@ -188,6 +201,8 @@ export interface RestaurantConfig {
   closed_message: string | null;
   // Added in migration 024. DEFAULT true.
   orders_enabled: boolean;
+  // Added in migration 030. DEFAULT false.
+  stock_tracking_enabled?: boolean;
   updated_at: string;
 }
 
@@ -226,7 +241,7 @@ export interface PaymentMethod {
   updated_at: string;
 }
 
-// Public-facing config: anon can read these fields (migrations 012 + 024 grants).
+// Public-facing config: anon can read these fields (migrations 012 + 024 + 025 grants).
 // payment_methods.instructions is NOT included — private.
 export interface PublicRestaurantConfig {
   restaurant_id: string;
@@ -234,6 +249,10 @@ export interface PublicRestaurantConfig {
   logo_path: string | null;
   cover_path: string | null;
   primary_color: string | null;
+  // Added in migration 025.
+  background_color: string | null;
+  secondary_color: string | null;
+  font_family: string | null;
   phone: string | null;
   whatsapp: string | null;
   instagram_url: string | null;
@@ -373,3 +392,46 @@ export interface OrderConfirmationOption {
   optionName: string;
   priceDeltaCents: number;
 }
+
+// ── Finance types (migration 028) ────────────────────────────
+
+export type FinancialMovement = {
+  id: string;
+  restaurant_id: string;
+  type: 'income' | 'expense' | 'purchase';
+  amount_cents: number;
+  currency: string;
+  concept: string;
+  category: string | null;
+  movement_date: string;
+  notes: string | null;
+  reference: string | null;
+  counterpart: string | null;
+  product_id: string | null;
+  units: number | null;
+  is_voided: boolean;
+  voided_at: string | null;
+  voided_reason: string | null;
+  created_by: string;
+  created_at: string;
+};
+
+export type FinancialSummary = {
+  income_cents: number;
+  expense_cents: number;
+  net_cents: number;
+  currency: string;
+  movement_count: number;
+};
+
+export type StockAdjustmentLog = {
+  id: string;
+  restaurant_id: string;
+  product_id: string;
+  variant_id: string | null;
+  delta: number;
+  reason: string | null;
+  new_quantity: number;
+  created_by: string;
+  created_at: string;
+};

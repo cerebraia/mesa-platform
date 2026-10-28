@@ -13,7 +13,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/panel-context";
 import { PageHeader } from "@/components/panel/page-header";
 import { EmptyState } from "@/components/panel/empty-state";
-import { RestaurantSwitcher } from "./restaurant-switcher";
+// RestaurantSwitcher is now rendered in the sidebar (PanelShell).
 import { PeriodTabs } from "./period-tabs";
 import type { MemberRole } from "@/lib/db-types";
 
@@ -490,12 +490,6 @@ export default async function PanelPage({
       />
 
       <div className="panel-content">
-        {active.hasMultiple && (
-          <div style={{ marginBottom: 16 }}>
-            <RestaurantSwitcher options={options} activeRestaurantId={active.restaurantId} />
-          </div>
-        )}
-
         {/* Catalog-only mode: show catalog summary instead of order metrics */}
         {catalogOnly && !isKitchen && (
           <CatalogDashboard

@@ -40,6 +40,14 @@ export default async function PedidosPage({
   const role         = active.role;
   const isKitchen    = role === "kitchen";
 
+  // Check catalog-only mode before fetching orders.
+  const { data: cfgRow } = await supabase
+    .from("restaurant_config")
+    .select("orders_enabled")
+    .eq("restaurant_id", restaurantId)
+    .maybeSingle();
+  const ordersEnabled = cfgRow?.orders_enabled ?? true;
+
   const statusFilter   = sp.status     ?? null;
   const paymentFilter  = sp.pago       ?? null;
   const modalityFilter = sp.modalidad  ?? null;
@@ -72,6 +80,14 @@ export default async function PedidosPage({
       />
 
       <div className="panel-content">
+        {!ordersEnabled && (
+          <div className="panel-info-notice">
+            <strong>Este negocio está en modo "Solo catálogo".</strong>{" "}
+            Los pedidos en línea están desactivados.{" "}
+            <a href="/panel/configuracion?tab=general">Activar pedidos →</a>
+          </div>
+        )}
+
         {error && (
           <div className="auth-error" role="alert" style={{ marginBottom: 16 }}>
             Error al cargar pedidos: {error.message}

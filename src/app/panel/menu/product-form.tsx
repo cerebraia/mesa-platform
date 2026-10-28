@@ -2,8 +2,11 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { saveProduct } from "./actions";
+import { saveProductControl, type FinanceState } from "@/app/panel/finanzas/actions";
 import { useUnsavedChanges, UnsavedAwareLink } from "@/components/unsaved-changes";
+import { CropTool } from "@/components/crop-tool";
 import type {
   Category,
   Product,
@@ -48,6 +51,8 @@ interface ProductFormProps {
   existingVariants?: ProductVariant[];
   existingGroups?: (OptionGroup & { options: Option[] })[];
   restaurantId: string;
+  stockEnabled?: boolean;
+  existingControl?: { cost_cents: number | null; stock_quantity: number | null; stock_alert: number | null };
 }
 
 // ── Main component ─────────────────────────────────────────────
@@ -61,6 +66,8 @@ export function ProductFormPage({
   existingVariants,
   existingGroups,
   restaurantId,
+  stockEnabled = false,
+  existingControl,
 }: ProductFormProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError]   = useState<string | null>(null);
@@ -84,11 +91,15 @@ export function ProductFormPage({
   );
   const [isAvailable, setIsAvailable] = useState(product?.is_available ?? true);
   const [isPublished, setIsPublished] = useState(product?.is_published ?? false);
+  const [imageFit, setImageFit] = useState<string>(product?.image_fit ?? "cover");
 
-  // Image
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  // Image upload + crop state
+  const [imageFile, setImageFile]       = useState<File | null>(null);   // original to upload
+  const [thumbFile, setThumbFile]       = useState<File | null>(null);   // cropped thumbnail
+  const [imagePreview, setImagePreview] = useState<string | null>(null); // shown in form
+  const [uploadError, setUploadError]   = useState<string | null>(null);
+  // cropTarget: when set, CropTool modal is shown
+  const [cropTarget, setCropTarget] = useState<{ file?: File; url?: string } | null>(null);
 
   // Variants
   const [variants, setVariants] = useState<LocalVariant[]>(
@@ -118,15 +129,47 @@ export function ProductFormPage({
   );
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null;
-    setImageFile(file);
+    const file = e.target.files?.[0];
+    if (!file) return;
     setUploadError(null);
+    // Open crop tool before committing the file
+    setCropTarget({ file });
+    // Reset input so the same file can be re-selected
+    e.target.value = "";
+  }
+
+  function handleCropConfirm(thumb: File) {
+    // thumb = cropped 1:1 WebP; imageFile = original (already set via cropTarget.file)
+    setThumbFile(thumb);
+    if (cropTarget?.file) setImageFile(cropTarget.file);
+    setImagePreview(URL.createObjectURL(thumb));
+    setCropTarget(null);
     setDirty(true);
-    if (file) {
-      setImagePreview(URL.createObjectURL(file));
-    } else {
-      setImagePreview(null);
+  }
+
+  function handleCropSkip() {
+    // Use original without crop — card will rely on CSS cover
+    if (cropTarget?.file) {
+      setImageFile(cropTarget.file);
+      setThumbFile(null);
+      setImagePreview(URL.createObjectURL(cropTarget.file));
     }
+    setCropTarget(null);
+    setDirty(true);
+  }
+
+  function handleCropExisting() {
+    if (!existingImgUrl) return;
+    setCropTarget({ url: existingImgUrl });
+  }
+
+  function handleCropExistingConfirm(thumb: File) {
+    setThumbFile(thumb);
+    // No new original; only the thumbnail changes
+    setImageFile(null);
+    setImagePreview(URL.createObjectURL(thumb));
+    setCropTarget(null);
+    setDirty(true);
   }
 
   // ── Variants helpers ──────────────────────────────────────────
@@ -248,22 +291,32 @@ export function ProductFormPage({
 
     startTransition(async () => {
       let imagePath: string | undefined;
+      let thumbPath: string | undefined;
+      const productIdForPath = product?.id ?? "new";
 
-      // Upload image if selected
+      // Upload original image if selected
       if (imageFile) {
-        const productIdForPath = product?.id ?? "new";
         const fd = new FormData();
         fd.append("file", imageFile);
         fd.append("restaurant_id", restaurantId);
         fd.append("product_id", productIdForPath);
-
         const res = await fetch("/api/menu/upload", { method: "POST", body: fd });
         const json = (await res.json()) as { path?: string; error?: string };
-        if (!res.ok || json.error) {
-          setError(json.error ?? "Error al subir la imagen.");
-          return;
-        }
+        if (!res.ok || json.error) { setError(json.error ?? "Error al subir la imagen."); return; }
         imagePath = json.path;
+      }
+
+      // Upload cropped thumbnail if available (either from new upload or existing image crop)
+      if (thumbFile) {
+        const fd = new FormData();
+        fd.append("file", thumbFile);
+        fd.append("restaurant_id", restaurantId);
+        fd.append("product_id", productIdForPath);
+        fd.append("type", "product_thumb");
+        const res = await fetch("/api/menu/upload", { method: "POST", body: fd });
+        const json = (await res.json()) as { path?: string; error?: string };
+        if (!res.ok || json.error) { setError(json.error ?? "Error al subir miniatura."); return; }
+        thumbPath = json.path;
       }
 
       const result = await saveProduct({
@@ -275,11 +328,14 @@ export function ProductFormPage({
         promo_price_cents: promoCents,
         is_available: isAvailable,
         is_published: isPublished,
+        image_fit: imageFit,
         variants,
         option_groups: groups,
         image_path: imagePath,
+        thumb_path: thumbPath,
         old_image_path: imagePath ? existingImage?.storage_path : undefined,
         old_image_id: imagePath ? existingImage?.id : undefined,
+        old_thumb_path: thumbPath && !imagePath ? existingImage?.thumbnail_path ?? undefined : undefined,
       });
 
       if (result.error) {
@@ -401,43 +457,102 @@ export function ProductFormPage({
 
           {/* ── Imagen ── */}
           <div className="dashboard-card" style={{ marginBottom: 16 }}>
-            <h2 style={{ fontSize: 16, marginBottom: 20 }}>Fotografía</h2>
-            <p
-              className="muted"
-              style={{ fontSize: 12, marginBottom: 16 }}
-            >
-              JPEG, PNG o WebP · máx. 5 MB. La imagen anterior se conserva hasta
-              confirmar el guardado.
+            <h2 style={{ fontSize: 16, marginBottom: 12 }}>Fotografía</h2>
+            <p className="muted" style={{ fontSize: 12, marginBottom: 14 }}>
+              Recomendado 1080 × 1080 px (1:1). JPEG, PNG o WebP · máx. 5 MB.
+              Al seleccionar una imagen se abre el recortador para generar la miniatura del catálogo.
             </p>
 
-            {(imagePreview ?? existingImgUrl) && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={imagePreview ?? existingImgUrl!}
-                alt="Vista previa"
-                style={{
-                  width: 120,
-                  height: 120,
-                  objectFit: "cover",
-                  borderRadius: 8,
-                  marginBottom: 16,
-                  display: "block",
-                }}
-              />
-            )}
+            {/* Preview row */}
+            <div style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+              {/* Current preview (thumbnail if cropped, else original/existing) */}
+              {(imagePreview ?? existingImgUrl) && (
+                <div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>
+                    {imagePreview ? (thumbFile ? "Miniatura (recortada)" : "Original") : "Imagen actual"}
+                  </div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imagePreview ?? existingImgUrl!}
+                    alt="Vista previa"
+                    style={{ width: 108, height: 108, objectFit: "cover", borderRadius: 8,
+                             display: "block", border: "1px solid var(--border)" }}
+                  />
+                </div>
+              )}
+              {/* Show original separately if a crop was made on an existing image */}
+              {!imagePreview && existingImgUrl && existingImage?.thumbnail_path && (
+                <div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>Original (galería)</div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={existingImgUrl}
+                    alt="Original"
+                    style={{ width: 108, height: 108, objectFit: "contain", borderRadius: 8,
+                             display: "block", border: "1px solid var(--border)", background: "#f5f5f5" }}
+                  />
+                </div>
+              )}
+            </div>
 
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleImageChange}
-              style={{ fontSize: 13 }}
-            />
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <label style={{ cursor: "pointer" }}>
+                <span className="button secondary small">Seleccionar imagen…</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleImageChange}
+                  style={{ display: "none" }}
+                />
+              </label>
+              {/* Crop existing image (only when there's an image and no pending new one) */}
+              {!imageFile && (existingImgUrl || imagePreview) && (
+                <button
+                  type="button"
+                  className="button secondary small"
+                  onClick={handleCropExisting}
+                >
+                  ✂ Recortar miniatura
+                </button>
+              )}
+            </div>
             {uploadError && (
               <p className="auth-error" style={{ marginTop: 8 }}>
                 {uploadError}
               </p>
             )}
+
+            {/* Image fit selector — fallback when no crop is available */}
+            <div style={{ marginTop: 14 }}>
+              <label style={{ fontSize: 13, fontWeight: 500, display: "block", marginBottom: 6 }}>
+                Encuadre en tarjeta (sin miniatura recortada)
+              </label>
+              <select
+                value={imageFit}
+                onChange={(e) => { setImageFit(e.target.value); setDirty(true); }}
+                style={{ fontSize: 13, minWidth: 220 }}
+              >
+                <option value="cover">Rellenar — llena el cuadro (puede recortar bordes)</option>
+                <option value="contain">Completa — muestra el producto sin recortar</option>
+              </select>
+              <p className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                Si hay miniatura recortada, este ajuste no tiene efecto.
+                El modal siempre muestra la fotografía original completa.
+              </p>
+            </div>
           </div>
+
+          {/* ── Crop tool modal ── */}
+          {cropTarget && (
+            <CropTool
+              file={cropTarget.file}
+              url={cropTarget.url}
+              onConfirm={cropTarget.file ? handleCropConfirm : handleCropExistingConfirm}
+              onSkip={cropTarget.file ? handleCropSkip : undefined}
+              onCancel={() => setCropTarget(null)}
+            />
+          )}
 
           {/* ── Variantes de precio ── */}
           <div className="dashboard-card" style={{ marginBottom: 16 }}>
@@ -716,6 +831,98 @@ export function ProductFormPage({
             </UnsavedAwareLink>
           </div>
         </form>
+
+        {/* Stock control block — only in edit mode when stock tracking is enabled */}
+        {stockEnabled && product?.id && (
+          <ProductControlBlock
+            productId={product.id}
+            hasVariants={(existingVariants?.length ?? 0) > 0}
+            existingControl={existingControl}
+          />
+        )}
+    </div>
+  );
+}
+
+// ── ProductControlBlock ───────────────────────────────────────
+
+function ProductControlBlock({
+  productId,
+  hasVariants,
+  existingControl,
+}: {
+  productId: string;
+  hasVariants: boolean;
+  existingControl?: { cost_cents: number | null; stock_quantity: number | null; stock_alert: number | null };
+}) {
+  const [open, setOpen] = useState(false);
+  const [costVal, setCostVal] = useState(
+    existingControl?.cost_cents != null ? String(existingControl.cost_cents / 100) : "",
+  );
+  const [stockQty, setStockQty] = useState(
+    existingControl?.stock_quantity != null ? String(existingControl.stock_quantity) : "",
+  );
+  const [stockAlert, setStockAlert] = useState(
+    existingControl?.stock_alert != null ? String(existingControl.stock_alert) : "",
+  );
+  const [ctrlPending, startCtrlTransition] = useTransition();
+  const [ctrlState, setCtrlState] = useState<FinanceState>({ error: null });
+
+  function handleSaveControl() {
+    const costCents = costVal ? Math.round(parseFloat(costVal) * 100) : null;
+    const qty       = stockQty ? parseInt(stockQty, 10) : null;
+    const alert     = stockAlert ? parseInt(stockAlert, 10) : null;
+    startCtrlTransition(async () => {
+      const result = await saveProductControl(productId, { cost_cents: costCents, stock_quantity: qty, stock_alert: alert });
+      setCtrlState(result);
+    });
+  }
+
+  return (
+    <div className="ctrl-block">
+      <button type="button" className="ctrl-block-header" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <span className="ctrl-block-title">Control del producto</span>
+        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      </button>
+      {open && (
+        <div className="ctrl-block-body">
+          {hasVariants ? (
+            <p className="panel-info-notice" style={{ marginBottom: 0 }}>
+              Este producto tiene variantes. El seguimiento de stock por variante estará disponible próximamente.
+            </p>
+          ) : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+                <div className="field">
+                  <label htmlFor="ctrl-cost">Costo (por unidad)</label>
+                  <input id="ctrl-cost" type="number" min="0" step="0.01"
+                    value={costVal} onChange={(e) => setCostVal(e.target.value)} placeholder="0.00" />
+                  <span className="cfg-field-hint">Costo de adquisición o producción.</span>
+                </div>
+                <div className="field">
+                  <label htmlFor="ctrl-qty">Stock actual</label>
+                  <input id="ctrl-qty" type="number" min="0" step="1"
+                    value={stockQty} onChange={(e) => setStockQty(e.target.value)} placeholder="0" />
+                  <span className="cfg-field-hint">Unidades disponibles.</span>
+                </div>
+                <div className="field">
+                  <label htmlFor="ctrl-alert">Alerta de stock bajo</label>
+                  <input id="ctrl-alert" type="number" min="0" step="1"
+                    value={stockAlert} onChange={(e) => setStockAlert(e.target.value)} placeholder="5" />
+                  <span className="cfg-field-hint">Avisa cuando el stock sea igual o menor.</span>
+                </div>
+              </div>
+              <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 12 }}>
+                <button type="button" className="button" disabled={ctrlPending} onClick={handleSaveControl}>
+                  {ctrlPending ? "Guardando…" : "Guardar control"}
+                </button>
+                {ctrlState.error && <span style={{ color: "#dc2626", fontSize: 13 }}>{ctrlState.error}</span>}
+                {ctrlState.success && <span style={{ color: "#059669", fontSize: 13 }}>✓ Guardado</span>}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

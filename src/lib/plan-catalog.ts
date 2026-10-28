@@ -17,6 +17,7 @@ export interface PlanDefinition {
   features:          string[];
   badge?:            string;
   contact_subject:   string;
+  wa_message:        string;
 }
 
 export const PLAN_CATALOG: readonly PlanDefinition[] = [
@@ -40,6 +41,7 @@ export const PLAN_CATALOG: readonly PlanDefinition[] = [
       "Soporte estándar",
     ],
     contact_subject: "Solicitud de catálogo: Mesa Inicio",
+    wa_message: "Hola, me interesa el plan Mesa Inicio. ¿Podrían darme más información?",
   },
   {
     code:         "negocio",
@@ -64,6 +66,7 @@ export const PLAN_CATALOG: readonly PlanDefinition[] = [
       "Soporte estándar",
     ],
     contact_subject: "Solicitud de catálogo: Mesa Negocio",
+    wa_message: "Hola, me interesa el plan Mesa Negocio. ¿Podrían darme más información?",
   },
   {
     code:         "acompanado",
@@ -86,6 +89,7 @@ export const PLAN_CATALOG: readonly PlanDefinition[] = [
       "Soporte prioritario en horario laboral",
     ],
     contact_subject: "Solicitud de catálogo: Mesa Acompañado",
+    wa_message: "Hola, me interesa el plan Mesa Acompañado con ayuda de catálogo. ¿Podrían darme más información?",
   },
 ] as const;
 

@@ -15,9 +15,9 @@ export function RestaurantSwitcher({ options, activeRestaurantId }: Props) {
 
   return (
     <div className="dashboard-card" style={{ marginBottom: 20 }}>
-      <h2 style={{ fontSize: 15, marginBottom: 12 }}>Cambiar restaurante</h2>
+      <h2 style={{ fontSize: 15, marginBottom: 12 }}>Cambiar negocio</h2>
       <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 12 }}>
-        Al cambiar se descartará cualquier edición en curso en este restaurante.
+        Al cambiar se descartará cualquier edición en curso en este negocio.
       </p>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {options.map((opt) => {

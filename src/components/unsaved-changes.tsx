@@ -48,12 +48,19 @@ interface UnsavedChangesCtx {
   setDirty:   (dirty: boolean) => void;
   /** Returns true if the caller may proceed (user chose "Descartar"). */
   requestLeave: () => Promise<boolean>;
+  /**
+   * Register a function the dialog can call for "Guardar y continuar".
+   * Return true = save succeeded (dialog proceeds), false = save failed (dialog stays).
+   * Pass null to unregister.
+   */
+  setSaveHandler: (fn: (() => Promise<boolean>) | null) => void;
 }
 
 const Ctx = createContext<UnsavedChangesCtx>({
-  isDirty:      false,
-  setDirty:     () => {},
-  requestLeave: async () => true,
+  isDirty:        false,
+  setDirty:       () => {},
+  requestLeave:   async () => true,
+  setSaveHandler: () => {},
 });
 
 export function useUnsavedChanges(): UnsavedChangesCtx {
@@ -70,9 +77,13 @@ export function UnsavedChangesProvider({
   const [isDirty, _setDirty]   = useState(false);
   const isDirtyRef              = useRef(false);
   const [showDialog, setShowDialog] = useState(false);
-  const resolveRef = useRef<((leave: boolean) => void) | null>(null);
+  const [isSaving,  setIsSaving]    = useState(false);
+  const resolveRef    = useRef<((leave: boolean) => void) | null>(null);
   // Track whether we have a history sentinel entry active.
-  const hasSentinel = useRef(false);
+  const hasSentinel   = useRef(false);
+  // Handler registered by the active form for "Guardar y continuar".
+  const saveHandlerRef            = useRef<(() => Promise<boolean>) | null>(null);
+  const [hasSaveHandler, setHasSaveHandler] = useState(false);
 
   // Keep ref in sync so event handlers read the latest value.
   const setDirty = useCallback((dirty: boolean) => {
@@ -88,6 +99,11 @@ export function UnsavedChangesProvider({
       // (we leave the history entry; it becomes an inert extra step at worst)
       hasSentinel.current = false;
     }
+  }, []);
+
+  const setSaveHandler = useCallback((fn: (() => Promise<boolean>) | null) => {
+    saveHandlerRef.current = fn;
+    setHasSaveHandler(fn !== null);
   }, []);
 
   const requestLeave = useCallback((): Promise<boolean> => {
@@ -109,12 +125,32 @@ export function UnsavedChangesProvider({
 
   function cancelLeave() {
     setShowDialog(false);
+    setIsSaving(false);
     resolveRef.current?.(false);
     resolveRef.current = null;
     // Restore the sentinel in case popstate had consumed it
     if (isDirtyRef.current && !hasSentinel.current) {
       history.pushState({ unsavedGuard: true }, "");
       hasSentinel.current = true;
+    }
+  }
+
+  async function saveAndContinue() {
+    const handler = saveHandlerRef.current;
+    if (!handler) return;
+    setIsSaving(true);
+    try {
+      const ok = await handler();
+      setIsSaving(false);
+      if (ok) {
+        confirmDiscard();
+      } else {
+        // Save failed — form shows its own error; close dialog and stay
+        cancelLeave();
+      }
+    } catch {
+      setIsSaving(false);
+      cancelLeave();
     }
   }
 
@@ -157,12 +193,14 @@ export function UnsavedChangesProvider({
   }, []);
 
   return (
-    <Ctx.Provider value={{ isDirty, setDirty, requestLeave }}>
+    <Ctx.Provider value={{ isDirty, setDirty, requestLeave, setSaveHandler }}>
       {children}
       {showDialog && (
         <UnsavedDialog
           onStay={cancelLeave}
           onDiscard={confirmDiscard}
+          onSave={hasSaveHandler ? saveAndContinue : undefined}
+          isSaving={isSaving}
         />
       )}
     </Ctx.Provider>
@@ -174,32 +212,36 @@ export function UnsavedChangesProvider({
 function UnsavedDialog({
   onStay,
   onDiscard,
+  onSave,
+  isSaving,
 }: {
   onStay:    () => void;
   onDiscard: () => void;
+  onSave?:   () => void;
+  isSaving?: boolean;
 }) {
-  const stayRef = useRef<HTMLButtonElement>(null);
+  const primaryRef = useRef<HTMLButtonElement>(null);
 
-  // Focus "Seguir editando" on mount; restore on close via onStay/onDiscard.
+  // Focus primary action on mount
   useEffect(() => {
-    stayRef.current?.focus();
+    primaryRef.current?.focus();
   }, []);
 
-  // Escape → stay
+  // Escape → stay (only when not saving)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onStay();
+      if (e.key === "Escape" && !isSaving) onStay();
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [onStay]);
+  }, [onStay, isSaving]);
 
   return (
     <>
       {/* Backdrop */}
       <div
         aria-hidden="true"
-        onClick={onStay}
+        onClick={isSaving ? undefined : onStay}
         style={{
           position: "fixed", inset: 0,
           background: "rgba(41,34,52,0.45)",
@@ -239,18 +281,30 @@ function UnsavedDialog({
           Si sales ahora, los cambios que no hayas guardado se perderán.
         </p>
 
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
           <button
-            ref={stayRef}
+            ref={primaryRef}
             className="button"
             onClick={onStay}
+            disabled={isSaving}
             style={{ minHeight: 40, fontSize: 13 }}
           >
             Seguir editando
           </button>
+          {onSave && (
+            <button
+              className="button"
+              onClick={onSave}
+              disabled={isSaving}
+              style={{ minHeight: 40, fontSize: 13, background: "var(--purple)", color: "#fff", border: "none" }}
+            >
+              {isSaving ? "Guardando…" : "Guardar y continuar"}
+            </button>
+          )}
           <button
             className="button secondary"
             onClick={onDiscard}
+            disabled={isSaving}
             style={{ minHeight: 40, fontSize: 13, color: "#a72b38", borderColor: "#f5bdc4" }}
           >
             Descartar y salir

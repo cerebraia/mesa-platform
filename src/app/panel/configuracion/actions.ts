@@ -45,6 +45,9 @@ export async function saveConfig(
   const config = {
     description:           String(formData.get("description") ?? ""),
     primary_color:         String(formData.get("primary_color") ?? "").trim() || "#703BE6",
+    background_color:      String(formData.get("background_color") ?? "").trim(),
+    secondary_color:       String(formData.get("secondary_color") ?? "").trim(),
+    font_family:           String(formData.get("font_family") ?? "").trim(),
     phone:                 String(formData.get("phone") ?? "").trim(),
     whatsapp:              String(formData.get("whatsapp") ?? "").trim(),
     instagram_url:         String(formData.get("instagram_url") ?? "").trim(),
@@ -67,6 +70,123 @@ export async function saveConfig(
     p_config: config,
   });
 
+  if (error) return { error: error.message };
+
+  revalidateAll(restaurantId);
+  return { error: null, success: true };
+}
+
+// ── Targeted section saves ────────────────────────────────────
+// Each action updates ONLY its own columns via a direct upsert on
+// restaurant_config, so concurrent saves to different sections cannot
+// overwrite each other (no read-modify-write race).
+
+export async function saveIdentity(
+  _prev: ConfigState,
+  formData: FormData,
+): Promise<ConfigState> {
+  const name     = String(formData.get("name") ?? "").trim();
+  const timezone = String(formData.get("timezone") ?? "").trim();
+  if (!name)     return { error: "El nombre del negocio es obligatorio." };
+  if (!timezone) return { error: "La zona horaria es obligatoria." };
+
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerMembership());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  // restaurants.name and restaurants.timezone — direct update (restaurants_update RLS allows owner)
+  const { error: e1 } = await supabase
+    .from("restaurants")
+    .update({ name, timezone })
+    .eq("id", restaurantId);
+  if (e1) return { error: e1.message };
+
+  // restaurant_config — upsert only identity columns; leaves appearance/catalog untouched
+  const { error: e2 } = await supabase
+    .from("restaurant_config")
+    .upsert(
+      {
+        restaurant_id: restaurantId,
+        description:   String(formData.get("description") ?? "").trim() || null,
+        phone:         String(formData.get("phone") ?? "").trim()        || null,
+        whatsapp:      String(formData.get("whatsapp") ?? "").trim()     || null,
+        instagram_url: String(formData.get("instagram_url") ?? "").trim()|| null,
+        facebook_url:  String(formData.get("facebook_url") ?? "").trim() || null,
+        twitter_url:   String(formData.get("twitter_url") ?? "").trim()  || null,
+        address:       String(formData.get("address") ?? "").trim()      || null,
+      },
+      { onConflict: "restaurant_id" },
+    );
+  if (e2) return { error: e2.message };
+
+  revalidateAll(restaurantId);
+  return { error: null, success: true };
+}
+
+export async function saveAppearanceConfig(
+  _prev: ConfigState,
+  formData: FormData,
+): Promise<ConfigState> {
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerMembership());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  // Upsert only appearance columns; identity and catalog-mode fields are untouched
+  const { error } = await supabase
+    .from("restaurant_config")
+    .upsert(
+      {
+        restaurant_id:    restaurantId,
+        primary_color:    String(formData.get("primary_color") ?? "").trim()    || "#703BE6",
+        background_color: String(formData.get("background_color") ?? "").trim() || null,
+        secondary_color:  String(formData.get("secondary_color") ?? "").trim()  || null,
+        font_family:      String(formData.get("font_family") ?? "").trim()      || null,
+      },
+      { onConflict: "restaurant_id" },
+    );
+  if (error) return { error: error.message };
+
+  revalidateAll(restaurantId);
+  return { error: null, success: true };
+}
+
+export async function saveCatalogMode(
+  _prev: ConfigState,
+  formData: FormData,
+): Promise<ConfigState> {
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerMembership());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  // Upsert only catalog-mode columns; appearance and identity fields are untouched
+  const { error } = await supabase
+    .from("restaurant_config")
+    .upsert(
+      {
+        restaurant_id:          restaurantId,
+        orders_enabled:         formData.get("orders_enabled") === "true",
+        pickup_enabled:         formData.get("pickup_enabled") === "true",
+        pickup_address:         String(formData.get("pickup_address") ?? "").trim() || null,
+        pickup_notes:           String(formData.get("pickup_notes") ?? "").trim()   || null,
+        delivery_enabled:       formData.get("delivery_enabled") === "true",
+        is_temporarily_closed:  formData.get("is_temporarily_closed") === "true",
+        closed_message:         String(formData.get("closed_message") ?? "").trim() || null,
+        stock_tracking_enabled: formData.get("stock_tracking_enabled") === "true",
+      },
+      { onConflict: "restaurant_id" },
+    );
   if (error) return { error: error.message };
 
   revalidateAll(restaurantId);
@@ -144,6 +264,37 @@ export async function saveConfigImage(
 
   revalidateAll(restaurantId);
   return { error: null, oldPath: oldPath as string | undefined };
+}
+
+// ── Remove config image (logo / cover) ────────────────────────
+// Atomically clears the path in DB, then deletes the Storage file.
+// If the DB update fails, the Storage file is preserved (safe fallback).
+
+export async function removeConfigImage(
+  field: "logo_path" | "cover_path",
+): Promise<ConfigState> {
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerMembership());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const { data: oldPath, error } = await supabase.rpc("update_config_image", {
+    p_restaurant_id: restaurantId,
+    p_field:         field,
+    p_new_path:      null,
+  });
+
+  if (error) return { error: error.message };
+
+  if (oldPath) {
+    await supabase.storage.from("restaurant-assets").remove([oldPath as string]);
+  }
+
+  revalidateAll(restaurantId);
+  return { error: null, success: true };
 }
 
 // ── Delivery zones ─────────────────────────────────────────────

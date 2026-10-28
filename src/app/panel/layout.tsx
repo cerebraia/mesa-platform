@@ -4,7 +4,6 @@ import { getActiveMembership } from "@/lib/panel-context";
 import { Brand } from "@/components/brand";
 import { SignOutButton } from "@/components/sign-out-button";
 import { PanelShell } from "./panel-shell";
-
 export default async function PanelLayout({
   children,
 }: {
@@ -17,7 +16,23 @@ export default async function PanelLayout({
 
   if (!user) redirect("/login");
 
-  const { active } = await getActiveMembership();
+  const { active, options } = await getActiveMembership();
+
+  // Multiple memberships with no valid cookie selection → business selector.
+  // Single membership is auto-selected in getActiveMembership.
+  // Zero memberships falls through to the "access pending" screen below.
+  if (!active && options.length > 1) {
+    redirect("/seleccionar-negocio");
+  }
+
+  // Fetch orders_enabled for the "Ver menú / Ver catálogo" label.
+  const { data: cfgRow } = active
+    ? await supabase.from("restaurant_config")
+        .select("orders_enabled")
+        .eq("restaurant_id", active.restaurantId)
+        .maybeSingle()
+    : { data: null };
+  const ordersEnabled = cfgRow?.orders_enabled ?? true;
 
   if (!active) {
     const email    = user.email ?? "";
@@ -56,7 +71,10 @@ export default async function PanelLayout({
       role={active.role}
       restaurantName={active.restaurant.name}
       restaurantSlug={active.restaurant.slug}
+      restaurantId={active.restaurantId}
       userEmail={user.email ?? ""}
+      ordersEnabled={ordersEnabled}
+      membershipOptions={options}
     >
       {children}
     </PanelShell>

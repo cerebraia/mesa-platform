@@ -20,15 +20,24 @@ export default async function NewProductPage({
   const { active } = await getActiveMembership();
   if (!active) redirect("/panel");
 
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("*")
-    .eq("restaurant_id", active.restaurantId)
-    .eq("is_active", true)
-    .order("position")
-    .returns<Category[]>();
+  const [{ data: categories }, { data: cfgRow }] = await Promise.all([
+    supabase
+      .from("categories")
+      .select("*")
+      .eq("restaurant_id", active.restaurantId)
+      .eq("is_active", true)
+      .order("position")
+      .returns<Category[]>(),
+    supabase
+      .from("restaurant_config")
+      .select("stock_tracking_enabled")
+      .eq("restaurant_id", active.restaurantId)
+      .maybeSingle(),
+  ]);
 
   if (!categories?.length) redirect("/panel/menu");
+
+  const stockEnabled = cfgRow?.stock_tracking_enabled ?? false;
 
   return (
     <>
@@ -42,6 +51,7 @@ export default async function NewProductPage({
         categories={categories}
         defaultCategoryId={categoryParam}
         restaurantId={active.restaurantId}
+        stockEnabled={stockEnabled}
       />
     </>
   );

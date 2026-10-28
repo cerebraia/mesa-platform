@@ -124,8 +124,10 @@ export async function saveProduct(
     variants: VariantInput[];
     option_groups: OptionGroupInput[];
     image_path?: string;
+    thumb_path?: string;       // cropped 1:1 thumbnail (migration 027)
     old_image_path?: string;
     old_image_id?: string;
+    old_thumb_path?: string;
   },
 ): Promise<ProductState> {
   let supabase: Awaited<ReturnType<typeof createServerClient>>;
@@ -151,6 +153,7 @@ export async function saveProduct(
         is_available: data.is_available ?? true,
         is_published: data.is_published ?? false,
         position: data.position ?? 0,
+        image_fit: data.image_fit ?? "cover",
       },
       p_variants: data.variants,
       p_option_groups: data.option_groups,
@@ -178,23 +181,31 @@ export async function saveProduct(
       product_id: productId as string,
       restaurant_id: restaurantId,
       storage_path: data.image_path,
+      thumbnail_path: data.thumb_path ?? null,
       position: 0,
     });
 
     if (imgError) {
-      // New image reference failed — delete the orphaned Storage file.
       await supabase.storage.from("product-images").remove([data.image_path]);
+      if (data.thumb_path) await supabase.storage.from("product-images").remove([data.thumb_path]);
       return {
         error: `Producto guardado pero error al asociar imagen: ${imgError.message}`,
         productId: productId as string,
       };
     }
 
-    // New image record saved — now safe to delete the old Storage file.
-    if (data.old_image_path) {
-      await supabase.storage
-        .from("product-images")
-        .remove([data.old_image_path]);
+    // New image record saved — now safe to delete the old Storage files.
+    const toDelete: string[] = [];
+    if (data.old_image_path) toDelete.push(data.old_image_path);
+    if (data.old_thumb_path) toDelete.push(data.old_thumb_path);
+    if (toDelete.length) await supabase.storage.from("product-images").remove(toDelete);
+  } else if (data.thumb_path) {
+    // Only thumbnail updated (crop of existing image)
+    await supabase.from("product_images").update({ thumbnail_path: data.thumb_path })
+      .eq("product_id", productId as string)
+      .eq("restaurant_id", restaurantId);
+    if (data.old_thumb_path) {
+      await supabase.storage.from("product-images").remove([data.old_thumb_path]);
     }
   }
 

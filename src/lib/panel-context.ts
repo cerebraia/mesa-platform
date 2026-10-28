@@ -71,7 +71,15 @@ export const getActiveMembership = cache(
       ? valid.find((r) => r.restaurant_id === preferredId)
       : null;
 
-    const chosen = preferred ?? valid[0];
+    // Single membership: auto-select (no choice needed).
+    // Multiple memberships + no valid cookie: force the selector.
+    // A forged or stale cookie is already discarded above (preferred = null).
+    const chosen = preferred ?? (valid.length === 1 ? valid[0] : null);
+
+    if (!chosen) {
+      // Caller (panel/layout.tsx) will redirect to /seleccionar-negocio.
+      return { active: null, options };
+    }
 
     const active: ActiveMembership = {
       restaurantId: chosen.restaurant_id,

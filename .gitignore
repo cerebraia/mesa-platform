@@ -25,3 +25,18 @@ tsconfig.tsbuildinfo
 
 # Railway local config (si se usa railway CLI)
 .railway/
+
+# Archivos de referencia de diseño (imágenes/código de terceros usados como referencia visual)
+referencia/
+
+# Assets locales de desarrollo (fuentes y imágenes fuera de /public)
+assets/
+
+# Imágenes de /public con nombre UUID sin referencia en el código
+public/images/7d06ac08-a2b8-47ce-8a16-bd14c50472d7.png
+
+# Scripts de migración individuales (supersedidos por run-migrations-023-030.ts)
+scripts/apply-migration-025.ts
+scripts/run-migration-025.ts
+scripts/run-migration-026.ts
+scripts/run-migration-027.ts

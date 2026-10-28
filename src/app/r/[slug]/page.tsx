@@ -68,6 +68,7 @@ export default async function PublicMenuPage({
       .from("restaurant_config")
       .select(
         "restaurant_id, description, logo_path, cover_path, primary_color, " +
+        "background_color, secondary_color, font_family, " +
         "phone, whatsapp, instagram_url, facebook_url, twitter_url, " +
         "address, pickup_enabled, pickup_address, pickup_notes, " +
         "delivery_enabled, is_temporarily_closed, closed_message, orders_enabled",
@@ -100,8 +101,8 @@ export default async function PublicMenuPage({
       id, restaurant_id, name, position,
       products (
         id, restaurant_id, category_id, name, description,
-        base_price_cents, promo_price_cents, position,
-        product_images ( id, product_id, restaurant_id, storage_path, alt_text, position ),
+        base_price_cents, promo_price_cents, position, image_fit,
+        product_images ( id, product_id, restaurant_id, storage_path, thumbnail_path, alt_text, position ),
         product_variants ( id, product_id, restaurant_id, name, price_cents, position ),
         option_groups (
           id, product_id, restaurant_id, name, min_selections, max_selections, position,

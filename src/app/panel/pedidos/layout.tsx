@@ -1,27 +1,16 @@
 import { redirect } from "next/navigation";
-import { createServerClient } from "@/lib/supabase/server";
+import { getActiveMembership } from "@/lib/panel-context";
 
 // /panel/pedidos is accessible to all active members (owner, attention, kitchen).
 // Role-specific rendering is handled inside each page.
+// Uses getActiveMembership() — reads the panel_restaurant_id cookie — so it
+// works correctly for users with memberships in multiple restaurants.
 export default async function PedidosLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: membership } = await supabase
-    .from("restaurant_members")
-    .select("role")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .maybeSingle();
-
-  if (!membership) redirect("/panel");
-
+  const { active } = await getActiveMembership();
+  if (!active) redirect("/panel");
   return <>{children}</>;
 }

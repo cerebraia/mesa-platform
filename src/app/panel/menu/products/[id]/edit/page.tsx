@@ -35,6 +35,7 @@ export default async function EditProductPage({
     { data: images },
     { data: variants },
     { data: rawGroups },
+    { data: cfgRow },
   ] = await Promise.all([
     supabase
       .from("products")
@@ -67,9 +68,25 @@ export default async function EditProductPage({
       .eq("product_id", id)
       .order("position")
       .returns<(OptionGroup & { options: Option[] })[]>(),
+    supabase
+      .from("restaurant_config")
+      .select("stock_tracking_enabled")
+      .eq("restaurant_id", restaurantId)
+      .maybeSingle(),
   ]);
 
   if (!product || !categories?.length) redirect("/panel/menu");
+
+  const stockEnabled = cfgRow?.stock_tracking_enabled ?? false;
+
+  const { data: productControl } = stockEnabled
+    ? await supabase
+        .from("products")
+        .select("cost_cents, stock_quantity, stock_alert")
+        .eq("id", id)
+        .eq("restaurant_id", restaurantId)
+        .maybeSingle<{ cost_cents: number | null; stock_quantity: number | null; stock_alert: number | null }>()
+    : { data: null };
 
   return (
     <>
@@ -90,6 +107,8 @@ export default async function EditProductPage({
         existingVariants={variants ?? []}
         existingGroups={rawGroups ?? []}
         restaurantId={restaurantId}
+        stockEnabled={stockEnabled}
+        existingControl={productControl ?? undefined}
       />
     </>
   );

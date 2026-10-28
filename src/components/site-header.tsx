@@ -4,120 +4,94 @@ import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import { Brand } from "./brand";
 
-export function SiteHeader() {
-  const [open, setOpen] = useState(false);
+const NAV_ITEMS = [
+  { href: "#funciones",     label: "Funciones"     },
+  { href: "#como-funciona", label: "Cómo funciona" },
+  { href: "#demos",         label: "Demostración"  },
+  { href: "#planes",        label: "Planes"        },
+];
+
+export function SiteHeader({ requestHref }: { requestHref?: string }) {
+  const [open, setOpen]         = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
 
-  // Close on route change or Escape
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setOpen(false);
-        btnRef.current?.focus();
-      }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setOpen(false); btnRef.current?.focus(); }
     };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, [open]);
 
   return (
-    <header className="site-header container" style={{ position: "relative" }}>
+    <header
+      className={`lp-header container${scrolled ? " lp-header--scrolled" : ""}`}
+      style={{ position: "relative" }}
+    >
       <Brand />
 
-      {/* Desktop nav */}
-      <nav aria-label="Principal" className="site-desktop-nav">
-        <a href="#funciones">Funciones</a>
-        <a href="#como-funciona">Cómo funciona</a>
-        <a href="#planes">Planes</a>
+      <nav aria-label="Principal" className="lp-nav">
+        {NAV_ITEMS.map((item) => (
+          <a key={item.href} href={item.href}>{item.label}</a>
+        ))}
       </nav>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <Link className="button small secondary site-desktop-nav" href="/login">
+      <div className="lp-header-actions">
+        <Link className="button small secondary lp-nav" href="/login">
           Ingresar
         </Link>
-
-        {/* Hamburger — mobile only */}
+        {requestHref && (
+          <a className="button small lp-nav" href={requestHref}>
+            Solicitar catálogo
+          </a>
+        )}
         <button
           ref={btnRef}
+          className="lp-mobile-btn"
           aria-label={open ? "Cerrar menú" : "Abrir menú"}
           aria-expanded={open}
-          aria-controls="site-mobile-menu"
+          aria-controls="lp-mobile-menu"
           onClick={() => setOpen((v) => !v)}
-          className="site-mobile-menu-btn"
-          style={{
-            display:    "none",
-            background: "none",
-            border:     "none",
-            cursor:     "pointer",
-            padding:    "8px",
-            fontSize:   22,
-            color:      "var(--ink)",
-            lineHeight: 1,
-          }}
         >
-          {open ? "✕" : "☰"}
+          {open ? (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+              <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          )}
         </button>
       </div>
 
-      {/* Mobile dropdown */}
       {open && (
-        <nav
-          id="site-mobile-menu"
-          aria-label="Navegación principal"
-          style={{
-            position:       "absolute",
-            top:            "100%",
-            left:           0,
-            right:          0,
-            background:     "white",
-            border:         "1px solid var(--border)",
-            borderTop:      "none",
-            boxShadow:      "0 8px 24px #3924500d",
-            zIndex:         50,
-            display:        "flex",
-            flexDirection:  "column",
-            padding:        "12px 0",
-          }}
-        >
-          {[
-            { href: "#funciones",      label: "Funciones" },
-            { href: "#como-funciona",  label: "Cómo funciona" },
-            { href: "#planes",         label: "Planes" },
-          ].map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              onClick={() => setOpen(false)}
-              style={{
-                padding:        "12px 24px",
-                fontSize:       14,
-                color:          "var(--ink)",
-                textDecoration: "none",
-              }}
-            >
+        <nav id="lp-mobile-menu" aria-label="Navegación principal" className="lp-mobile-menu">
+          {NAV_ITEMS.map((item) => (
+            <a key={item.href} href={item.href} onClick={() => setOpen(false)}>
               {item.label}
             </a>
           ))}
-          <div style={{ padding: "12px 24px", borderTop: "1px solid var(--border)", marginTop: 4 }}>
-            <Link
-              href="/login"
-              className="button small"
-              style={{ width: "100%" }}
-              onClick={() => setOpen(false)}
-            >
+          <div className="lp-mobile-menu-footer">
+            <Link href="/login" className="button small secondary full" onClick={() => setOpen(false)}>
               Ingresar al panel
             </Link>
+            {requestHref && (
+              <a href={requestHref} className="button small full" onClick={() => setOpen(false)}>
+                Solicitar catálogo
+              </a>
+            )}
           </div>
         </nav>
       )}
-
-      <style>{`
-        @media (max-width: 760px) {
-          .site-desktop-nav { display: none !important; }
-          .site-mobile-menu-btn { display: block !important; }
-        }
-      `}</style>
     </header>
   );
 }

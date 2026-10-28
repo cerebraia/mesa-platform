@@ -24,7 +24,9 @@ interface AnonProduct {
   id: string; restaurant_id: string; category_id: string;
   name: string; description: string | null;
   base_price_cents: number; promo_price_cents: number | null; position: number;
-  product_images: Array<{ id: string; storage_path: string; alt_text: string | null; position: number }>;
+  // null → cover (default). 'contain' → show full product without cropping.
+  image_fit: string | null;
+  product_images: Array<{ id: string; storage_path: string; thumbnail_path?: string | null; alt_text: string | null; position: number }>;
   product_variants: Array<{ id: string; name: string; price_cents: number; position: number }>;
   option_groups: Array<{
     id: string; name: string; min_selections: number; max_selections: number; position: number;
@@ -40,7 +42,6 @@ interface Props {
   deliveryZones: PublicDeliveryZone[];
   paymentMethods: PublicPaymentMethod[];
   supabaseUrl: string;
-  // orders_enabled from restaurant_config (migration 024). DEFAULT true for existing businesses.
   ordersEnabled: boolean;
 }
 
@@ -48,8 +49,16 @@ type Step = "menu" | "checkout";
 
 // ── Helpers ───────────────────────────────────────────────────
 
-function money(cents: number) {
-  return new Intl.NumberFormat("es-VE", { style: "currency", currency: "USD" }).format(cents / 100);
+function money(cents: number, currency = "USD") {
+  return new Intl.NumberFormat("es-VE", { style: "currency", currency }).format(cents / 100);
+}
+
+function primaryTint(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  if (isNaN(r)) return "transparent";
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function cartKey(productId: string, variantId: string | null, options: CartOption[]): string {
@@ -64,6 +73,14 @@ function generateIdempotencyKey(): string {
   return Array.from(crypto.getRandomValues(new Uint8Array(16)))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function darkenHex(hex: string, amount: number): string {
+  const r = Math.round(parseInt(hex.slice(1, 3), 16) * (1 - amount));
+  const g = Math.round(parseInt(hex.slice(3, 5), 16) * (1 - amount));
+  const b = Math.round(parseInt(hex.slice(5, 7), 16) * (1 - amount));
+  if (isNaN(r)) return hex;
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
 // ── Icons ─────────────────────────────────────────────────────
@@ -89,89 +106,108 @@ function CartIcon() {
   );
 }
 
-function CupIcon() {
+function WaIcon() {
   return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
-      <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
-      <line x1="6" y1="1" x2="6" y2="4" /><line x1="10" y1="1" x2="10" y2="4" /><line x1="14" y1="1" x2="14" y2="4" />
+    <svg width="17" height="17" viewBox="0 0 448 512" fill="currentColor" aria-hidden="true" focusable="false">
+      <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/>
     </svg>
   );
 }
 
-// ── Product Card ───────────────────────────────────────────────
+function CloseIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function ImgPlaceholder() {
+  return (
+    <div className="pd-img-placeholder" aria-hidden="true">
+      <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <polyline points="21 15 16 10 5 21" />
+      </svg>
+    </div>
+  );
+}
+
+function CardImgPlaceholder() {
+  return (
+    <div className="mc-card-img-ph" aria-hidden="true">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <polyline points="21 15 16 10 5 21" />
+      </svg>
+    </div>
+  );
+}
+
+// ── Product Card — imagen cuadrada arriba, texto abajo ────────
 
 function ProductCard({
-  product,
-  imgBase,
-  primaryColor,
-  ordersEnabled,
-  onOpen,
+  product, imgBase, primaryColor, currency, ordersEnabled, showDesc, onOpen,
 }: {
   product: AnonProduct;
   imgBase: string;
   primaryColor: string;
+  currency: string;
   ordersEnabled: boolean;
+  showDesc: boolean;
   onOpen: () => void;
 }) {
   const img = product.product_images?.[0];
-  const imgUrl = img ? `${imgBase}/${img.storage_path}` : null;
+  // Use thumbnail_path for the card (cropped 1:1); fall back to storage_path with CSS cover
+  const cardImgPath = img?.thumbnail_path ?? img?.storage_path ?? null;
+  const cardImgUrl  = cardImgPath ? `${imgBase}/${cardImgPath}` : null;
   const displayPrice = product.product_variants?.[0]?.price_cents ?? product.base_price_cents;
   const hasPromo = product.promo_price_cents != null;
+  // If thumbnail_path exists the image is already 1:1; otherwise cover crops inline.
+  // 'contain' override still available via image_fit field.
+  const imgFit = product.image_fit === "contain" ? "contain" : "cover";
 
   return (
-    <div className="menu-card">
-      <div
-        className="menu-card-inner"
-        role="button"
-        tabIndex={0}
+    <div className="mc-card">
+      <button
+        className="mc-card-btn"
         onClick={onOpen}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); } }}
         aria-label={`Ver ${product.name}`}
       >
-        <div className="menu-card-info">
-          <span className="menu-card-name">{product.name}</span>
-          {product.description && (
-            <span className="menu-card-desc">{product.description}</span>
+        <div className={`mc-card-img${imgFit === "contain" ? " mc-card-img--contain" : ""}`}>
+          {cardImgUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={cardImgUrl} alt={img?.alt_text ?? product.name} loading="lazy" decoding="async"
+              style={{ objectFit: imgFit }} />
+          ) : (
+            <CardImgPlaceholder />
           )}
-          <span className="menu-card-price" style={{ color: primaryColor }}>
+        </div>
+        <div className="mc-card-body">
+          <p className="mc-card-name">{product.name}</p>
+          {showDesc && product.description && (
+            <p className="mc-card-desc">{product.description}</p>
+          )}
+          <p className="mc-card-price" style={{ color: primaryColor }}>
             {hasPromo ? (
               <>
-                <span className="menu-card-price-orig">{money(displayPrice)}</span>
-                {money(product.promo_price_cents!)}
+                <span className="mc-card-price-orig">{money(displayPrice, currency)}</span>
+                {money(product.promo_price_cents!, currency)}
               </>
-            ) : money(displayPrice)}
-          </span>
+            ) : money(displayPrice, currency)}
+          </p>
         </div>
-        <div className="menu-card-photo">
-          {imgUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={imgUrl}
-              alt={img?.alt_text ?? product.name}
-              loading="lazy"
-              decoding="async"
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-            />
-          ) : (
-            <div className="menu-card-placeholder">
-              <CupIcon />
-            </div>
-          )}
-        </div>
-      </div>
+      </button>
 
-      {/* Botón "+" — solo cuando los pedidos están habilitados */}
       {ordersEnabled && (
         <button
-          className="menu-add-btn"
+          className="mc-add-btn"
           aria-label={`Agregar ${product.name} al carrito`}
-          style={{ background: primaryColor }}
           onClick={onOpen}
-          tabIndex={-1}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="3" strokeLinecap="round" aria-hidden="true">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
           </svg>
@@ -182,19 +218,14 @@ function ProductCard({
 }
 
 // ── Catalog Product Dialog (solo catálogo, sin carrito) ───────
-// Muestra detalles del producto. Si existe WhatsApp, ofrece consulta.
 
 function CatalogProductDialog({
-  product,
-  imgBase,
-  primaryColor,
-  whatsapp,
-  restaurantName,
-  onClose,
+  product, imgBase, primaryColor, currency, whatsapp, restaurantName, onClose,
 }: {
   product: AnonProduct;
   imgBase: string;
   primaryColor: string;
+  currency: string;
   whatsapp: string | null;
   restaurantName: string;
   onClose: () => void;
@@ -203,15 +234,25 @@ function CatalogProductDialog({
     product.product_variants.length > 0 ? product.product_variants[0].id : null,
   );
   const [selected, setSelected] = useState<Record<string, string[]>>({});
+  const [imgIdx, setImgIdx]     = useState(0);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
+    const trigger = document.activeElement as HTMLElement | null;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     dialogRef.current?.showModal();
-    return () => dialogRef.current?.close();
+    return () => {
+      document.body.style.overflow = prev;
+      dialogRef.current?.close();
+      trigger?.focus();
+    };
   }, []);
 
-  const imgUrl = product.product_images?.[0]
-    ? `${imgBase}/${product.product_images[0].storage_path}` : null;
+  const images = product.product_images ?? [];
+  const currentImg = images[imgIdx];
+  const imgUrl = currentImg ? `${imgBase}/${currentImg.storage_path}` : null;
+  const hasGallery = images.length > 1;
 
   function toggleOption(groupId: string, optId: string, maxSel: number) {
     setSelected((prev) => {
@@ -232,7 +273,6 @@ function CatalogProductDialog({
     const opts = product.option_groups.flatMap((g) =>
       (selected[g.id] ?? []).map((id) => g.options.find((o) => o.id === id)?.name ?? ""),
     ).filter(Boolean);
-
     const lines = [
       `Hola, me interesa este producto de *${restaurantName}*:`,
       "",
@@ -241,11 +281,13 @@ function CatalogProductDialog({
     if (variant) lines.push(`Variante: ${variant.name}`);
     if (opts.length) lines.push(`Opciones: ${opts.join(", ")}`);
     lines.push("", "¿Está disponible?");
-
     return `https://wa.me/${number}?text=${encodeURIComponent(lines.join("\n"))}`;
   }
 
   const waUrl = buildWhatsAppUrl();
+  const displayPrice = product.product_variants.find((v) => v.id === variantId)?.price_cents
+    ?? product.promo_price_cents
+    ?? product.base_price_cents;
 
   return (
     <dialog
@@ -254,104 +296,132 @@ function CatalogProductDialog({
       onClick={(e) => { if (e.target === dialogRef.current) onClose(); }}
       onCancel={onClose}
     >
-      {imgUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={imgUrl} alt={product.name}
-          style={{ width: "100%", height: 240, objectFit: "cover", display: "block",
-            borderRadius: "18px 18px 0 0" }} />
-      )}
-
-      <div style={{ padding: imgUrl ? "20px 24px 0" : "24px 24px 0" }}>
-        <h2 style={{ fontSize: 22, letterSpacing: "-.5px", fontWeight: 700, lineHeight: 1.2 }}>
-          {product.name}
-        </h2>
-        {product.description && (
-          <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 6, lineHeight: 1.6 }}>
-            {product.description}
-          </p>
-        )}
-        <p style={{ fontSize: 15, fontWeight: 700, color: primaryColor, marginTop: 10 }}>
-          {money(product.promo_price_cents ?? (product.product_variants[0]?.price_cents ?? product.base_price_cents))}
-        </p>
+      <div className="pd-close-zone">
+        <button type="button" className="pd-close-btn" onClick={onClose} aria-label="Cerrar">
+          <CloseIcon />
+        </button>
       </div>
 
-      {/* Variantes — modo informativo para contextualizar la consulta WA */}
-      {product.product_variants.length > 0 && (
-        <fieldset>
-          <legend>Variante <span style={{ background: "#f0eaff", color: "#703BE6", borderRadius: 20, padding: "2px 8px", fontSize: 11 }}>Selecciona</span></legend>
-          {product.product_variants.map((v) => (
-            <div key={v.id} className="option-row">
-              <span>
-                <input type="radio" name="catalog-variant" value={v.id}
-                  checked={variantId === v.id} onChange={() => setVariantId(v.id)}
-                  style={{ accentColor: primaryColor }} />
-                {v.name}
-              </span>
-              <span>{money(v.price_cents)}</span>
+      <div className="pd-img-section">
+        {imgUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="pd-img" src={imgUrl} alt={currentImg?.alt_text || product.name} />
+        ) : (
+          <ImgPlaceholder />
+        )}
+        {hasGallery && (
+          <>
+            <button type="button" className="pd-gallery-btn pd-gallery-prev"
+              onClick={() => setImgIdx((i) => (i - 1 + images.length) % images.length)}
+              aria-label="Imagen anterior">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
+            </button>
+            <button type="button" className="pd-gallery-btn pd-gallery-next"
+              onClick={() => setImgIdx((i) => (i + 1) % images.length)}
+              aria-label="Imagen siguiente">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg>
+            </button>
+            <div className="pd-thumbs" role="tablist" aria-label="Galería">
+              {images.map((_, i) => (
+                <button key={i} type="button"
+                  className={`pd-thumb-dot${i === imgIdx ? " pd-thumb-dot--on" : ""}`}
+                  onClick={() => setImgIdx(i)}
+                  aria-label={`Imagen ${i + 1}`}
+                  aria-current={i === imgIdx ? "true" : undefined}
+                />
+              ))}
             </div>
-          ))}
-        </fieldset>
-      )}
+          </>
+        )}
+      </div>
 
-      {/* Opciones — informativas */}
-      {product.option_groups.map((g) => (
-        <fieldset key={g.id}>
-          <legend>{g.name} <span style={{ background: "#f5f5f5", color: "#777", borderRadius: 20, padding: "2px 8px", fontSize: 11 }}>Opcional</span></legend>
-          {g.options.map((opt) => {
-            const isSel = (selected[g.id] ?? []).includes(opt.id);
-            return (
-              <div key={opt.id} className="option-row">
+      <div className="pd-body">
+        <div className="pd-content">
+          <h2 className="pd-name">{product.name}</h2>
+          <p className="pd-price" style={{ color: primaryColor }}>{money(displayPrice, currency)}</p>
+          {product.description && (
+            <p className="pd-desc">{product.description}</p>
+          )}
+        </div>
+
+        {product.product_variants.length > 0 && (
+          <fieldset>
+            <legend>
+              Variante{" "}
+              <span style={{ background: primaryTint(primaryColor, 0.12), color: primaryColor, borderRadius: 20, padding: "2px 8px", fontSize: 11 }}>
+                Selecciona
+              </span>
+            </legend>
+            {product.product_variants.map((v) => (
+              <div key={v.id} className="option-row">
                 <span>
-                  <input type={g.max_selections === 1 ? "radio" : "checkbox"}
-                    name={`catalog-group-${g.id}`} checked={isSel}
-                    onChange={() => toggleOption(g.id, opt.id, g.max_selections)}
+                  <input type="radio" name="catalog-variant" value={v.id}
+                    checked={variantId === v.id} onChange={() => setVariantId(v.id)}
                     style={{ accentColor: primaryColor }} />
-                  {opt.name}
+                  {v.name}
                 </span>
-                {opt.price_delta_cents !== 0 && <span>+{money(opt.price_delta_cents)}</span>}
+                <span>{money(v.price_cents, currency)}</span>
               </div>
-            );
-          })}
-        </fieldset>
-      ))}
+            ))}
+          </fieldset>
+        )}
 
-      <div style={{ padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+        {product.option_groups.map((g) => (
+          <fieldset key={g.id}>
+            <legend>
+              {g.name}{" "}
+              <span style={{ background: "#f5f5f5", color: "#777", borderRadius: 20, padding: "2px 8px", fontSize: 11 }}>
+                Opcional
+              </span>
+            </legend>
+            {g.options.map((opt) => {
+              const isSel = (selected[g.id] ?? []).includes(opt.id);
+              return (
+                <div key={opt.id} className="option-row">
+                  <span>
+                    <input type={g.max_selections === 1 ? "radio" : "checkbox"}
+                      name={`catalog-group-${g.id}`} checked={isSel}
+                      onChange={() => toggleOption(g.id, opt.id, g.max_selections)}
+                      style={{ accentColor: primaryColor }} />
+                    {opt.name}
+                  </span>
+                  {opt.price_delta_cents !== 0 && <span>+{money(opt.price_delta_cents, currency)}</span>}
+                </div>
+              );
+            })}
+          </fieldset>
+        ))}
+
+        <div style={{ height: 8 }} />
+      </div>
+
+      <div className="pd-footer">
         {waUrl ? (
-          <a
-            href={waUrl}
-            target="_blank"
-            rel="noopener noreferrer"
+          <a href={waUrl} target="_blank" rel="noopener noreferrer"
             className="button full"
-            style={{ background: "#25d366", borderColor: "#25d366", textDecoration: "none" }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
-            </svg>
+            style={{ background: "#25d366", borderColor: "#25d366", textDecoration: "none", gap: 10 }}>
+            <WaIcon />
             Consultar por WhatsApp
           </a>
         ) : (
-          <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center" }}>
+          <p style={{ fontSize: 12, color: "var(--muted)", textAlign: "center", margin: 0 }}>
             Contacta al negocio para consultar disponibilidad.
           </p>
         )}
-        <button type="button" onClick={onClose}
-          style={{ background: "none", border: "1px solid var(--border)", borderRadius: 10,
-            padding: "10px", fontSize: 13, cursor: "pointer", color: "var(--muted)" }}>
-          Cerrar
-        </button>
       </div>
     </dialog>
   );
 }
 
-// ── Product Dialog ────────────────────────────────────────────
+// ── Product Dialog (pedidos) ──────────────────────────────────
 
 function ProductDialog({
-  product, imgBase, primaryColor, onClose, onAdd,
+  product, imgBase, primaryColor, currency, onClose, onAdd,
 }: {
   product: AnonProduct;
   imgBase: string;
   primaryColor: string;
+  currency: string;
   onClose: () => void;
   onAdd: (entry: CartEntry) => void;
 }) {
@@ -359,12 +429,20 @@ function ProductDialog({
   const [variantId, setVariantId] = useState(hasVariants ? product.product_variants[0].id : null);
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [qty, setQty] = useState(1);
+  const [imgIdx, setImgIdx]     = useState(0);
   const [validationError, setValidationError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
+    const trigger = document.activeElement as HTMLElement | null;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     dialogRef.current?.showModal();
-    return () => dialogRef.current?.close();
+    return () => {
+      document.body.style.overflow = prev;
+      dialogRef.current?.close();
+      trigger?.focus();
+    };
   }, []);
 
   const variantPrice = hasVariants
@@ -380,8 +458,10 @@ function ProductDialog({
   const unitPrice = variantPrice + optionTotal;
   const total = unitPrice * qty;
 
-  const imgUrl = product.product_images?.[0]
-    ? `${imgBase}/${product.product_images[0].storage_path}` : null;
+  const images    = product.product_images ?? [];
+  const currentImg = images[imgIdx];
+  const imgUrl    = currentImg ? `${imgBase}/${currentImg.storage_path}` : null;
+  const hasGallery = images.length > 1;
 
   function toggleOption(groupId: string, optId: string, maxSel: number) {
     setSelected((prev) => {
@@ -433,94 +513,138 @@ function ProductDialog({
       onClick={(e) => { if (e.target === dialogRef.current) onClose(); }}
       onCancel={onClose}
     >
-      {/* Imagen al borde — sin padding para que llegue al radio del dialog */}
-      {imgUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={imgUrl} alt={product.name}
-          style={{ width: "100%", height: 240, objectFit: "cover", display: "block",
-            borderRadius: "18px 18px 0 0" }} />
-      )}
+      <div className="pd-close-zone">
+        <button type="button" className="pd-close-btn" onClick={onClose} aria-label="Cerrar">
+          <CloseIcon />
+        </button>
+      </div>
 
-      {/* Contenido con padding lateral */}
-      <div style={{ padding: imgUrl ? "20px 24px 0" : "24px 24px 0" }}>
-        <h2 style={{ fontSize: 22, letterSpacing: "-.5px", fontWeight: 700, lineHeight: 1.2 }}>{product.name}</h2>
-        {product.description && (
-          <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 6, lineHeight: 1.6 }}>{product.description}</p>
+      <div className="pd-img-section">
+        {imgUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="pd-img" src={imgUrl} alt={currentImg?.alt_text || product.name} />
+        ) : (
+          <ImgPlaceholder />
+        )}
+        {hasGallery && (
+          <>
+            <button type="button" className="pd-gallery-btn pd-gallery-prev"
+              onClick={() => setImgIdx((i) => (i - 1 + images.length) % images.length)}
+              aria-label="Imagen anterior">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
+            </button>
+            <button type="button" className="pd-gallery-btn pd-gallery-next"
+              onClick={() => setImgIdx((i) => (i + 1) % images.length)}
+              aria-label="Imagen siguiente">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg>
+            </button>
+            <div className="pd-thumbs" role="tablist" aria-label="Galería">
+              {images.map((_, i) => (
+                <button key={i} type="button"
+                  className={`pd-thumb-dot${i === imgIdx ? " pd-thumb-dot--on" : ""}`}
+                  onClick={() => setImgIdx(i)}
+                  aria-label={`Imagen ${i + 1}`}
+                  aria-current={i === imgIdx ? "true" : undefined}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
 
-      {hasVariants && (
-        <fieldset>
-          <legend>
-            Variante{" "}
-            <span style={{ background: "#f0eaff", color: "#703BE6", borderRadius: 20, padding: "2px 8px", fontSize: 11 }}>
-              Obligatorio
-            </span>
-          </legend>
-          {product.product_variants.map((v) => (
-            <div key={v.id} className="option-row">
-              <span>
-                <input type="radio" name="variant" value={v.id}
-                  checked={variantId === v.id} onChange={() => setVariantId(v.id)}
-                  style={{ accentColor: primaryColor }} />
-                {v.name}
+      <div className="pd-body">
+        <div className="pd-content">
+          <h2 className="pd-name">{product.name}</h2>
+          <p className="pd-price" style={{ color: primaryColor }}>{money(unitPrice, currency)}</p>
+          {product.description && (
+            <p className="pd-desc">{product.description}</p>
+          )}
+        </div>
+
+        {hasVariants && (
+          <fieldset>
+            <legend>
+              Variante{" "}
+              <span style={{ background: primaryTint(primaryColor, 0.12), color: primaryColor, borderRadius: 20, padding: "2px 8px", fontSize: 11 }}>
+                Obligatorio
               </span>
-              <span>{money(v.price_cents)}</span>
-            </div>
-          ))}
-        </fieldset>
-      )}
-
-      {product.option_groups.map((g) => (
-        <fieldset key={g.id}>
-          <legend>
-            {g.name}{" "}
-            <span style={{
-              background: g.min_selections > 0 ? "#f0eaff" : "#f5f5f5",
-              color: g.min_selections > 0 ? "#703BE6" : "#777",
-              borderRadius: 20, padding: "2px 8px", fontSize: 11,
-            }}>
-              {g.min_selections > 0 ? "Obligatorio" : "Opcional"}
-            </span>
-            {g.max_selections > 1 && (
-              <span style={{ fontSize: 11, color: "#777", marginLeft: 6 }}>Máx. {g.max_selections}</span>
-            )}
-          </legend>
-          {g.options.map((opt) => {
-            const isSel = (selected[g.id] ?? []).includes(opt.id);
-            return (
-              <div key={opt.id} className="option-row">
+            </legend>
+            {product.product_variants.map((v) => (
+              <div key={v.id} className="option-row">
                 <span>
-                  <input
-                    type={g.max_selections === 1 ? "radio" : "checkbox"}
-                    name={`group-${g.id}`}
-                    checked={isSel}
-                    onChange={() => toggleOption(g.id, opt.id, g.max_selections)}
-                    style={{ accentColor: primaryColor }}
-                  />
-                  {opt.name}
+                  <input type="radio" name="variant" value={v.id}
+                    checked={variantId === v.id} onChange={() => setVariantId(v.id)}
+                    style={{ accentColor: primaryColor }} />
+                  {v.name}
                 </span>
-                {opt.price_delta_cents !== 0 && <span>+{money(opt.price_delta_cents)}</span>}
+                <span>{money(v.price_cents, currency)}</span>
               </div>
-            );
-          })}
-        </fieldset>
-      ))}
+            ))}
+          </fieldset>
+        )}
 
-      <div className="quantity-label">
-        <span>Cantidad</span>
-        <input type="number" min={1} max={20} value={qty}
-          onChange={(e) => setQty(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
-          style={{ width: 70 }} />
+        {product.option_groups.map((g) => (
+          <fieldset key={g.id}>
+            <legend>
+              {g.name}{" "}
+              <span style={{
+                background: g.min_selections > 0 ? primaryTint(primaryColor, 0.12) : "#f5f5f5",
+                color: g.min_selections > 0 ? primaryColor : "#777",
+                borderRadius: 20, padding: "2px 8px", fontSize: 11,
+              }}>
+                {g.min_selections > 0 ? "Obligatorio" : "Opcional"}
+              </span>
+              {g.max_selections > 1 && (
+                <span style={{ fontSize: 11, color: "#777", marginLeft: 6 }}>Máx. {g.max_selections}</span>
+              )}
+            </legend>
+            {g.options.map((opt) => {
+              const isSel = (selected[g.id] ?? []).includes(opt.id);
+              return (
+                <div key={opt.id} className="option-row">
+                  <span>
+                    <input type={g.max_selections === 1 ? "radio" : "checkbox"}
+                      name={`group-${g.id}`} checked={isSel}
+                      onChange={() => toggleOption(g.id, opt.id, g.max_selections)}
+                      style={{ accentColor: primaryColor }} />
+                    {opt.name}
+                  </span>
+                  {opt.price_delta_cents !== 0 && <span>+{money(opt.price_delta_cents, currency)}</span>}
+                </div>
+              );
+            })}
+          </fieldset>
+        ))}
+
+        <div style={{ padding: "16px 24px 4px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <span style={{ fontSize: 13, fontWeight: 500 }}>Cantidad</span>
+          <div className="pd-qty-row">
+            <button type="button" className="pd-qty-btn"
+              onClick={() => setQty((q) => Math.max(1, q - 1))}
+              aria-label="Reducir cantidad" disabled={qty <= 1}>
+              −
+            </button>
+            <span className="pd-qty-val" aria-live="polite">{qty}</span>
+            <button type="button" className="pd-qty-btn"
+              onClick={() => setQty((q) => Math.min(20, q + 1))}
+              aria-label="Aumentar cantidad" disabled={qty >= 20}>
+              +
+            </button>
+          </div>
+        </div>
+
+        {validationError && (
+          <p className="error" style={{ padding: "0 24px 8px", margin: 0 }}>{validationError}</p>
+        )}
+
+        <div style={{ height: 8 }} />
       </div>
 
-      {validationError && <p className="error" style={{ padding: "0 24px 8px" }}>{validationError}</p>}
-
-      <div style={{ padding: "0 24px 24px" }}>
+      <div className="pd-footer">
         <button type="button" className="button full"
           style={{ background: primaryColor, borderColor: primaryColor }}
           onClick={handleAdd}>
-          Agregar · {money(total)}
+          Agregar · {money(total, currency)}
         </button>
       </div>
     </dialog>
@@ -540,6 +664,7 @@ function CheckoutForm({
   onBack: () => void;
 }) {
   const router = useRouter();
+  const cur = restaurant.currency;
   const pickupOk = config?.pickup_enabled ?? false;
   const deliveryOk = config?.delivery_enabled ?? false;
   const defaultModality = pickupOk ? "pickup" : "delivery";
@@ -665,8 +790,8 @@ function CheckoutForm({
                 <select value={zoneId} onChange={(e) => setZoneId(e.target.value)}>
                   {deliveryZones.map((z) => (
                     <option key={z.id} value={z.id}>
-                      {z.name} — {money(z.fee_cents)}
-                      {z.minimum_order_cents > 0 ? ` (mín. ${money(z.minimum_order_cents)})` : ""}
+                      {z.name} — {money(z.fee_cents, cur)}
+                      {z.minimum_order_cents > 0 ? ` (mín. ${money(z.minimum_order_cents, cur)})` : ""}
                     </option>
                   ))}
                 </select>
@@ -720,20 +845,20 @@ function CheckoutForm({
               ))}
               <span style={{ color: "#777" }}> × {it.quantity}</span>
             </div>
-            <span style={{ flexShrink: 0 }}>{money(it.unitPriceCents * it.quantity)}</span>
+            <span style={{ flexShrink: 0 }}>{money(it.unitPriceCents * it.quantity, cur)}</span>
           </div>
         ))}
         <div style={{ borderTop: "1px solid var(--border)", paddingTop: 10, marginTop: 8 }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
-            <span style={{ color: "#777" }}>Subtotal</span><span>{money(subtotal)}</span>
+            <span style={{ color: "#777" }}>Subtotal</span><span>{money(subtotal, cur)}</span>
           </div>
           {modality === "delivery" && (
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
-              <span style={{ color: "#777" }}>Delivery</span><span>{money(deliveryFee)}</span>
+              <span style={{ color: "#777" }}>Delivery</span><span>{money(deliveryFee, cur)}</span>
             </div>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, fontSize: 16, borderTop: "1px solid var(--border)", paddingTop: 8, marginTop: 4 }}>
-            <span>Total</span><span>{money(total)}</span>
+            <span>Total</span><span>{money(total, cur)}</span>
           </div>
         </div>
       </div>
@@ -742,7 +867,7 @@ function CheckoutForm({
         <div style={{ background: "#fff3cd", border: "1px solid #ffc107", borderRadius: 10, padding: "14px 18px", marginBottom: 16 }}>
           <div style={{ fontWeight: 600, marginBottom: 6 }}>Los precios cambiaron</div>
           <div style={{ fontSize: 13 }}>
-            Subtotal: {money(priceChanged.sub)} | Delivery: {money(priceChanged.fee)} | <strong>Total: {money(priceChanged.actual)}</strong>
+            Subtotal: {money(priceChanged.sub, cur)} | Delivery: {money(priceChanged.fee, cur)} | <strong>Total: {money(priceChanged.actual, cur)}</strong>
           </div>
           <button type="button" className="button small" style={{ marginTop: 10 }} onClick={onConfirmPriceChange} disabled={isSubmitting}>
             Confirmar con el nuevo total
@@ -754,7 +879,7 @@ function CheckoutForm({
 
       <button type="button" className="button full" disabled={!canSubmit || isSubmitting}
         onClick={() => handleSubmit(total)} style={{ marginTop: 8 }}>
-        {isSubmitting ? "Enviando pedido…" : `Confirmar pedido · ${money(total)}`}
+        {isSubmitting ? "Enviando pedido…" : `Confirmar pedido · ${money(total, cur)}`}
       </button>
 
       <p style={{ fontSize: 11, color: "#888", marginTop: 12, textAlign: "center" }}>
@@ -770,14 +895,14 @@ export function PublicMenuClient({
   restaurant, config, isOpen, categories,
   deliveryZones, paymentMethods, supabaseUrl, ordersEnabled,
 }: Props) {
-  const [activeCategory, setActiveCategory] = useState(categories[0]?.id ?? "");
+  const [activeCategory, setActiveCategory] = useState("");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartEntry[]>([]);
   const [dialogProduct, setDialogProduct] = useState<AnonProduct | null>(null);
   const [step, setStep] = useState<Step>("menu");
 
-  // Catalog mode: orders are disabled for this business
   const catalogOnly = !ordersEnabled;
+  const cur = restaurant.currency;
 
   const imgBase = `${supabaseUrl}/storage/v1/object/public/product-images`;
   const assetBase = `${supabaseUrl}/storage/v1/object/public/restaurant-assets`;
@@ -786,10 +911,40 @@ export function PublicMenuClient({
   const coverUrl = config?.cover_path ? `${assetBase}/${config.cover_path}` : null;
   const initials = restaurant.name.slice(0, 2).toUpperCase();
 
+  const menuVars: React.CSSProperties = {
+    "--menu-primary":       primaryColor,
+    "--menu-card-photo-bg": `linear-gradient(135deg,${primaryTint(primaryColor, 0.13)},${primaryTint(primaryColor, 0.25)})`,
+    "--menu-muted-icon":    primaryTint(primaryColor, 0.55),
+    ...(config?.background_color ? {
+      "--menu-bg":     config.background_color,
+      "--menu-bar-bg": config.background_color,
+    } : {}),
+  } as React.CSSProperties;
+
+  const fontFamilyStyle = config?.font_family === "Nunito"
+    ? { fontFamily: "var(--font-nunito,'Nunito',Arial,sans-serif)" }
+    : {};
+
+  // Cover background: image → gradient from secondary_color → nothing (compact id-bar only)
+  const hasCoverImg = !!coverUrl;
+  const hasCoverGradient = !hasCoverImg && !!config?.secondary_color;
+  const coverStyle = hasCoverImg
+    ? { backgroundImage: `url(${coverUrl})` }
+    : hasCoverGradient
+      ? { background: `linear-gradient(115deg,${darkenHex(config!.secondary_color!, 0.35)},${config!.secondary_color!})` }
+      : undefined;
+  const showHero = hasCoverImg || hasCoverGradient;
+
   const cartCount = cart.reduce((s, it) => s + it.quantity, 0);
   const cartTotal = cart.reduce((s, it) => s + it.unitPriceCents * it.quantity, 0);
 
-  // Prevent IntersectionObserver from fighting with programmatic scroll
+  const totalCount = categories.reduce((s, c) => s + (c.products as AnonProduct[]).length, 0);
+
+  // WA contact link for topbar (catalog mode only)
+  const topbarWaUrl = catalogOnly && config?.whatsapp
+    ? `https://wa.me/${config.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(`Hola, me interesa conocer más sobre ${restaurant.name}`)}`
+    : null;
+
   const scrollingRef = useRef(false);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
@@ -801,7 +956,15 @@ export function PublicMenuClient({
     scrollTimeoutRef.current = setTimeout(() => { scrollingRef.current = false; }, 900);
   }
 
-  // Update active category based on scroll position
+  function scrollToTop() {
+    setActiveCategory("");
+    scrollingRef.current = true;
+    clearTimeout(scrollTimeoutRef.current);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    scrollTimeoutRef.current = setTimeout(() => { scrollingRef.current = false; }, 900);
+  }
+
+  // Track which section is visible via IntersectionObserver
   useEffect(() => {
     if (search) return;
     const ids = categories.map((c) => c.id);
@@ -819,7 +982,7 @@ export function PublicMenuClient({
           if (first) setActiveCategory(first);
         }
       },
-      { rootMargin: "-108px 0px -45% 0px", threshold: 0 },
+      { rootMargin: "-116px 0px -45% 0px", threshold: 0 },
     );
 
     ids.forEach((id) => {
@@ -844,15 +1007,12 @@ export function PublicMenuClient({
   const removeFromCart = useCallback((key: string) => {
     setCart((prev) => prev.filter((e) => e.key !== key));
   }, []);
-
   const changeQty = useCallback((key: string, delta: number) => {
     setCart((prev) =>
       prev.map((e) => e.key === key ? { ...e, quantity: e.quantity + delta } : e)
           .filter((e) => e.quantity > 0),
     );
   }, []);
-
-  // Needed to avoid TS unused-variable errors on removeFromCart/changeQty
   void removeFromCart;
   void changeQty;
 
@@ -872,6 +1032,9 @@ export function PublicMenuClient({
     ? config.closed_message || "Cerrado temporalmente"
     : null;
 
+  // "Todos" is active when no category ID is matched
+  const todosActive = !categories.some((c) => c.id === activeCategory);
+
   if (step === "checkout") {
     return (
       <CheckoutForm
@@ -886,59 +1049,25 @@ export function PublicMenuClient({
   }
 
   return (
-    <div style={{ "--menu-primary": primaryColor } as React.CSSProperties}>
+    <div className="rm-catalog-root" style={{ ...menuVars, ...fontFamilyStyle }}>
 
-      {/* Temporarily-closed notice */}
-      {closedMessage && (
-        <div role="alert" style={{
-          background: "#fff3cd", color: "#856404", textAlign: "center",
-          padding: "10px 16px", fontSize: 13, borderBottom: "1px solid #ffc107",
-        }}>
-          {closedMessage}
-        </div>
-      )}
-
-      {/* Cover / portada panorámica */}
-      <div
-        className="rm-cover"
-        style={coverUrl ? { backgroundImage: `url(${coverUrl})` } : undefined}
-        role="banner"
-      >
-        <div className="rm-cover-overlay" aria-hidden="true" />
-        <div className="container">
-          <div className="rm-cover-row">
-            <div className="rm-logo">
+      {/* Topbar — siempre visible */}
+      <header className="rm-topbar">
+        <div className="rm-topbar-inner container">
+          <div className="rm-topbar-brand">
+            <div className="rm-topbar-logo">
               {logoUrl
                 // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={logoUrl} alt={`Logo de ${restaurant.name}`} />
+                ? <img src={logoUrl} alt="" aria-hidden="true" />
                 : <span aria-hidden="true">{initials}</span>}
             </div>
-            <div className="rm-info">
-              <h1 className="rm-restaurant-name">{restaurant.name}</h1>
-              {config?.description && (
-                <p className="rm-restaurant-desc">{config.description}</p>
-              )}
-            </div>
-            <div className="rm-status-area">
-              <span className={`rm-pill ${isOpen ? "rm-pill-open" : "rm-pill-closed"}`}>
-                <span
-                  className={`rm-pill-dot ${isOpen ? "rm-pill-dot-open" : "rm-pill-dot-closed"}`}
-                  aria-hidden="true"
-                />
-                {isOpen ? "Abierto" : "Cerrado"}
-              </span>
-            </div>
+            <span className="rm-topbar-name">{restaurant.name}</span>
           </div>
-        </div>
-      </div>
 
-      {/* Sticky nav: search + category tabs */}
-      <div className="menu-bar">
-        <div className="menu-bar-inner container">
-          <div className="rm-search-wrap">
-            <SearchIcon className="rm-search-icon" />
+          <div className="rm-topbar-search">
+            <SearchIcon className="rm-topbar-si" />
             <input
-              className="rm-search-input"
+              className="rm-topbar-sinput"
               type="search"
               placeholder={catalogOnly ? "¿Qué estás buscando?" : "¿Qué te provoca hoy?"}
               value={search}
@@ -946,58 +1075,127 @@ export function PublicMenuClient({
               aria-label="Buscar en el catálogo"
             />
             {search && (
-              <button
-                className="rm-search-clear"
-                onClick={() => setSearch("")}
-                aria-label="Limpiar búsqueda"
-              >
+              <button className="rm-topbar-sclear" onClick={() => setSearch("")} aria-label="Limpiar búsqueda">
                 ✕
               </button>
             )}
           </div>
-          <div className="menu-tabs" role="tablist" aria-label="Categorías del menú">
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                role="tab"
-                aria-selected={activeCategory === cat.id}
-                className={`menu-tab${activeCategory === cat.id ? " menu-tab--on" : ""}`}
-                style={activeCategory === cat.id ? { color: primaryColor, borderBottomColor: primaryColor } : undefined}
-                onClick={() => scrollToCategory(cat.id)}
-              >
-                {cat.name}
-              </button>
-            ))}
+
+          <div className="rm-topbar-actions">
+            {topbarWaUrl && (
+              <a href={topbarWaUrl} target="_blank" rel="noopener noreferrer" className="rm-topbar-wa"
+                aria-label="Contactar por WhatsApp">
+                <WaIcon />
+                <span>Contactar</span>
+              </a>
+            )}
+            {!catalogOnly && (
+              <span className={`rm-status-pill ${isOpen ? "rm-status-open" : "rm-status-closed"}`}>
+                <span className={`rm-status-dot ${isOpen ? "rm-status-dot-open" : "rm-status-dot-closed"}`} aria-hidden="true" />
+                {isOpen ? "Abierto" : "Cerrado"}
+              </span>
+            )}
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Catalog */}
-      <main className="container menu-main">
+      {/* Aviso de cierre temporal */}
+      {closedMessage && (
+        <div role="alert" className="rm-closed-notice">
+          {closedMessage}
+        </div>
+      )}
+
+      {/* Hero — con imagen o con degradado del color de marca */}
+      {showHero && (
+        <div className="rm-hero" style={coverStyle} role="banner">
+          <div className="rm-hero-overlay" aria-hidden="true" />
+          <div className="container rm-hero-content">
+            <h1 className="rm-hero-title">{restaurant.name}</h1>
+            {config?.description && (
+              <p className="rm-hero-sub">{config.description}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Barra identidad — sin portada ni degradado, descripción compacta */}
+      {!showHero && config?.description && (
+        <div className="rm-id-bar">
+          <div className="container rm-id-bar-inner">
+            <p className="rm-id-desc">{config.description}</p>
+            {!catalogOnly && (
+              <span className={`rm-status-pill ${isOpen ? "rm-status-open" : "rm-status-closed"}`}>
+                <span className={`rm-status-dot ${isOpen ? "rm-status-dot-open" : "rm-status-dot-closed"}`} aria-hidden="true" />
+                {isOpen ? "Abierto" : "Cerrado"}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Barra de categorías — sticky */}
+      <nav className="rm-catbar" aria-label="Categorías">
+        <div className="rm-catbar-inner container">
+          <button
+            className={`rm-cat-tab${todosActive ? " rm-cat-tab--on" : ""}`}
+            onClick={scrollToTop}
+            aria-label={`Todos, ${totalCount} productos`}
+          >
+            Todos
+            <span className="rm-cat-count">{totalCount}</span>
+          </button>
+          {categories.map((cat) => {
+            const count = (cat.products as AnonProduct[]).length;
+            return (
+              <button
+                key={cat.id}
+                className={`rm-cat-tab${activeCategory === cat.id ? " rm-cat-tab--on" : ""}`}
+                onClick={() => scrollToCategory(cat.id)}
+                aria-label={`${cat.name}, ${count} productos`}
+              >
+                {cat.name}
+                <span className="rm-cat-count">{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* Catálogo */}
+      <main className="container mc-main">
         {filtered.length === 0 && (
           <div className="rm-empty" role="status" aria-live="polite">
             <span className="rm-empty-icon" aria-hidden="true">🔍</span>
-            <p className="rm-empty-text">No encontramos «{search}» en el menú.</p>
-            <button className="rm-empty-clear" onClick={() => setSearch("")}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-              Limpiar búsqueda
-            </button>
+            <p className="rm-empty-text">
+              {search
+                ? `No encontramos «${search}» en el catálogo.`
+                : "Este catálogo no tiene productos publicados."}
+            </p>
+            {search && (
+              <button className="rm-empty-clear" onClick={() => setSearch("")}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+                Limpiar búsqueda
+              </button>
+            )}
           </div>
         )}
         {filtered.map((cat) => (
-          <section key={cat.id} id={`cat-${cat.id}`} className="menu-section">
-            <h2 className="menu-section-title">{cat.name}</h2>
-            <div className="menu-grid">
+          <section key={cat.id} id={`cat-${cat.id}`} className="mc-section">
+            <h2 className="mc-section-title">{cat.name}</h2>
+            <div className="mc-grid">
               {(cat.products as AnonProduct[]).map((p) => (
                 <ProductCard
                   key={p.id}
                   product={p}
                   imgBase={imgBase}
                   primaryColor={primaryColor}
+                  currency={cur}
                   ordersEnabled={ordersEnabled}
+                  showDesc={!catalogOnly}
                   onOpen={() => setDialogProduct(p)}
                 />
               ))}
@@ -1006,63 +1204,53 @@ export function PublicMenuClient({
         ))}
       </main>
 
-      {/* Footer */}
       <footer className="rm-footer">
-        Creado con <strong style={{ color: "var(--purple)", fontWeight: 600 }}>Mesa</strong>
+        Creado con <strong style={{ color: "var(--menu-primary,var(--purple))", fontWeight: 600 }}>Mesa</strong>
       </footer>
 
-      {/* Cart FAB — desktop/tablet (orders mode only) */}
+      {/* FAB carrito — escritorio */}
       {!catalogOnly && cartCount > 0 && (
         <button
           className="cart-fab"
-          style={{ background: primaryColor }}
           onClick={() => setStep("checkout")}
-          aria-label={`Ver pedido, ${cartCount} ${cartCount === 1 ? "producto" : "productos"}, total ${money(cartTotal)}`}
+          aria-label={`Ver pedido, ${cartCount} ${cartCount === 1 ? "producto" : "productos"}, total ${money(cartTotal, cur)}`}
         >
           <CartIcon />
           <span className="cart-fab-label">Ver pedido</span>
-          <span className="cart-fab-total" aria-hidden="true">{money(cartTotal)}</span>
+          <span className="cart-fab-total" aria-hidden="true">{money(cartTotal, cur)}</span>
           <span className="cart-fab-count" aria-hidden="true">{cartCount}</span>
         </button>
       )}
 
-      {/* Cart bar — mobile (orders mode only) */}
+      {/* Barra carrito — móvil */}
       {!catalogOnly && cartCount > 0 && (
-        <div
-          className="cart-bar"
-          style={{ background: primaryColor }}
-          role="complementary"
-          aria-label="Resumen del pedido"
-        >
+        <div className="cart-bar" role="complementary" aria-label="Resumen del pedido">
           <span className="cart-bar-qty">
             {cartCount} {cartCount === 1 ? "producto" : "productos"}
           </span>
-          <button
-            className="cart-bar-btn"
-            onClick={() => setStep("checkout")}
-          >
-            Ver pedido · {money(cartTotal)}
+          <button className="cart-bar-btn" onClick={() => setStep("checkout")}>
+            Ver pedido · {money(cartTotal, cur)}
           </button>
         </div>
       )}
 
-      {/* Product dialog — orders mode */}
+      {/* Diálogos */}
       {!catalogOnly && dialogProduct && (
         <ProductDialog
           product={dialogProduct}
           imgBase={imgBase}
           primaryColor={primaryColor}
+          currency={cur}
           onClose={() => setDialogProduct(null)}
           onAdd={addToCart}
         />
       )}
-
-      {/* Catalog dialog — catalog-only mode */}
       {catalogOnly && dialogProduct && (
         <CatalogProductDialog
           product={dialogProduct}
           imgBase={imgBase}
           primaryColor={primaryColor}
+          currency={cur}
           whatsapp={config?.whatsapp ?? null}
           restaurantName={restaurant.name}
           onClose={() => setDialogProduct(null)}

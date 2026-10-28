@@ -79,7 +79,9 @@ async function runSessionProxy(request: NextRequest): Promise<NextResponse> {
 
   const { pathname } = request.nextUrl;
   const isPrivate =
-    pathname.startsWith("/panel") || pathname.startsWith("/admin");
+    pathname.startsWith("/panel") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/seleccionar-negocio");
 
   if (!user && isPrivate) {
     const url = request.nextUrl.clone();
@@ -205,7 +207,8 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     pathname.startsWith("/panel") ||
     pathname.startsWith("/admin") ||
     pathname.startsWith("/login") ||
-    pathname.startsWith("/demo")
+    pathname.startsWith("/demo") ||
+    pathname.startsWith("/seleccionar-negocio")
   ) {
     return new NextResponse("Not Found", { status: 404 });
   }

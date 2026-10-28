@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createServerClient } from "@/lib/supabase/server";
 
 export type LoginState = { error: string | null };
@@ -23,6 +24,11 @@ export async function signIn(
     // Don't expose internal error messages; just confirm the credentials failed.
     return { error: "Correo o contraseña incorrectos. Inténtalo de nuevo." };
   }
+
+  // Clear any previous business selection so each login starts at the selector
+  // when the user has multiple memberships.
+  const cookieStore = await cookies();
+  cookieStore.delete("panel_restaurant_id");
 
   redirect("/panel");
 }

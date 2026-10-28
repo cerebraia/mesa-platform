@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import localFont from "next/font/local";
+import { Nunito } from "next/font/google";
 
 const poppins = localFont({
   src: [
@@ -13,15 +14,22 @@ const poppins = localFont({
   display: "swap",
 });
 
+const nunito = Nunito({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-nunito",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Mesa | Tu restaurante, conectado",
-  description: "Menú, pedidos y operación en una misma plataforma. Proyecto en desarrollo.",
+  title: "Mesa — Tu catálogo digital",
+  description: "Organiza tu catálogo con fotos, precios y opciones. Personalízalo con tu marca y comparte un enlace para que tus clientes descubran lo que ofreces.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className={poppins.variable}>{children}</body>
+      <body className={`${poppins.variable} ${nunito.variable}`}>{children}</body>
     </html>
   );
 }

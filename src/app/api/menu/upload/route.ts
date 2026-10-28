@@ -72,10 +72,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (typeof restaurantId !== "string") {
     return NextResponse.json({ error: "Falta restaurant_id." }, { status: 400 });
   }
-  if (uploadType === "product" && typeof productId !== "string") {
+  if ((uploadType === "product" || uploadType === "product_thumb") && typeof productId !== "string") {
     return NextResponse.json({ error: "Falta product_id." }, { status: 400 });
   }
-  if (!["product", "logo", "cover"].includes(uploadType)) {
+  if (!["product", "product_thumb", "logo", "cover"].includes(uploadType)) {
     return NextResponse.json({ error: "Tipo de upload no válido." }, { status: 400 });
   }
 
@@ -138,6 +138,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (uploadType === "logo" || uploadType === "cover") {
     bucket = "restaurant-assets";
     path = `${restaurantId}/${uploadType}/${uuid}.${ext}`;
+  } else if (uploadType === "product_thumb") {
+    bucket = "product-images";
+    path = `${restaurantId}/thumb-${productId}-${uuid}.${ext}`;
   } else {
     bucket = "product-images";
     path = `${restaurantId}/${productId}-${uuid}.${ext}`;

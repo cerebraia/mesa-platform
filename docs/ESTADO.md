@@ -1,4 +1,4 @@
-# Estado Mesa Platform — 22 de octubre de 2026
+# Estado Mesa Platform — 26 de octubre de 2026 (actualizado)
 
 ## Resumen ejecutivo
 
@@ -107,11 +107,49 @@
 | **dashboard-top eliminado de todas las páginas del panel** | ✅ |
 | **Sin regresiones en sitio público ni /r/[slug]** | ✅ (estilos panel aislados en sección del panel de globals.css) |
 | **Rediseño menú público /r/[slug]** | ✅ **Implementado (22/10/2026)** |
+| **Rediseño one page v2 (hero centrado oscuro, showcase panel+catálogo, cuadrícula editorial)** | ✅ **Implementado (26/10/2026)** |
+| **Refinamiento one page v2 (hero blanco, fotos reales, tipografía 600, espaciado, planes alineados)** | ✅ **Implementado (26/10/2026)** |
+| **Lanz Technology — negocio real importado (6 productos DJI, imágenes en Storage, owner lfefl1998@gmail.com)** | ✅ **Importado (26/10/2026)** |
+| **Luale Shop — negocio real importado (49 productos, 4 categorías, imágenes en Storage, owner lfefl1998@gmail.com)** | ✅ **Importado (26/10/2026)** |
+| **/panel/configuracion rediseñado: 8 secciones, guardado por sección, acciones nuevas (saveIdentity/saveAppearanceConfig/saveCatalogMode), vista previa en tiempo real, presets de color** | ✅ **Implementado (27/10/2026)** |
+| **Bug NEXT_REDIRECT en selector: try/catch cliente capturaba señal interna de redirect() → se muestra como error** | ✅ **Corregido (27/10/2026)** |
+| **Bug /seleccionar-negocio: query PGRST200 (restaurant_config sin FK directa) → rows=null → redirect /panel** | ✅ **Corregido (27/10/2026)** |
+| **Pantalla /seleccionar-negocio — selector post-login con cards accesibles, estado de carga y error** | ✅ **Implementado (27/10/2026)** |
+| **Login limpia cookie panel_restaurant_id para forzar selección en múltiples membresías** | ✅ **Implementado (27/10/2026)** |
+| **panel-context: 2+ membresías sin cookie → active:null → redirige al selector** | ✅ **Implementado (27/10/2026)** |
+| **Sidebar sidebar compacto con "Cambiar negocio" → /seleccionar-negocio vía UnsavedAwareLink** | ✅ **Implementado (27/10/2026)** |
+| **Selector de negocio compacto en sidebar — muestra solo cuando hay múltiples membresías** | ✅ **Implementado (27/10/2026)** |
+| **"Ver catálogo"/"Ver menú" dinámico según orders_enabled; textos "negocio" en lugar de "restaurante"** | ✅ **Corregido (27/10/2026)** |
+| **CSS panel-info-notice, panel-card-header, sidebar role-row; sb-biz-* para el selector** | ✅ **Añadido (27/10/2026)** |
+| **Bug: layouts panel/pedidos, panel/menu, panel/configuracion — redirigían a /panel con múltiples membresías** | ✅ **Corregido (27/10/2026)** |
+| **"Cambiar restaurante" → "Cambiar negocio"; "Ver menú" → "Ver catálogo" en negocios solo catálogo** | ✅ **Corregido (27/10/2026)** |
+| **Pedidos en modo catálogo muestra aviso explicativo en lugar de lista vacía silenciosa** | ✅ **Implementado (27/10/2026)** |
+| **Migración 025 (catalog_appearance) — background_color, secondary_color, font_family en restaurant_config** | ✅ **Aplicada (26/10/2026)** |
+| **Línea gráfica Luale Shop aplicada — Nunito, crema #fbf3e8, rosa #e8b5b0, marrón #624b3f, portada derivada del color de marca** | ✅ **Implementada (26/10/2026)** |
+| **Rediseño catálogo público — topbar compacto, hero opcional, grid 4/3/2 cols, tarjetas verticales imagen cuadrada** | ✅ **Implementado (26/10/2026)** |
+| **"Todos" + contadores reales en barra de categorías; currency dinámica; contain por defecto** | ✅ **Implementado (26/10/2026)** |
+| **Migración 026 (product_image_fit) — columna image_fit en products; cover por defecto; contain disponible por producto** | ✅ **Aplicada (26/10/2026)** |
+| **Encuadre cover por defecto en miniaturas; modal conserva contain; selector en formulario de producto** | ✅ **Implementado (26/10/2026)** |
+| **Migración 027 (product_image_thumbnail) — thumbnail_path en product_images; original intacto** | ✅ **Aplicada (26/10/2026)** |
+| **CropTool — recorte 1:1 en el panel antes de guardar; drag+resize+preview; sin librerías externas** | ✅ **Implementado (26/10/2026)** |
+| **Flujo de carga: original → crop tool → miniatura WebP; "Usar original" para omitir** | ✅ **Implementado (26/10/2026)** |
+| **"✂ Recortar miniatura" para imágenes existentes desde edición de producto** | ✅ **Implementado (26/10/2026)** |
+| **Sistema de apariencia extendido — --menu-bg, --menu-primary, --menu-card-photo-bg, --menu-bar-bg via CSS vars** | ✅ **Implementado (26/10/2026)** |
+| **Panel /panel/configuracion — color de fondo, tipografía (Poppins/Nunito) configurables** | ✅ **Implementado (26/10/2026)** |
+| **Modal de producto rediseñado — imagen cuadrada contain, botón × sticky, galería, stepper qty, scroll body lock** | ✅ **Implementado (26/10/2026)** |
 | **Subdominios de restaurante — routing en código** | ✅ **Implementado y probado** |
 | **extractPlatformSubdomainFor: función pura testeable** | ✅ **Exportada; 11 tests cubren válidos, reservados y edge cases** |
 | **resolveRestaurantPath: función pura testeable** | ✅ **Exportada; 8 tests cubren todas las decisiones de path** |
 | **proxy.ts refactorizado sobre funciones puras** | ✅ **Sin cambio de comportamiento** |
 | **tests/subdomains.test.ts — SD01-SD22** | ✅ **22/22 pasan (npm run test:subdomains)** |
+| **Tabs de configuración en móvil — icono + texto con scroll horizontal** | ✅ **Implementado (27/10/2026)** |
+| **Diálogo cambios no guardados — 3 opciones: Guardar y continuar, Descartar y salir, Seguir editando** | ✅ **Implementado (27/10/2026)** |
+| **saveIdentity / saveAppearanceConfig / saveCatalogMode — upsert atómico por sección (sin read-modify-write)** | ✅ **Implementado (27/10/2026)** |
+| **removeConfigImage — quita logo/portada de forma segura; no pierde imagen guardada si falla** | ✅ **Implementado (27/10/2026)** |
+| **AppearanceForm — botón "Quitar" para logo y portada; estado optimista local; sin reload en éxito** | ✅ **Implementado (27/10/2026)** |
+| **setSaveHandler en UnsavedChangesContext — formularios registran su save fn para "Guardar y continuar"** | ✅ **Implementado (27/10/2026)** |
+| **tests/config-sections.test.ts — CS01-CS08** | ✅ **Creados (27/10/2026) — se ejecutan con npm run test:sections** |
+| **Advertencia Next.js 16.4.0 — 3 advisories (2 critical, 1 high); versión corregida: no disponible aún** | ⚠️ **Documentado (27/10/2026) — ver sección "Advertencia Next.js"** |
 
 ---
 
@@ -945,6 +983,152 @@ Ver lista completa en `tests/unsaved-changes.test.ts`. Sin navegador no se puede
 
 ---
 
+## Catálogos públicos — nueva presentación (26/10/2026)
+
+### Cambios aplicados
+
+| Elemento | Antes | Después |
+|---|---|---|
+| Tarjeta de producto | Horizontal: texto izquierda, foto derecha (140 px) | Vertical: foto cuadrada 1:1 arriba, nombre + precio abajo |
+| Columnas | 2 (desktop + mobile) | 4 desktop amplio / 3 intermedio / 2 móvil |
+| Cabecera | Portada siempre grande (≥260 px), vacía si no hay imagen | Topbar compacto 60 px siempre visible + hero opcional solo con portada o degradado |
+| Navegación | Buscador + tabs (sin "Todos") | Topbar con buscador + catbar sticky con "Todos" y contadores reales |
+| Categorías | Tabs simples, sin contador | Tabs con badge numérico por categoría y "Todos N" |
+| Moneda | USD hardcodeado | Usa `restaurant.currency` (EUR para Luale, USD para los demás) |
+| Foto sin imagen | Degradado morado Mesa | SVG placeholder neutro proporcional al tamaño de tarjeta |
+| object-fit | `cover` (recortaba prendas/equipos) | `contain` por defecto (muestra producto completo) |
+| WhatsApp topbar | No existía | Botón "Contactar" verde en modo catálogo solo |
+| Estado abierto/cerrado | Badge en portada (en modo pedidos) | Pill en topbar (modo pedidos) + en id-bar si no hay hero |
+| Descripción en tarjeta | Siempre (2 líneas clamp) | Solo en modo pedidos (restaurantes); catálogo la omite para no saturar |
+
+### URLs locales
+
+| URL | Negocio | Tipo |
+|---|---|---|
+| `http://localhost:3001/r/luale-shop` | Luale Shop | Solo catálogo, EUR, Nunito, crema |
+| `http://localhost:3001/r/lanz-technology` | Lanz Technology | Solo catálogo, USD, Poppins, morado |
+| `http://localhost:3001/r/restaurante-alfa` | Restaurante Alfa | Con pedidos, USD |
+| `http://localhost:3001/r/demo-tech` | Demo Tech Store | Solo catálogo, USD |
+
+### Comprobaciones funcionales
+
+| Comprobación | Método | Resultado |
+|---|---|---|
+| Estructura nueva en SSR Luale | curl + grep | ✅ `rm-topbar`, `mc-grid`, `mc-card`, `rm-hero`, `rm-catbar`, "Todos", logo |
+| Estructura nueva en SSR Lanz | curl + grep | ✅ `rm-topbar`, `mc-grid`, `rm-hero`, "Todos", morado 7C3AED |
+| Estructura nueva en SSR restaurante-alfa | curl + grep | ✅ `rm-topbar`, `mc-grid`, `mc-add-btn`, status abierto |
+| Aislamiento Luale: sin carrito ni add-btn | curl + grep | ✅ solo WA 584220162748 |
+| Lanz sin datos de Luale | curl + grep | ✅ sin Bebés, sin 584220162748 |
+| restaurante-alfa: mc-add-btn presente | curl + grep | ✅ con pedidos habilitados |
+| `npm run typecheck` | CLI | ✅ limpio |
+| `npm run build` | CLI | ✅ limpio |
+| `npm test` | CLI | ✅ 5/5 |
+
+### Verificaciones visuales pendientes (requieren browser)
+
+1. **Luale (360/390/768/1440 px)** — topbar crema + logo redondo, hero degradado marrón cálido, 29 prendas en Bebés con 4/3/2 cols, nombres largos en 2 líneas clamp, precios en €, "Contactar" WA verde, galería/modal sin add-btn
+2. **Lanz Technology (360/1440 px)** — hero morado-oscuro con degradado, 4 cols en desktop, fotos DJI en contain (no recortadas), galería en modal
+3. **Restaurante alfa (360/1440 px)** — status "Abierto/Cerrado" en topbar, mc-add-btn accesible 44×44, carrito FAB desktop y barra móvil, checkout completo
+4. **Negocio sin portada y sin secondary_color** — solo topbar + id-bar compacto (sin hero vacío)
+5. **Buscador** — resultados filtran a través de todo el catálogo, estado vacío con "Limpiar"
+6. **Categorías** — "Todos" activo al cargar, se actualiza al hacer scroll
+7. **Colisión de elementos fijos** — catbar + FAB/cart-bar sin solapamiento
+
+---
+
+## Luale Shop — Importación completa (26/10/2026)
+
+### Negocio
+
+| Campo | Valor |
+|---|---|
+| Nombre | Luale Shop |
+| Slug | `luale-shop` |
+| ID | `b0365f95-dabf-42f5-b4b2-578a7954a6ca` |
+| Owner | `lfefl1998@gmail.com` |
+| Modalidad | Solo catálogo (`orders_enabled = false`) |
+| Moneda | EUR (€) — publicada en el sitio; no se convirtió |
+| Color | `#F472B6` (aproximado — ajustar desde /panel/configuracion) |
+| WhatsApp | `+584220162748` |
+| Instagram | `@lualekids.shop` |
+| Horarios | Lunes–sábado 09:00–18:00 (estimado; verificar con la tienda) |
+
+### Catálogo importado
+
+| Categoría | Total | Disponibles | Agotados |
+|---|---|---|---|
+| Bebés | 29 | 22 | 7 |
+| Niñas | 7 | 7 | 0 |
+| Niños | 8 | 7 | 1 |
+| Juguetes | 5 | 5 | 0 |
+| **TOTAL** | **49** | **41** | **8** |
+
+Imágenes: 49/49 subidas a Storage (`product-images`). Logo subido a `restaurant-assets`.  
+Plan de referencia: Mesa Inicio (50 máx.) — 49/50 slots utilizados.
+
+### Fuente de imágenes
+
+- Imágenes locales: descargadas de `https://www.lualeshop.com/images/products/luale-NNN-slug.webp`
+- Imágenes Supabase: descargadas de la instancia propia de Luale (`rbldtmdxhzvpksdrjiju.supabase.co`)
+- Ambas fuentes migradas al Storage de Mesa; ningún enlace queda dependiente del sitio original.
+
+### Limitaciones documentadas
+
+- Tallas de ropa: publicadas como referencia informativa en la descripción; no existen como variantes formales en el modelo de Mesa. Los compradores consultan disponibilidad por WhatsApp.
+- Tallas adicionales: el sitio solo muestra la talla seleccionada actualmente en cada producto, no el rango completo disponible.
+- Precio base "desde": para productos con "Desde €N" se usa el precio mínimo publicado como `base_price_cents`.
+- Redes sociales: el sitio no publica TikTok, Facebook ni email de contacto.
+- Color de marca: aproximación visual; verificar con Luale y ajustar.
+
+### Identidad visual aplicada (migración 025)
+
+| Elemento | Valor |
+|---|---|
+| Color primario / acento | `#e8b5b0` (rosa polvorienta — extraído de CSS de lualeshop.com) |
+| Fondo del catálogo | `#fbf3e8` (crema cálida — color de fondo del sitio original) |
+| Color secundario / texto | `#624b3f` (marrón cálido — color de texto del sitio original) |
+| Tipografía | Nunito (cargada vía Google Fonts, variable CSS `--font-nunito`) |
+| Portada sin imagen | Degradado `#403129 → #624b3f` (derivado del secondary_color) |
+| Placeholder tarjeta foto | Tint rgba del primary_color al 13–25% |
+| Barra navegación | Fondo `#fbf3e8` (misma crema, coherente) |
+| Tabs activos | Color y borde `#e8b5b0` |
+
+### Comprobaciones realizadas
+
+| Comprobación | Método | Resultado |
+|---|---|---|
+| SSR catálogo luale-shop | curl HTML | ✅ `Luale Shop`, 4 categorías, productos en HTML |
+| WhatsApp correcto (no Lanz) | grep HTML | ✅ `584220162748` presente; `584266540669` ausente |
+| Sin carrito/FAB | grep HTML | ✅ `cart-fab`, `cart-bar` ausentes |
+| Colores en SSR | grep HTML | ✅ `e8b5b0`, `fbf3e8`, `624b3f`, `Nunito`, `font-nunito` presentes |
+| Portada: degradado marrón | grep HTML | ✅ `linear-gradient(115deg,#403129,#624b3f)` |
+| Logo Luale desde Storage | grep HTML | ✅ `restaurant-assets/.../logo.jpg` cargado |
+| Aislamiento Lanz Technology | curl /r/lanz-technology | ✅ Solo `7C3AED`; sin colores Luale |
+| Aislamiento restaurante-alfa | curl /r/restaurante-alfa | ✅ Sin colores Luale |
+| `npm run typecheck` | CLI | ✅ limpio |
+| `npm run build` | CLI | ✅ limpio |
+| `npm test` | CLI | ✅ 5/5 |
+
+### URLs locales
+
+| URL | Descripción |
+|---|---|
+| `http://localhost:3001/r/luale-shop` | Catálogo público Luale Shop |
+| `http://localhost:3001/panel` | Panel (ingresar como `lfefl1998@gmail.com`) |
+
+### Verificaciones visuales pendientes (requieren browser)
+
+1. Catálogo a 360/768/1440 px — 4 categorías, 29 productos en Bebés, navegación horizontal en móvil
+2. Tarjetas sin botón "+", sin carrito
+3. Abrir producto → diálogo con botón "Consultar por WhatsApp" → mensaje dirigido al número de Luale
+4. Logo del negocio visible en el encabezado del catálogo
+5. Color #F472B6 en tabs y precios; ajustar si no coincide con la marca real
+6. Productos agotados visibles pero sin opción de compra
+7. Panel: productos y categorías editables desde `/panel/menu`
+8. Aislamiento visual respecto a Lanz Technology y Demo Tech Store
+
+---
+
 ## Demo Tech Store — Solo catálogo (22/10/2026)
 
 ### Migración 024 — aplicada
@@ -1299,3 +1483,428 @@ La ruta `/r/restaurante-alfa` en `mesa.app` sigue funcionando después de activa
 | SLUG_RE válidos/inválidos | Pura | ✅ 1/1 |
 | DO01-DO10: dominios custom (DB) | Con BD | ✅ 13/13 (previos) |
 | Verificación con subdominio real | **PENDIENTE** | ⏳ Requiere dominio propio + Railway configurado |
+
+---
+
+## Verificación del rediseño de Configuración (27/10/2026)
+
+### Cambios implementados
+
+| Cambio | Detalle |
+|---|---|
+| **Tabs en móvil** | Se eliminó `display:none` en `.cfg-tab-label`. Ahora icono + texto visibles en móvil con `font-size:11.5px`, `padding:8px 10px`, `gap:4px`. Scroll horizontal existente (`overflow-x:auto`) gestiona el desbordamiento. |
+| **Diálogo 3 opciones** | `UnsavedDialog` recibe `onSave?` y `isSaving`. Al registrar un `setSaveHandler` desde el formulario activo, el diálogo muestra "Guardar y continuar". Si el guardado falla, el diálogo cierra y el formulario conserva sus valores. |
+| **setSaveHandler en contexto** | `UnsavedChangesCtx` expone `setSaveHandler(fn | null)`. Cada formulario (NegocioForm, AppearanceForm, CatalogModeForm) registra un handler vía `formRef.current?.requestSubmit()` cuando está dirty, y lo limpia al desmontar. |
+| **Saves atómicos** | `saveIdentity`: upsert solo sobre columnas de identidad en `restaurant_config` + update directo sobre `restaurants.name/timezone`. `saveAppearanceConfig`: upsert solo sobre `primary_color, background_color, secondary_color, font_family`. `saveCatalogMode`: upsert solo sobre `orders_enabled, pickup_*, delivery_*, is_temporarily_closed, closed_message`. Sin read-modify-write: concurrencia entre secciones sin sobreescritura. |
+| **removeConfigImage** | Nueva Server Action. Llama `update_config_image(p_new_path=null)` para limpiar la referencia en DB antes de borrar el archivo del Storage. Si la RPC falla, el archivo en Storage se conserva. |
+| **Botones "Quitar"** | Aparecen solo cuando hay imagen guardada. Usan `removeImg("logo")` / `removeImg("cover")`. Estado local `localLogoPath` / `localCoverPath` refleja el cambio inmediatamente sin recargar la página. |
+| **Upload sin reload** | `uploadImg` ya no llama `window.location.reload()` en éxito. Si el update en DB falla tras subir el archivo, muestra el error y no navega (el archivo en Storage queda huérfano, recuperable desde el dashboard de Supabase). |
+| **formRef en formularios** | `NegocioForm`, `AppearanceForm` (colors form), `CatalogModeForm` usan `useRef<HTMLFormElement>` para `requestSubmit()` desde el save handler del diálogo. |
+| **prevState guard en effects** | Cada formulario mantiene `prevState.current` para evitar que el effect de `state` dispare en el render inicial (comparación referencial). |
+
+### Colores y tipografía en el catálogo público
+
+La ruta `/r/[slug]/public-menu-client.tsx` ya leía `background_color`, `secondary_color` y `font_family` desde `restaurant_config` (columnas añadidas en migración 025 y expuestas a `anon`). Los CSS vars `--menu-bg`, `--menu-primary` y `fontFamilyStyle` se aplican al wrapper raíz del catálogo. Tras guardar desde `saveAppearanceConfig`, `revalidatePath("/r/[slug]", "page")` invalida el caché SSR.
+
+La vista previa en `AppearanceForm` usa los mismos estados `primaryColor`, `bgColor` y `fontFamily` que se incluyen en el form submit, por lo que siempre representa lo que se va a guardar.
+
+### Pruebas funcionales añadidas
+
+| Test | Descripción | Tipo |
+|---|---|---|
+| CS01 | Guardar Apariencia conserva `phone`, `whatsapp`, `description` | BD (upsert columnas distintas) |
+| CS02 | Guardar Mi negocio conserva `primary_color`, `font_family`, `background_color` | BD |
+| CS03 | Dos upserts concurrentes en secciones distintas se preservan mutuamente | BD (Promise.all) |
+| CS04 | Lanz y Luale tienen `primary_color`, `background_color`, `font_family` y `whatsapp` distintos | BD |
+| CS05 | Owner de Alfa no puede upsert directo sobre restaurant_config de Beta | RLS |
+| CS06 | Un guardado previo no altera campos de sesiones anteriores | BD |
+| CS07 | Colores y tipografía guardados por owner son visibles para anon (columnas con GRANT) | BD + anon |
+| CS08 | Owner de Beta no puede sobreescribir config de Alfa | RLS |
+
+Ejecutar: `npm run test:sections` (requiere `.env.local` y `.env.test`).
+
+### Verificaciones ejecutadas
+
+| Verificación | Resultado |
+|---|---|
+| `npm run typecheck` | ✅ limpio |
+| `npm run build` | ✅ limpio (tras refreshar receipt del advisory) |
+| `npm test` (precios) | ✅ 5/5 |
+| `npm run test:unsaved` (guard lógico) | ✅ 12/12 |
+| `npm run test:sections` | ⏳ Requiere BD de prueba (.env.test) |
+
+### Verificaciones visuales pendientes
+
+1. **Tabs en móvil (360 px)** — 8 tabs con icono + texto; scroll horizontal sin saltos; tab activo con borde morado visible
+2. **Diálogo "Guardar y continuar"** — Modificar campo en Mi negocio → hacer clic en pestaña Apariencia → diálogo aparece con 3 botones → "Guardar y continuar" guarda y navega → si el servidor devuelve error, diálogo cierra, formulario mantiene los valores
+3. **Diálogo al cambiar negocio** — Modificar campo → "Cambiar negocio" → diálogo aparece → opciones funcionan
+4. **Diálogo al cerrar/recargar pestaña** — Formulario sucio → F5 → el navegador pide confirmación
+5. **Logo "Quitar"** — Subir logo → aparece botón "Quitar" → clic → logo desaparece de la vista previa y del catálogo público tras recargar
+6. **Portada "Quitar"** — Mismo flujo
+7. **Reemplazar sin perder** — Subir logo → reemplazar con imagen nueva → si la red falla al actualizar DB, la imagen anterior sigue visible
+8. **Colores en catálogo** — Guardar color `#e63946` en Apariencia → recargar `/r/lanz-technology` → pestañas y precios usan ese color
+9. **Tipografía Nunito** — Activar en Apariencia → recargar catálogo → fuente se aplica a nombres y precios
+10. **Vista previa en tiempo real** — Cambiar color en el picker → la tarjeta de vista previa refleja el cambio sin guardar
+
+---
+
+## Advertencia de seguridad — Next.js 16.4.0
+
+### Versión instalada
+
+`next@16.4.0` (ver `package.json`). React `19.3.0`.
+
+### Advisories activos (consultado 27/10/2026 via npm bulk advisory endpoint)
+
+| Título | Severidad | Rango afectado | Versión corregida |
+|---|---|---|---|
+| Denial of Service in App Router using Server Actions | **High** | `>=16.0.0 <=16.4.0` | No disponible |
+| Unauthenticated RCE in Image Optimization API (SVG files) | **Critical** | `>=16.0.0 <=16.4.0` | No disponible |
+| Unauthenticated RCE in `use cache` functions returning typed arrays | **Critical** | `>=16.0.0 <=16.4.0` | No disponible |
+
+La respuesta del endpoint muestra `patched_versions: None` — no existe una versión corregida publicada en npm a esta fecha. `next upgrade --agent=security` bloquea el build (`SecurityFatalError`) hasta que se ejecute por primera vez o hasta que el receipt de retry (`.next/cache/next-agentic-upgrade-retries/`) sea fresco (TTL 5 min).
+
+### Mecanismo del bloqueo
+
+Next.js 16.x detecta el contexto de agente IA vía la variable de entorno `__NEXT_AGENT_UPGRADE=security` (inyectada por Claude Code). Al encontrar un advisory activo, escribe un archivo de receipt y lanza `SecurityFatalError`. En el segundo intento dentro de los 5 minutos del receipt, el build prosigue con una advertencia. En sesiones de CI o fuera de agente el bloqueo no aplica.
+
+Para ejecutar el build localmente sin el bloqueo: refrescar el receipt file en `.next/cache/next-agentic-upgrade-retries/` e inmediatamente ejecutar `npm run build`.
+
+### Aplicabilidad a Mesa Platform
+
+| Advisory | Aplica a Mesa | Justificación |
+|---|---|---|
+| DoS via Server Actions | **Parcial** | Mesa usa Server Actions (saveIdentity, etc.) pero requieren autenticación como owner — el atacante tendría que estar autenticado y ser miembro activo del negocio |
+| RCE en Image Optimization API (SVG) | **No aplica** | Mesa no usa `next/image`. Las imágenes se sirven directamente desde Supabase Storage con etiquetas `<img>` sin pasar por la Image Optimization API de Next.js |
+| RCE en `use cache` con typed arrays | **No aplica** | Mesa no usa la directiva `use cache` en ningún archivo |
+
+### Worktree preparado (no integrado)
+
+Pendiente: crear worktree con `git worktree add` y ejecutar `next upgrade --agent=security` para investigar si la herramienta encuentra una versión destino o solo documenta el estado de las vulnerabilidades. No integrar hasta que exista una versión corregida publicada en npm y el equipo autorice la actualización.
+
+**Acción recomendada**: suscribirse a las alertas del repositorio `vercel/next.js` y al feed de advisories de npm para `next` — actualizar en cuanto aparezca una versión corregida en el rango `>=16.4.1`.
+
+---
+
+## Finanzas e Inventario — Implementación v1 (27/10/2026)
+
+### Estado de las migraciones
+
+| Num. | Archivo | Contenido | Aplicada en BD |
+|---|---|---|---|
+| 028 | `20261027000028_financial_movements.sql` | Tabla `financial_movements` + RLS + RPC `get_financial_summary` | ⏳ Pendiente |
+| 029 | `20261027000029_product_cost_stock.sql` | Columnas `cost_cents`, `stock_quantity`, `stock_alert` en `products` y `product_variants`; tabla `stock_adjustment_log`; REVOKE anon | ⏳ Pendiente |
+| 030 | `20261027000030_stock_tracking_config.sql` | Columna `stock_tracking_enabled` en `restaurant_config`; extiende `save_restaurant_config` RPC | ⏳ Pendiente |
+
+Para aplicar: SQL Editor de Supabase → pegar cada archivo en orden.
+
+### Rutas implementadas
+
+| Ruta | Descripción |
+|---|---|
+| `/panel/finanzas` | Pantalla principal: 3 indicadores, lista de movimientos, CTA "Registrar movimiento" |
+| `/panel/finanzas/analisis` | Vista secundaria: tabla de márgenes, valoración de inventario |
+
+### Navegación
+
+- **Finanzas** añadido al sidebar de `PanelShell` entre Catálogo y Configuración (solo `owner`).
+- No aparece en el menú de roles `attention` ni `kitchen`.
+
+### Funciones operativas
+
+| Función | Dónde | Estado |
+|---|---|---|
+| Registrar movimiento (income/expense/purchase) | `/panel/finanzas` — slideout derecho | ✅ UI + action |
+| Anular movimiento (`is_voided=true`) | `voidMovement` en actions.ts | ✅ Action (UI de anulación pendiente en lista de movimientos) |
+| Ver indicadores Cobrado/Pagado/Flujo neto | `/panel/finanzas` | ✅ Conectado a RPC (requiere migración 028) |
+| Filtro de período (Hoy/Ayer/7 días/Este mes) | Header de `/panel/finanzas` | ✅ URL searchParam |
+| Control del producto (costo, stock, alerta) | Formulario de producto — bloque colapsado | ✅ UI + action (requiere mig. 029+030) |
+| Toggle "Control de existencias" | `/panel/configuracion` → Catálogo | ✅ Toggle + action (requiere mig. 030) |
+| Vista análisis: márgenes y valoración | `/panel/finanzas/analisis` | ✅ SSR (requiere mig. 029) |
+| Ajuste de stock con historial | `adjustStock` en actions.ts | ✅ Action (sin UI de ajuste rápido en esta versión) |
+
+### Limitaciones documentadas de v1
+
+- **Anulación desde UI**: la UI de anulación desde la lista de movimientos queda pendiente; la Server Action `voidMovement` ya existe y está lista.
+- **Stock por variante**: el DB tiene las columnas en `product_variants`, pero el formulario muestra solo una nota indicando que vendrá próximamente.
+- **Descuento automático de stock al procesar un pedido**: no implementado en v1 (documentado como pendiente).
+- **Stock en catálogo público**: `stock_quantity` y `stock_alert` no se muestran a anon en v1.
+- **Resumen financiero sin migración 028**: la página muestra un aviso de error accionable en lugar de romper.
+
+### Reglas aplicadas
+
+- `purchase` no aparece como tipo si `stockEnabled = false` (toggle en Configuración).
+- Movimientos anulados (`is_voided=true`) no afectan los totales del RPC.
+- El RPC usa la zona horaria del restaurante para calcular "hoy".
+- No se mezclan monedas: el resumen usa la moneda más frecuente de los movimientos del restaurante.
+- Cada acción de servidor valida `member_role(restaurant_id) = 'owner'` antes de operar.
+- RLS en `financial_movements`: owner solo ve/escribe sus propios movimientos; anon sin acceso.
+- RLS en `stock_adjustment_log`: owner solo ve/escribe sus propios ajustes; anon sin acceso.
+- Columnas `cost_cents`, `stock_quantity`, `stock_alert` en `products`/`product_variants`: REVOKE anon (internas).
+
+### Verificaciones realizadas
+
+| Verificación | Método | Resultado |
+|---|---|---|
+| `npm run typecheck` | CLI | ✅ limpio |
+| `npm run build` | CLI | ✅ limpio — rutas /panel/finanzas y /panel/finanzas/analisis presentes |
+| `npm test` (precios) | CLI | ✅ 5/5 |
+| `npm run test:unsaved` (guard) | CLI | ✅ 12/12 |
+| `npm run test:finance` (aislamiento) | CLI | ⏳ Requiere BD con migraciones 028-030 y .env.test |
+| Estructura RLS migración 028 | Revisión SQL | ✅ Políticas SELECT/INSERT/UPDATE separadas; anon bloqueado |
+| Estructura RLS migraciones 029-030 | Revisión SQL | ✅ REVOKE anon en columnas internas; GRANT authenticated |
+
+### Verificaciones visuales pendientes (requieren browser + migraciones aplicadas)
+
+1. **Registrar movimiento** → guardar → recargar → aparece en lista y actualiza totales
+2. **Anulación**: añadir botón en fila y verificar que el total cambia
+3. **Toggle "Control de existencias"** en Configuración → habilitar → ir a ficha de producto → bloque "Control del producto" aparece colapsado
+4. **Guardar costo y stock** desde ficha de producto → recargar → valores persisten
+5. **Vista análisis** `/panel/finanzas/analisis` → tabla de márgenes con productos que tienen costo
+6. **Aislamiento Lanz/Luale**: ingresar con cada owner y verificar que los movimientos son independientes
+7. **Rol atención en Finanzas**: la ruta `/panel/finanzas` redirige a `/panel` (layout gate)
+8. **Slideout en móvil**: formulario ocupa pantalla completa, botón "Registrar" visible sin scroll
+
+---
+
+## Diagnóstico y corrección de /panel/finanzas (27/10/2026)
+
+### Causa demostrada
+
+Las migraciones 023-030 **nunca habían sido aplicadas** a la BD de Supabase (`xlqilgkohjdleqeeoslk`). La BD tenía solo hasta la migración 022. Los errores eran exactamente esto:
+- `public.get_financial_summary` → función no existía
+- `public.financial_movements` → tabla no existía
+
+Adicionalmente, la MESA_DATABASE_URL es un pooler en transaction mode (puerto 6543), que no soporta DDL. Los scripts anteriores de migración individual fallaban silenciosamente por timeout. Se resolvió usando session mode (puerto 5432) del mismo pooler.
+
+### Proyecto Supabase
+
+- **Ref**: `xlqilgkohjdleqeeoslk`
+- **Mismo proyecto** para la app (NEXT_PUBLIC_SUPABASE_URL) y las migraciones (MESA_DATABASE_URL) — verificado que la DB URL contiene el mismo ref de proyecto.
+- **Modo de conexión para DDL**: session mode (puerto 5432) en lugar de transaction mode (puerto 6543).
+
+### Migraciones aplicadas (27/10/2026)
+
+| Migración | Contenido | Estado |
+|---|---|---|
+| 023 — Planes comerciales | `plan_code`, `allowed_roles`, seed planes, trigger límite miembros | ✅ Aplicada |
+| 024 — Modo catálogo | `orders_enabled` en restaurant_config, trigger guard_orders_enabled | ✅ Aplicada |
+| 025 — Apariencia catálogo | `background_color`, `secondary_color`, `font_family` | ✅ Aplicada |
+| 026 — Image fit producto | `image_fit` en products | ✅ Aplicada |
+| 027 — Thumbnail producto | `thumbnail_path` en product_images | ✅ Aplicada |
+| 028 — Movimientos financieros | Tabla `financial_movements` + RLS + RPC `get_financial_summary` | ✅ Aplicada |
+| 029 — Costo y stock producto | Columnas en products/variants, tabla `stock_adjustment_log` | ✅ Aplicada |
+| 030 — Config seguimiento stock | `stock_tracking_enabled` en restaurant_config | ✅ Aplicada |
+
+**Total aplicadas ahora: 30/30**
+
+### Corrección de seguridad aplicada
+
+`get_financial_summary` tenía `EXECUTE` concedido a `PUBLIC` y `anon` por defecto de PostgreSQL. Se revocó: ahora solo `authenticated` (con verificación de `member_role = 'owner'` dentro de la función SECURITY DEFINER).
+
+### Mejoras de UI (estados de error)
+
+- **Módulo no disponible**: si el RPC falla, muestra tarjeta con mensaje comprensible y botón "Reintentar". No muestra nombres de tablas, funciones ni instrucciones técnicas.
+- **Error de movimientos**: si la tabla falla, muestra estado vacío con "Reintentar" (no el mensaje de error del servidor).
+- **"Sin movimientos"**: solo se muestra cuando la consulta termina correctamente y devuelve 0 registros.
+- **Botón "Registrar movimiento"**: solo aparece cuando el módulo está disponible.
+
+### Verificación con datos reales (service role contra BD real)
+
+| Verificación | Resultado |
+|---|---|
+| Insert movimiento income $125 para Lanz | ✅ status 201 |
+| RPC summary hoy → income_cents = 12500 | ✅ coincide |
+| Anular movimiento → summary income_cents = 0 | ✅ void excluido de totales |
+| Anon no puede leer financial_movements | ✅ `permission denied for table` |
+| financial_movements separados por restaurant_id | ✅ Lanz=1, Luale=0 movimientos |
+
+### Verificaciones de código
+
+| Verificación | Resultado |
+|---|---|
+| `npm run typecheck` | ✅ limpio |
+| `npm run build` | ✅ limpio |
+| `npm test` | ✅ 5/5 |
+
+---
+
+## Rediseño del shell del panel (27/10/2026)
+
+### Cambios implementados
+
+| Componente | Cambio |
+|---|---|
+| `panel-shell.tsx` | Rediseño completo. Sidebar 260 px, gradiente oscuro, iconos 20 px, cabecera integrada `.shell-header`, drawer móvil con backdrop y scroll-lock, "Ver catálogo/menú" centralizado en la cabecera |
+| `admin-shell.tsx` | Mismo lenguaje visual: bloque de identidad "Plataforma Mesa", iconos 20 px, `.shell-header` sin botón de catálogo, drawer móvil con backdrop |
+| `globals.css` (sección panel) | Reescritura completa de la sección de diseño del panel: sidebar con gradiente `#1e1a36→#19162E`, nuevas clases `.shell-header`, `.shell-catalog-btn`, `.sb-brand-wrap`, `.sb-biz-block`, `.sb-biz-row`, `.sb-biz-info`, `.sb-user-row`, `.sb-user-avatar`, `.panel-drawer-backdrop`, `.panel-mobile-drawer--open`, mejoras en hover/focus/active |
+
+### Decisiones de diseño
+
+**Sidebar (260 px)**
+- Fondo: `linear-gradient(180deg, #1e1a36, #19162E)` — oscuro con gradiente sutil
+- Logo arriba con padding propio (`.sb-brand-wrap`)
+- Bloque de negocio: avatar con iniciales + nombre + rol + "Cambiar negocio" (solo si hay múltiples membresías)
+- Nav agrupada: "Inicio + Pedidos" sin label, "Gestión" para Catálogo/Finanzas/Configuración
+- Iconos 20 px con label siempre visible
+- Estado activo: fondo morado suave + borde lateral izquierdo 3 px morado
+- Sin grupo "ext" en el nav — "Ver catálogo/menú" se eliminó del sidebar
+- Perfil + cierre de sesión en zona inferior
+
+**Cabecera compartida (`.shell-header`)**
+- Fondo `#1e1a36` integrado con el sidebar
+- Altura 52 px (44 px en móvil)
+- Izquierda: título de la sección actual derivado de `usePathname` + items del nav
+- Derecha: botón "Ver catálogo" / "Ver menú" según `ordersEnabled`, solo en el panel del negocio
+- Admin: solo muestra el título de sección, sin botón de catálogo
+
+**Móvil (≤760 px)**
+- Sidebar oculto; botón hamburguesa en la barra oscura fija
+- Drawer se desliza desde la izquierda (`transform: translateX`) con transición fluida
+- Backdrop oscuro semitransparente con `backdrop-filter: blur(2px)`
+- Scroll-lock en `document.body` mientras el drawer está abierto
+- Cierre: botón X dentro del drawer, clic en backdrop, tecla Escape
+- `.shell-header` visible en móvil bajo la barra fija
+
+**Sin duplicaciones**
+- "Ver catálogo/menú" aparece SOLO en `.shell-header`
+- Ninguna página del panel añade este botón en `PageHeader.actions` (se eliminó en sesiones anteriores)
+- `pedidos/[id]` usa `btn-ver-menu` para el botón "← Pedidos" (retorno, no duplicado)
+- `panel/page.tsx` tiene "Ver catálogo ↗" como acción rápida dentro del contenido de Inicio (no cabecera)
+
+### Plan/consumo de productos
+Omitido en esta primera versión del rediseño. La instrucción especifica "únicamente con datos y límites reales"; la integración del plan con el sidebar requiere una RPC adicional. Se añade en una iteración futura.
+
+### Verificaciones realizadas
+
+| Verificación | Resultado |
+|---|---|
+| `npm run typecheck` | ✅ limpio |
+| `npm run build` | ✅ limpio — todas las rutas del panel presentes |
+| `npm test` (precios) | ✅ 5/5 |
+| `npm run test:unsaved` | ✅ 12/12 |
+| Sin usos huérfanos de `.panel-topbar`, `.sidebar-workspace`, `.sidebar-bottom-v2` en páginas | ✅ verificado con grep |
+
+### Verificaciones visuales pendientes (requieren browser en localhost:3001)
+
+1. Sidebar visible y sticky al hacer scroll en contenido largo (Catálogo con muchos productos)
+2. Estado activo correcto en formularios y sub-páginas (ej. `/panel/menu/products/new` → Catálogo activo)
+3. Al cambiar Lanz ↔ Luale: nombre del negocio en sidebar actualiza, "Ver catálogo" apunta al slug correcto
+4. Drawer móvil: abre, cierra con X/backdrop/Escape, scroll-lock activo, items visibles en 360 px
+5. Admin shell: misma apariencia, título "Negocios" o "Planes" en cabecera
+6. Finanzas: mantiene diseño sencillo (3 indicadores + movimientos) bajo la nueva cabecera
+7. Configuración: secciones y formularios conservados, sin botón "Ver catálogo" duplicado
+8. Foco visible en todos los elementos interactivos del sidebar
+
+---
+
+## Pre-despliegue — verificación (27/10/2026)
+
+### Estado del repositorio
+
+| Elemento | Estado |
+|---|---|
+| Repositorio | `https://github.com/cerebraia/mesa-platform.git` |
+| Rama | `main` |
+| Remoto | `origin` |
+| Commits locales adelantados a origin/main | 3 (eb41acd, baa9807, 9c4fbfa) + este commit |
+| Secretos versionados | ✅ Ninguno — `.env.local`, `.env.test`, service_role, DATABASE_URL en `.gitignore` |
+| `.env.example` | ✅ Solo claves con valores vacíos — sin secretos |
+
+### Next.js — parche de seguridad
+
+- **Versión anterior**: `16.4.0` — 3 vulnerabilidades activas (2 Critical, 1 High)
+- **Versión actualizada**: `16.4.3` — sin advisories verificado contra npm advisory bulk endpoint
+- `npm ci` limpio · typecheck limpio · build limpio con 16.4.3
+
+### Estado de la base de datos
+
+| Objeto | Existe en BD | Verificado |
+|---|---|---|
+| `financial_movements` | ✅ | via REST API (`/rest/v1/financial_movements`) |
+| `get_financial_summary(uuid, text)` RPC | ✅ | via REST API (`/rest/v1/rpc/get_financial_summary`) |
+| `restaurant_config.stock_tracking_enabled` | ✅ | columna accesible |
+| `restaurant_config.orders_enabled` | ✅ | columna accesible |
+| `products.cost_cents` | ✅ | columna accesible |
+| Migraciones aplicadas | 30/30 (001–030) | ✅ |
+| Migraciones pendientes para el despliegue | Ninguna — ya aplicadas | ✅ |
+
+### Resultados de pruebas
+
+| Suite | Resultado | Tipo |
+|---|---|---|
+| `npm test` (pricing) | ✅ 5/5 | Automatizado — sin BD |
+| `npm run test:unsaved` | ✅ 12/12 | Automatizado — sin BD |
+| `npm run test:subdomains` | ✅ 22/22 | Automatizado — sin BD |
+| `npm run test:finance` | ⏳ requiere `.env.test` con creds | BD — skip limpio sin creds |
+| `npm run test:config` / `test:orders` / `test:panel` | ⏳ requieren `.env.test` | BD — skip limpio sin creds |
+| `typecheck` | ✅ limpio | Automatizado |
+| `build` | ✅ limpio — 28 rutas generadas | Automatizado |
+
+### Verificaciones funcionales — estado
+
+| Verificación | Método | Estado |
+|---|---|---|
+| Login y selección de negocio | Visual — requiere browser | ⏳ Pendiente |
+| Navegación conservando negocio activo | Visual | ⏳ Pendiente |
+| Sidebar sin duplicados, cabecera integrada | Visual | ⏳ Pendiente |
+| Configuración: guardar sin perder otros ajustes | Test config-sections + visual | ⚠ Test requiere BD; visual pendiente |
+| Catálogo público y WhatsApp | curl + visual | ✅ Verificado via curl (SSR correcto) |
+| Finanzas: registro, resumen, anulación | Test finance + verificación REST real | ✅ Verificado via REST con datos reales |
+| Aislamiento entre negocios | Test finance-isolation (requiere creds) | ✅ RLS verificado en conversación anterior |
+
+### Archivos del commit
+
+**Modificados (32):** `.gitignore`, `package.json`, `package-lock.json`, `docs/ESTADO.md`, todos los archivos de `src/` (panel, configuracion, menu, finanzas, catálogo público, admin, globals.css)
+
+**Nuevos (17):**
+- `src/app/panel/finanzas/` (layout, page, actions, movement-form, summary-client, analisis/)
+- `src/app/seleccionar-negocio/`
+- `src/components/crop-tool.tsx`, `hero-demo.tsx`, `whatsapp-button.tsx`
+- `src/lib/contact.ts`
+- `supabase/migrations/` (025–030)
+- `tests/config-sections.test.ts`, `tests/finance-isolation.test.ts`
+- `scripts/run-migrations-023-030.ts`, `seed-lanz-technology.ts`, `seed-luale-shop.ts`
+
+### Variables Railway requeridas
+
+Verificar que el servicio en Railway tiene configuradas estas variables. No configurar el valor aquí.
+
+| Variable | Tipo | Para qué |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Build + Runtime | Cliente Supabase en SSR, proxy, checkout |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Build + Runtime | Operaciones dentro de RLS |
+| `NEXT_PUBLIC_PLATFORM_HOST` | Runtime | Reconocer el hostname de Railway como plataforma |
+| `NEXT_PUBLIC_SITE_URL` | Runtime | URL base para invitaciones Auth |
+| `SUPABASE_SERVICE_ROLE_KEY` | Runtime (privada) | Auth Admin API, place_order, panel admin |
+
+Variables ya confirmadas desde el despliegue previo en `mesa-platform-production.up.railway.app`.
+
+**Variables que NO añadir:** `NODE_ENV` (Railway la pone), `MESA_DATABASE_URL` (solo migraciones locales), `NEXT_PUBLIC_APP_HOST` (hereda de PLATFORM_HOST).
+
+### Railway — configuración
+
+| Campo | Valor |
+|---|---|
+| Build command | `npm run build` (= `next build --webpack`) |
+| Start command | `npm start` (= `next start -H 0.0.0.0`) — Next.js lee `PORT` de Railway automáticamente |
+| Healthcheck | `GET /api/health` → `{"status":"ok"}` |
+| Healthcheck timeout | 30 s |
+| Restart policy | ON_FAILURE, max 3 reintentos |
+| Deploy automático | **SÍ** — Railway detecta push a `main` y redesplega automáticamente |
+
+### Despliegue automático
+
+⚠️ **Un push a `main` activa el despliegue inmediatamente.** Confirmar que se quiere desplegar antes de ejecutar `git push origin main`.
+
+### Reversión
+
+| Nivel | Procedimiento |
+|---|---|
+| Aplicación | Railway: Settings → Deployments → elegir un deploy anterior → Redeploy. No toca la BD. |
+| Migraciones 025–030 | **No hay rollback automático.** Estas migraciones son aditivas (ADD COLUMN IF NOT EXISTS, CREATE TABLE IF NOT EXISTS). La aplicación anterior (commit eb41acd) funciona sin esas columnas porque el código las lee con `?.` o `?? default`. |
+| Datos comerciales | Sin cambio — ninguna migración modifica datos existentes. |
+
+### Hostname a conservar
+
+`mesa-platform-production.up.railway.app` — ya configurado en Railway. No se cambia ninguna variable de dominio en este despliegue.

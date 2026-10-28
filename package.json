@@ -18,7 +18,9 @@
     "test:domains": "node --experimental-strip-types --env-file=.env.local --env-file=.env.test --test tests/domains.test.ts",
     "test:unsaved": "node --experimental-strip-types --test tests/unsaved-changes.test.ts",
     "test:subdomains": "node --experimental-strip-types --test tests/subdomains.test.ts",
-    "test:plans": "node --experimental-strip-types --env-file=.env.local --env-file=.env.test --test tests/plans.test.ts"
+    "test:plans": "node --experimental-strip-types --env-file=.env.local --env-file=.env.test --test tests/plans.test.ts",
+    "test:sections": "node --experimental-strip-types --env-file=.env.local --env-file=.env.test --test tests/config-sections.test.ts",
+    "test:finance": "node --experimental-strip-types --env-file=.env.local --env-file=.env.test --test tests/finance-isolation.test.ts"
   },
   "engines": {
     "node": ">=22.0.0"
@@ -27,7 +29,7 @@
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.3",
     "lucide-react": "^1.57.0",
-    "next": "16.4.0",
+    "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
