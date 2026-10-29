@@ -1,4 +1,4 @@
-# Estado Mesa Platform — 26 de octubre de 2026 (actualizado)
+# Estado Mesa Platform — 29 de octubre de 2026 (actualizado)
 
 ## Resumen ejecutivo
 
@@ -151,10 +151,17 @@
 | **setSaveHandler en UnsavedChangesContext — formularios registran su save fn para "Guardar y continuar"** | ✅ **Implementado (27/10/2026)** |
 | **tests/config-sections.test.ts — CS01-CS08** | ✅ **Creados (27/10/2026) — se ejecutan con npm run test:sections** |
 | **Advertencia Next.js 16.4.0 — 3 advisories (2 critical, 1 high); versión corregida: no disponible aún** | ⚠️ **Documentado (27/10/2026) — ver sección "Advertencia Next.js"** |
+| **Migración 031 (draft support) — base_price_cents nullable en products** | ✅ **Aplicada en Supabase (28/10/2026)** |
+| **Importación PDF Luale — 3 borradores con imagen; conciliación 45 láminas; 5 pendientes propietario** | ✅ **Completada (28/10/2026)** |
+| **Corrección: 15 borradores sin precio tenían is_published=true — corregido a false en Supabase** | ✅ **Corregido (29/10/2026)** |
+| **Push a cerebraia/mesa-platform — SHA ba05e71** | ✅ **Publicado (29/10/2026)** |
+| **Verificaciones producción — healthcheck, home, login, /panel y /admin redirigen, catálogos públicos OK** | ✅ **Verificado (29/10/2026)** |
+| **Borradores Luale no visibles públicamente** | ✅ **Verificado (29/10/2026)** |
+| **Railway deploy del SHA ba05e71** | ⚠️ **Pendiente — Railway CLI necesita `railway login` (URL: railway.com/activate?user_code=NZFN-BFST)** |
 
 ---
 
-## Migraciones aplicadas: 21/21 (022 pendiente de aplicar en BD)
+## Migraciones aplicadas: 31/31
 
 | Versión | Archivo | Contenido |
 |---|---|---|
