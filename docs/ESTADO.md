@@ -111,6 +111,7 @@
 | **Refinamiento one page v2 (hero blanco, fotos reales, tipografía 600, espaciado, planes alineados)** | ✅ **Implementado (26/10/2026)** |
 | **Lanz Technology — negocio real importado (6 productos DJI, imágenes en Storage, owner lfefl1998@gmail.com)** | ✅ **Importado (26/10/2026)** |
 | **Luale Shop — negocio real importado (49 productos, 4 categorías, imágenes en Storage, owner lfefl1998@gmail.com)** | ✅ **Importado (26/10/2026)** |
+| **Luale Shop — catálogos PDF importados y conciliados (49 páginas = 4 portadas/separadores + 45 láminas; 26 coincidencias limpias + 13 borradores-v1 + 3 conflictos-v2 = 45; 5 pendientes propietario; manifiesto en docs/luale-import-manifest.json)** | ✅ **Procesado (28/10/2026)** |
 | **/panel/configuracion rediseñado: 8 secciones, guardado por sección, acciones nuevas (saveIdentity/saveAppearanceConfig/saveCatalogMode), vista previa en tiempo real, presets de color** | ✅ **Implementado (27/10/2026)** |
 | **Bug NEXT_REDIRECT en selector: try/catch cliente capturaba señal interna de redirect() → se muestra como error** | ✅ **Corregido (27/10/2026)** |
 | **Bug /seleccionar-negocio: query PGRST200 (restaurant_config sin FK directa) → rows=null → redirect /panel** | ✅ **Corregido (27/10/2026)** |
@@ -1036,7 +1037,7 @@ Ver lista completa en `tests/unsaved-changes.test.ts`. Sin navegador no se puede
 
 ---
 
-## Luale Shop — Importación completa (26/10/2026)
+## Luale Shop — Importación completa (26/10/2026) + PDF (28/10/2026)
 
 ### Negocio
 
@@ -1053,18 +1054,72 @@ Ver lista completa en `tests/unsaved-changes.test.ts`. Sin navegador no se puede
 | Instagram | `@lualekids.shop` |
 | Horarios | Lunes–sábado 09:00–18:00 (estimado; verificar con la tienda) |
 
-### Catálogo importado
+### Catálogo actual (28/10/2026)
 
-| Categoría | Total | Disponibles | Agotados |
+Cifras exactas verificadas en Supabase:
+
+| Categoría | Total BD | Publicados | Borradores |
 |---|---|---|---|
-| Bebés | 29 | 22 | 7 |
-| Niñas | 7 | 7 | 0 |
-| Niños | 8 | 7 | 1 |
+| Bebés | 40 | 29 | 11 |
+| Niñas | 11 | 7 | 4 |
+| Niños | 9 | 8 | 1 |
 | Juguetes | 5 | 5 | 0 |
-| **TOTAL** | **49** | **41** | **8** |
+| **TOTAL** | **65** | **49** | **16** |
 
-Imágenes: 49/49 subidas a Storage (`product-images`). Logo subido a `restaurant-assets`.  
-Plan de referencia: Mesa Inicio (50 máx.) — 49/50 slots utilizados.
+**Historia de la importación:**
+1. **26/10/2026** — Importación inicial del sitio `lualeshop.com`: 49 productos con precio e imágenes del sitio web.
+2. **28/10/2026 (importación PDF v1)** — Importación de 2 catálogos PDF: 13 borradores nuevos + imágenes de catálogo añadidas a 32 productos existentes. Cubrió las 45 láminas.
+3. **28/10/2026 (revisión v2)** — Análisis independiente: 3 borradores adicionales para láminas cuya coincidencia v1 se considera cuestionable (Bebés p12, p13, p21).
+
+**Conciliación definitiva (28/10/2026) — corrección del informe anterior:**
+
+El informe previo indicaba 35 coincidencias + 3 creados + 3 ambiguos = 41. Faltaban 4 porque los 13 borradores-v1 no se contaron como láminas asignadas y las 3 láminas con nota de ambigüedad quedaron sin sumar. Recuento correcto:
+
+| PDF | Páginas | Portadas/sep | Láminas | Coincidencia | Con nota ⚑ | Borrador | Conflicto ⚑ |
+|---|---|---|---|---|---|---|---|
+| Bebés (0–3 a) | 28 | 1 | 27 | 15 | 1 | 8 | 3 |
+| Niñas/Niños (4–8 a) | 21 | 3 | 18 | 11 | 2 | 4 | 0 |
+| **Total** | **49** | **4** | **45** | **26** | **3** | **13** | **3** |
+| | | | **= 45** | | **26+3+13+3** | **= 45 ✓** | |
+
+Las 45 láminas tienen resultado asignado. Tabla completa página a página en `docs/luale-import-manifest.json` (campo `conciliacion_49_paginas`).
+
+### Cinco pendientes que requieren confirmación del propietario
+
+| # | Lámina | Asignación actual | Problema | Dato necesario |
+|---|---|---|---|---|
+| 1 | Bebés p9 | Set 3 Piezas León `eb4e1261` (pub, €15) | La lámina muestra 2 piezas; el nombre dice 3. Candidato alternativo: Conjunto Animalitos `84e746b4` (pub, €25). | Cuál de los dos productos corresponde a esta lámina |
+| 2 | Bebés p12 | **v1:** Sets Leggings B/N `448f0efd` (pub, €25) · **v2:** Pantalones Jogger con Lazo `4b500b7a` (borrador, sin precio) | La lámina muestra 5 joggers lisos con lazo blanco; el nombre v1 no describe lazo ni 5 colores | ¿Son el mismo SKU? → eliminar borrador v2, o → asignar precio al borrador v2 |
+| 3 | Bebés p13 | **v1:** Pijamas Enterizas Estampadas `d821ec0c` (pub, €20) · **v2:** Enterizos Cremallera Lisos `296393e6` (borrador, sin precio) | La lámina es LISO; el producto v1 dice ESTAMPADAS | ¿Son distintos SKUs? (probable) → asignar precio al borrador v2, o → si son el mismo, eliminar v2 |
+| 4 | Bebés p21 | **v1:** Set Leggings Básicos `c301f0a4` (pub, €8, mismo que p11) · **v2:** Leggings Canalé Colores `4818cd5e` (borrador, sin precio) | V1 asignó p11 (3-6m) y p21 (6-9m, canalé, colores distintos) al mismo producto | ¿Son dos SKUs separados? (probable) → asignar precio al borrador v2 |
+| 5 | Niños p14+p15 | Ambas → Set Capri Italy `503e7683` (pub, €35) | Dos láminas distintas (talla 4a/short rojo y talla 6a/short amarillo) apuntan al mismo producto | ¿Un listado cubre ambas tallas o se necesitan dos entradas? |
+
+**Regla aplicada:** ningún borrador de conflicto se publica ni se elimina hasta recibir confirmación del propietario. Los 3 borradores v2 (`4b500b7a`, `296393e6`, `4818cd5e`) conservan su estado actual (sin precio, sin publicar).
+
+### Borradores pendientes de precio (acciones del propietario)
+
+| Producto | ID corto | PDF | Acción requerida |
+|---|---|---|---|
+| Pantalones Jogger con Lazo | `4b500b7a` | Bebés p12 | Revisar vs "Sets Leggings Blanco y Negro" (448f0efd); asignar precio o consolidar |
+| Enterizos Cremallera Lisos | `296393e6` | Bebés p13 | Revisar vs "Pijamas Enterizas Estampadas" (d821ec0c); asignar precio o consolidar |
+| Leggings Canalé Colores | `4818cd5e` | Bebés p21 | Revisar vs "Set Leggings Básicos" (c301f0a4); asignar precio o consolidar |
+| Conjunto NASA Negro | `edd5b761` | Bebés p7 | Asignar precio y publicar |
+| Body Ranita Rayas Multicolor | `493d8fae` | Bebés p10 | Asignar precio y publicar |
+| Bodies Manga Corta Básicos | `e4bde614` | Bebés p18 | Asignar precio y publicar |
+| Bodies Sin Mangas Tonos Tierra | `0a7c35e0` | Bebés p19 | Asignar precio y publicar |
+| Bodies Sin Mangas Tonos Neutros | `fa2676ec` | Bebés p20 | Asignar precio y publicar |
+| Tops Manga Larga Clásicos | `319c1dc2` | Bebés p23 | Asignar precio y publicar |
+| Diademas Turbantes Tul con Lazo | `7a972b3d` | Bebés p28 | Asignar precio y publicar |
+| Pijama Flores y Arcoíris | `675fa49e` | Bebés p14 | Asignar precio y publicar |
+| Set Capri Italy Azul — Niñas | `f5b1ae06` | Niñas p3 | Asignar precio y publicar |
+| Set Capri Italy Lila — Niñas | `5f281682` | Niñas p11 | Asignar precio y publicar |
+| Set Fresh Bakery Naranja | `1f9180e8` | Niñas p4 | Asignar precio y publicar |
+| Set Premium Bakery Verde | `f163196c` | Niñas p12 | Asignar precio y publicar |
+| Set Polo Oakland Verde — Niños | `2a42f855` | Niños p16 | Asignar precio y publicar |
+
+Imágenes de catálogo PDF: subidas en Storage (PNG 1296×1620 + miniatura cuadrada 1620×1620).  
+Imágenes originales del sitio web: conservadas (no eliminadas).  
+Migración 031 aplicada: `base_price_cents` permite NULL para borradores.
 
 ### Fuente de imágenes
 
@@ -1908,3 +1963,95 @@ Variables ya confirmadas desde el despliegue previo en `mesa-platform-production
 ### Hostname a conservar
 
 `mesa-platform-production.up.railway.app` — ya configurado en Railway. No se cambia ninguna variable de dominio en este despliegue.
+
+---
+
+## Importación catálogos Luale Shop (28/10/2026)
+
+### Fuentes
+- `Catalogo_Luale_Bebes_0_a_3_anos_Portada_Nueva (2).pdf` — 28 páginas (27 de producto)
+- `Catalogo_Luale_Ninas_y_Ninos_Sin_Logos_Secciones (1).pdf` — 21 páginas (18 de producto, 2 separadores)
+
+### Resultado
+
+| Estado | Cantidad | Motivo |
+|---|---|---|
+| Actualizados con imagen nueva | **32** | Imagen de catálogo cargada en Storage y vinculada al producto existente |
+| Pendientes — nuevos sin precio | **13** | `base_price_cents NOT NULL` impide crear productos sin precio; además el plan está en 49/50 productos |
+| Errores | **0** | |
+| Skipped (ya existían) | **0** | Primera importación desde estos PDFs |
+
+### Método
+
+- Páginas extraídas a 300 DPI con `pdftoppm`
+- Miniaturas cuadradas 600×600 JPEG (fondo blanco, ratio conservado) con Pillow
+- Upload idempotente a bucket `product-images` con clave estable `catalog-{fuente}-p{nn}.jpg`
+- `product_images` insertado con storage_path + thumbnail_path + alt_text + position
+- Verificación pre-insert evita duplicados (HEAD en Storage + query en DB)
+
+### Verificaciones realizadas
+
+| Check | Resultado |
+|---|---|
+| 32 registros `product_images` con `catalog-` en path en Luale | ✅ |
+| URLs públicas accesibles (HTTP 200) | ✅ 3/3 spot-checked |
+| Lanz Technology sin registros de catálogo | ✅ 0 |
+| 12/12 productos clave verificados con imagen de catálogo | ✅ |
+| Productos siguen publicados y con precio original | ✅ (solo se añadió imagen, nada más) |
+
+### 13 pendientes (requieren precio confirmado y ampliación de plan)
+
+| Fuente | Página | Producto |
+|---|---|---|
+| bebés | 7 | Conjunto chaqueta+pantalón NASA negro — 12-18m |
+| bebés | 10 | Body ranita rayas multicolor — 3-6m |
+| bebés | 14 | Pijama flores arcoíris celeste — 9-12m |
+| bebés | 18 | Bodies manga corta básicos (5 colores) — 3-6m |
+| bebés | 19 | Bodies sin mangas tonos tierra (5 colores) — 3-6m |
+| bebés | 20 | Bodies sin mangas tonos neutros (5 colores) — 6-9m |
+| bebés | 23 | Tops manga larga 3 piezas blanco/negro — 6-9m |
+| bebés | 28 | Diademas turbantes tul con lazo (talla única) |
+| niñas | 3 | Capri Italy top+pantalón palazzo azul — 4 años |
+| niñas | 4 | Fresh Bakery top+pantalón naranja — 6 años |
+| niñas | 11 | Capri Italy top lila+pantalón palazzo rayas rosa — 5 años |
+| niñas | 12 | Premium Bakery top+pantalón palazzo verde — 4 años |
+| niños | 16 | Oakland polo verde+short verde — 4 años |
+
+Imágenes de los pendientes **sí fueron extraídas** (en `/tmp/luale_import/`). En cuanto se confirmen precios y se amplíe el plan, se pueden crear los productos y vincular las imágenes ya disponibles.
+
+**Manifiesto completo:** `docs/luale-import-manifest.json`
+
+### Actualización — borradores creados sin precio (28/10/2026)
+
+El usuario autorizó crear los 13 productos pendientes sin precio.
+
+**Migración 031** (`supabase/migrations/20261028000031_products_draft_support.sql`):
+- `ALTER TABLE products ALTER COLUMN base_price_cents DROP NOT NULL`
+- Aplicada. Migraciones totales: 31/31.
+- `base_price_cents = NULL` es ahora válido; el CHECK `>= 0` solo aplica cuando el valor no es nulo.
+- Productos con `base_price_cents = NULL` se crean con `is_published = false` y `is_available = false`.
+
+**13 productos creados como borrador:**
+
+| Categoría | Nombre | Talla |
+|---|---|---|
+| Bebés | Conjunto NASA Negro | 12-18 meses |
+| Bebés | Body Ranita Rayas Multicolor | 3-6 meses |
+| Bebés | Pijama Flores y Arcoíris | 9-12 meses |
+| Bebés | Bodies Manga Corta Básicos | 3-6 / 6-9 meses |
+| Bebés | Bodies Sin Mangas Tonos Tierra | 3-6 meses |
+| Bebés | Bodies Sin Mangas Tonos Neutros | 6-9 meses |
+| Bebés | Tops Manga Larga Clásicos | 6-9 meses |
+| Bebés | Diademas Turbantes Tul con Lazo | Talla única |
+| Niñas | Set Capri Italy Azul — Niñas | 4 años |
+| Niñas | Set Fresh Bakery Naranja | 6 años |
+| Niñas | Set Capri Italy Lila — Niñas | 5 años |
+| Niñas | Set Premium Bakery Verde | 4 años |
+| Niños | Set Polo Oakland Verde — Niños | 4 años |
+
+**Estado final Luale Shop:** 62 productos totales (49 publicados + 13 borradores sin precio).
+
+**Verificación:**
+- 94 `product_images` en Luale (32 catálogo en productos existentes + 13 en borradores + 49 originales)
+- Spot-check imagen borrador: HTTP 200 ✓
+- Lanz Technology: 6 productos, sin cambios ✓
