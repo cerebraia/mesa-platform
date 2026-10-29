@@ -158,6 +158,7 @@
 | **Verificaciones producción — healthcheck, home, login, /panel y /admin redirigen, catálogos públicos OK** | ✅ **Verificado (29/10/2026)** |
 | **Borradores Luale no visibles públicamente** | ✅ **Verificado (29/10/2026)** |
 | **Railway deploy del SHA 9280941 — deployment f6849c7e SUCCESS** | ✅ **Desplegado (29/10/2026 11:35 ET)** |
+| **Modal de confirmación de publicar/despublicar producto — reemplaza window.confirm** | ✅ **Implementado (29/10/2026)** |
 
 ---
 

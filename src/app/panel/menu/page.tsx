@@ -50,6 +50,14 @@ export default async function MenuPage() {
 
   const atLimit = planUsage?.max_products != null && planUsage.product_count >= planUsage.max_products;
 
+  // Determine catalog label for publish modal text
+  const { data: cfgRow } = await supabase
+    .from("restaurant_config")
+    .select("orders_enabled")
+    .eq("restaurant_id", restaurantId)
+    .maybeSingle();
+  const catalogLabel: "menú" | "catálogo" = (cfgRow?.orders_enabled ?? true) ? "menú" : "catálogo";
+
   return (
     <>
       <PageHeader
@@ -112,6 +120,7 @@ export default async function MenuPage() {
           cats={cats}
           imageBase={imageBase}
           defaultTab="productos"
+          catalogLabel={catalogLabel}
         />
       </div>
     </>

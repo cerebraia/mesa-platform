@@ -22,7 +22,8 @@ function plural(n: number, s: string, p: string) {
   return `${n} ${n === 1 ? s : p}`;
 }
 
-function formatCents(cents: number) {
+function formatCents(cents: number | null) {
+  if (cents == null) return <span style={{ color: "#9CA3AF", fontSize: 11 }}>Sin precio</span>;
   return `$${(cents / 100).toFixed(2)}`;
 }
 
@@ -60,9 +61,11 @@ function Thumb({ src, alt }: { src: string | null; alt: string }) {
 function ProductsTab({
   cats,
   imageBase,
+  catalogLabel,
 }: {
-  cats:      CategoryWithProducts[];
-  imageBase: string;
+  cats:         CategoryWithProducts[];
+  imageBase:    string;
+  catalogLabel: "menú" | "catálogo";
 }) {
   const [search,   setSearch]   = useState("");
   const [catId,    setCatId]    = useState("");
@@ -236,7 +239,9 @@ function ProductsTab({
                           </Link>
                           <ProductRowActions
                             productId={p.id}
+                            productName={p.name}
                             isPublished={p.is_published}
+                            catalogLabel={catalogLabel}
                           />
                         </div>
                       </td>
@@ -356,10 +361,12 @@ export function MenuCatalogClient({
   cats,
   imageBase,
   defaultTab,
+  catalogLabel = "catálogo",
 }: {
-  cats:       CategoryWithProducts[];
-  imageBase:  string;
-  defaultTab: "productos" | "categorias";
+  cats:          CategoryWithProducts[];
+  imageBase:     string;
+  defaultTab:    "productos" | "categorias";
+  catalogLabel?: "menú" | "catálogo";
 }) {
   const [tab, setTab] = useState<"productos" | "categorias">(defaultTab);
 
@@ -396,7 +403,7 @@ export function MenuCatalogClient({
       </div>
 
       {tab === "productos" ? (
-        <ProductsTab cats={cats} imageBase={imageBase} />
+        <ProductsTab cats={cats} imageBase={imageBase} catalogLabel={catalogLabel} />
       ) : (
         <CategoriesTab cats={cats} />
       )}
