@@ -2,23 +2,26 @@
 
 import { useRef, useState, useCallback } from "react";
 import { setProductPublished } from "./actions";
-import { PublishConfirmModal } from "@/components/publish-confirm-modal";
+import { PublishConfirmModal, BlockedNoPriceModal } from "@/components/publish-confirm-modal";
 
 export function ProductRowActions({
   productId,
   productName,
   isPublished,
+  isAvailable,
+  hasPriceMissing,
   catalogLabel = "catálogo",
 }: {
   productId: string;
   productName: string;
   isPublished: boolean;
+  isAvailable: boolean;
+  hasPriceMissing: boolean;
   catalogLabel?: "menú" | "catálogo";
 }) {
-  const [open, setOpen]       = useState(false);
-  const [saving, setSaving]   = useState(false);
-  const [error, setError]     = useState<string | null>(null);
-  // Ref to the trigger button so we can restore focus on close
+  const [open, setOpen]     = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   function openModal() {
@@ -29,7 +32,6 @@ export function ProductRowActions({
   const closeModal = useCallback(() => {
     setOpen(false);
     setError(null);
-    // Restore focus to the button that opened the dialog
     triggerRef.current?.focus();
   }, []);
 
@@ -41,14 +43,23 @@ export function ProductRowActions({
     setSaving(false);
     if (result.error) {
       setError(result.error);
-      // Keep modal open so the user can retry
     } else {
       setOpen(false);
-      // Focus returns to trigger automatically via closeModal, but since
-      // the row re-renders after revalidation the ref may unmount briefly.
-      // The browser will leave focus on body; this is acceptable.
     }
   }, [saving, productId, isPublished]);
+
+  // When publishing: a product with no price cannot be published.
+  // Show the blocked modal instead.
+  const blockPublish = !isPublished && hasPriceMissing;
+
+  // When publishing a product whose availability is off: it will land in
+  // "Pausado" state, not visible in the public catalog. Warn the owner.
+  const warnUnavailable = !isPublished && !isAvailable && !hasPriceMissing;
+
+  const buttonLabel = isPublished ? "Despublicar" : "Publicar";
+  const ariaLabel   = isPublished
+    ? `Despublicar ${productName}`
+    : `Publicar ${productName}`;
 
   return (
     <>
@@ -60,18 +71,27 @@ export function ProductRowActions({
           fontSize: 11,
           color: isPublished ? "#a72b38" : "var(--purple)",
         }}
-        aria-label={isPublished ? `Despublicar ${productName}` : `Publicar ${productName}`}
+        aria-label={ariaLabel}
       >
-        {isPublished ? "Despublicar" : "Publicar"}
+        {buttonLabel}
       </button>
 
-      {open && (
+      {open && blockPublish && (
+        <BlockedNoPriceModal
+          productId={productId}
+          productName={productName}
+          onCancel={closeModal}
+        />
+      )}
+
+      {open && !blockPublish && (
         <PublishConfirmModal
           productName={productName}
           publishing={!isPublished}
           catalogLabel={catalogLabel}
           isSaving={saving}
           error={error}
+          warnUnavailable={warnUnavailable}
           onConfirm={handleConfirm}
           onCancel={closeModal}
         />

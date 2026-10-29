@@ -220,6 +220,158 @@ test("C08 anónimo solo lee categorías activas y productos publicados", { skip:
   }
 });
 
+// ── C11: pub=T avail=F → anon no lo ve (estado "Pausado") ────────────────
+test("C11 producto publicado con is_available=false no es visible para anon", { skip: SKIP }, async () => {
+  const owner = await clientFor(process.env.TEST_OWNER_ALFA_EMAIL!, process.env.TEST_OWNER_ALFA_PASSWORD!);
+  const anon  = anonClient();
+
+  const { data: cat } = await owner.from("categories").insert({
+    restaurant_id: ALFA, name: "Cat C11", position: 994, is_active: true,
+  }).select("id").single();
+  assert.ok(cat?.id);
+
+  let prodId: string | null = null;
+  try {
+    // Create published but unavailable product (simulates "Pausado" state)
+    const { data: rpcId } = await owner.rpc("upsert_product", {
+      p_restaurant_id: ALFA,
+      p_product: {
+        category_id: cat.id,
+        name: "Pausado C11",
+        base_price_cents: 1000,
+        is_published: true,
+        is_available: false,
+      },
+      p_variants: [{ name: "Regular", price_cents: 1000, is_available: true }],
+      p_option_groups: [],
+    });
+    prodId = rpcId as string;
+    assert.ok(prodId, "upsert_product debe devolver UUID");
+
+    // Anon must NOT see it: RLS requires is_published AND is_available
+    const { data: anonProds } = await anon.from("products").select("id").eq("id", prodId);
+    assert.equal(
+      anonProds?.length ?? 0, 0,
+      "Anon no debe ver producto con is_available=false aunque esté publicado",
+    );
+
+    // Enable availability → now visible
+    await owner.from("products").update({ is_available: true }).eq("id", prodId);
+    const { data: anonAfter } = await anon.from("products").select("id").eq("id", prodId);
+    assert.equal(anonAfter?.length ?? 0, 1, "Anon debe ver producto cuando avail=true");
+
+    // Restore to unavailable
+    await owner.from("products").update({ is_available: false }).eq("id", prodId);
+    const { data: anonRestored } = await anon.from("products").select("id").eq("id", prodId);
+    assert.equal(anonRestored?.length ?? 0, 0, "Restaurado avail=false: anon no lo ve");
+  } finally {
+    if (prodId) await owner.from("products").delete().eq("id", prodId);
+    await owner.from("categories").delete().eq("id", cat.id);
+  }
+});
+
+// ── C12: pub=F avail=F → anon no lo ve (estado "Borrador sin disponibilidad") ─
+test("C12 producto no publicado con is_available=false no es visible para anon", { skip: SKIP }, async () => {
+  const owner = await clientFor(process.env.TEST_OWNER_ALFA_EMAIL!, process.env.TEST_OWNER_ALFA_PASSWORD!);
+  const anon  = anonClient();
+
+  const { data: cat } = await owner.from("categories").insert({
+    restaurant_id: ALFA, name: "Cat C12", position: 993, is_active: true,
+  }).select("id").single();
+  assert.ok(cat?.id);
+
+  let prodId: string | null = null;
+  try {
+    const { data: rpcId } = await owner.rpc("upsert_product", {
+      p_restaurant_id: ALFA,
+      p_product: {
+        category_id: cat.id,
+        name: "Borrador C12",
+        base_price_cents: 1000,
+        is_published: false,
+        is_available: false,
+      },
+      p_variants: [{ name: "Regular", price_cents: 1000, is_available: true }],
+      p_option_groups: [],
+    });
+    prodId = rpcId as string;
+    assert.ok(prodId);
+
+    // Anon cannot see it
+    const { data: before } = await anon.from("products").select("id").eq("id", prodId);
+    assert.equal(before?.length ?? 0, 0, "Anon no ve borrador con avail=false");
+
+    // Publish it → pub=T avail=F = "Pausado", still NOT visible to anon
+    await owner.rpc("set_product_published", {
+      p_restaurant_id: ALFA, p_product_id: prodId, p_published: true,
+    });
+    const { data: afterPub } = await anon.from("products").select("id").eq("id", prodId);
+    assert.equal(
+      afterPub?.length ?? 0, 0,
+      "Publicado con avail=false sigue sin ser visible para anon (estado Pausado)",
+    );
+  } finally {
+    if (prodId) await owner.from("products").delete().eq("id", prodId);
+    await owner.from("categories").delete().eq("id", cat.id);
+  }
+});
+
+// ── C13: pub=T avail=T → anon lo ve; aislamiento de escritura entre negocios ─
+test("C13 pub=T avail=T visible para anon; owner de Beta no puede modificar ni borrar producto de Alfa", { skip: SKIP }, async () => {
+  const ownerA = await clientFor(process.env.TEST_OWNER_ALFA_EMAIL!, process.env.TEST_OWNER_ALFA_PASSWORD!);
+  const ownerB = await clientFor(process.env.TEST_OWNER_BETA_EMAIL!, process.env.TEST_OWNER_BETA_PASSWORD!);
+  const anon   = anonClient();
+
+  const { data: cat } = await ownerA.from("categories").insert({
+    restaurant_id: ALFA, name: "Cat C13", position: 992, is_active: true,
+  }).select("id").single();
+  assert.ok(cat?.id);
+
+  let prodId: string | null = null;
+  try {
+    const { data: rpcId } = await ownerA.rpc("upsert_product", {
+      p_restaurant_id: ALFA,
+      p_product: {
+        category_id: cat.id,
+        name: "Visible C13",
+        base_price_cents: 1000,
+        is_published: true,
+        is_available: true,
+      },
+      p_variants: [{ name: "Regular", price_cents: 1000, is_available: true }],
+      p_option_groups: [],
+    });
+    prodId = rpcId as string;
+    assert.ok(prodId, "upsert_product debe devolver UUID");
+
+    // Anon must see it (pub=T avail=T)
+    const { data: anonProds } = await anon.from("products").select("id").eq("id", prodId);
+    assert.equal(anonProds?.length ?? 0, 1, "Anon debe ver producto pub=T avail=T");
+
+    // Beta owner attempts to DELETE the product from Alfa.
+    // RLS blocks the write silently (no rows affected, no error).
+    // Verify by checking the product still exists afterwards.
+    await ownerB.from("products").delete().eq("id", prodId);
+    const { data: stillExists } = await ownerA.from("products").select("id").eq("id", prodId);
+    assert.equal(
+      stillExists?.length ?? 0, 1,
+      "Producto de Alfa debe seguir existiendo tras intento de borrado por Beta",
+    );
+
+    // Beta owner attempts to UPDATE the product from Alfa.
+    // RLS blocks silently; price should be unchanged.
+    await ownerB.from("products").update({ base_price_cents: 1 }).eq("id", prodId);
+    const { data: afterUpdate } = await ownerA.from("products").select("base_price_cents").eq("id", prodId).single();
+    assert.equal(
+      afterUpdate?.base_price_cents, 1000,
+      "Precio de producto de Alfa no debe cambiar tras intento de modificación por Beta",
+    );
+  } finally {
+    if (prodId) await ownerA.from("products").delete().eq("id", prodId);
+    await ownerA.from("categories").delete().eq("id", cat.id);
+  }
+});
+
 // ── C09: Aislamiento Storage — owner de Beta no puede subir en Alfa ──────
 test("C09 owner de Beta no puede subir imagen al directorio de Alfa", { skip: SKIP }, async () => {
   const c = await clientFor(process.env.TEST_OWNER_BETA_EMAIL!, process.env.TEST_OWNER_BETA_PASSWORD!);
