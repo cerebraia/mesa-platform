@@ -164,6 +164,7 @@
 | **Contadores exclusivos 4-vías (productState); filtros "visible/pausado/sin-precio/borrador"; bloqueo sin precio al publicar; aviso de disponibilidad desactivada** | ✅ **Implementado (29/10/2026)** |
 | **Recuadros de resumen /panel/menu convertidos en filtros funcionales: chip → statusF único, sincronizado con select; hover/foco visible accesible; contadores no se reducen al filtrar** | ✅ **Publicado (29/10/2026)** |
 | **Tests C11-C13: pub=T avail=F oculto; pub=F avail=F oculto; pub=T avail=T visible + aislamiento escritura Beta** | ✅ **12/13 aprobadas (C07 preexistente no afectado)** |
+| **Corrección variantes producto: eliminar última fila; sin fila vacía inicial; estado "único precio"; filledVariants al guardar; error por fila parcial; price=0 conservado; seguridad histórica verificada** | ✅ **Publicado (29/10/2026)** |
 
 ---
 

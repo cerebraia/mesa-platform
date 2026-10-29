@@ -101,7 +101,8 @@ export function ProductFormPage({
   // cropTarget: when set, CropTool modal is shown
   const [cropTarget, setCropTarget] = useState<{ file?: File; url?: string } | null>(null);
 
-  // Variants
+  // Variants — empty array = product uses base price only.
+  // Never seed a blank row: the user adds variants explicitly.
   const [variants, setVariants] = useState<LocalVariant[]>(
     existingVariants?.length
       ? existingVariants.map((v) => ({
@@ -109,7 +110,7 @@ export function ProductFormPage({
           price_cents: v.price_cents,
           is_available: v.is_available,
         }))
-      : [emptyVariant()],
+      : [],
   );
 
   // Option groups
@@ -262,13 +263,23 @@ export function ProductFormPage({
       setError("Selecciona una categoría.");
       return;
     }
-    for (const v of variants) {
+    // Discard completely blank rows (name="" and price=0) silently.
+    // Rows that are partially filled (only name or only price) are errors.
+    const filledVariants = variants.filter(
+      (v) => v.name.trim() !== "" || v.price_cents !== 0,
+    );
+    for (let i = 0; i < filledVariants.length; i++) {
+      const v = filledVariants[i];
       if (!v.name.trim()) {
-        setError("Todas las variantes deben tener nombre.");
+        setError(
+          filledVariants.length === 1
+            ? "La variante debe tener nombre."
+            : `La variante ${i + 1} debe tener nombre.`,
+        );
         return;
       }
       if (isNaN(v.price_cents) || v.price_cents < 0) {
-        setError("El precio de cada variante debe ser válido.");
+        setError(`El precio de la variante "${v.name}" debe ser un número válido.`);
         return;
       }
     }
@@ -329,7 +340,7 @@ export function ProductFormPage({
         is_available: isAvailable,
         is_published: isPublished,
         image_fit: imageFit,
-        variants,
+        variants: filledVariants,
         option_groups: groups,
         image_path: imagePath,
         thumb_path: thumbPath,
@@ -561,7 +572,7 @@ export function ProductFormPage({
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: 16,
+                marginBottom: 12,
               }}
             >
               <h2 style={{ fontSize: 16 }}>Variantes de precio</h2>
@@ -574,63 +585,74 @@ export function ProductFormPage({
                 + Variante
               </button>
             </div>
-            <p className="muted" style={{ fontSize: 12, marginBottom: 16 }}>
-              Ej: Sencilla $6.50 / Doble $9.50. Si hay solo una, será el precio
-              base.
-            </p>
 
-            {variants.map((v, i) => (
-              <div
-                key={i}
-                className="variant-row"
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr auto auto",
-                  gap: 8,
-                  marginBottom: 8,
-                  alignItems: "start",
-                }}
-              >
-                <input
-                  type="text"
-                  placeholder="Nombre (ej: Doble)"
-                  maxLength={100}
-                  value={v.name}
-                  onChange={(e) => updateVariant(i, "name", e.target.value)}
-                />
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Precio ($)"
-                  style={{ width: 110 }}
-                  value={v.price_cents ? v.price_cents / 100 : ""}
-                  onChange={(e) =>
-                    updateVariant(
-                      i,
-                      "price_cents",
-                      Math.round(parseFloat(e.target.value || "0") * 100),
-                    )
-                  }
-                />
-                <button
-                  type="button"
-                  onClick={() => removeVariant(i)}
-                  disabled={variants.length === 1}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--muted)",
-                    fontSize: 16,
-                    cursor: "pointer",
-                    padding: "10px 8px",
-                  }}
-                  title="Eliminar variante"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
+            {variants.length === 0 ? (
+              <p className="muted" style={{ fontSize: 12, margin: 0 }}>
+                Este producto utiliza un único precio (el precio base).
+                Añade variantes si ofreces opciones con precios distintos, como Sencilla / Doble.
+              </p>
+            ) : (
+              <>
+                <p className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
+                  Ej: Sencilla $6.50 / Doble $9.50.
+                </p>
+                {variants.map((v, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr auto auto",
+                      gap: 8,
+                      marginBottom: 8,
+                      alignItems: "center",
+                    }}
+                  >
+                    <input
+                      type="text"
+                      placeholder="Nombre (ej: Doble)"
+                      maxLength={100}
+                      value={v.name}
+                      onChange={(e) => updateVariant(i, "name", e.target.value)}
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="Precio ($)"
+                      style={{ width: 110 }}
+                      value={v.price_cents ? v.price_cents / 100 : ""}
+                      onChange={(e) =>
+                        updateVariant(
+                          i,
+                          "price_cents",
+                          Math.round(parseFloat(e.target.value || "0") * 100),
+                        )
+                      }
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeVariant(i)}
+                      aria-label={`Eliminar variante ${v.name || i + 1}`}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "var(--muted)",
+                        fontSize: 16,
+                        cursor: "pointer",
+                        padding: "8px 10px",
+                        minWidth: 36,
+                        minHeight: 36,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
 
           {/* ── Grupos de opciones ── */}
