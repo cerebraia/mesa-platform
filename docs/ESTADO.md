@@ -157,7 +157,7 @@
 | **Push a cerebraia/mesa-platform — SHA ba05e71** | ✅ **Publicado (29/10/2026)** |
 | **Verificaciones producción — healthcheck, home, login, /panel y /admin redirigen, catálogos públicos OK** | ✅ **Verificado (29/10/2026)** |
 | **Borradores Luale no visibles públicamente** | ✅ **Verificado (29/10/2026)** |
-| **Railway deploy del SHA ba05e71** | ⚠️ **Pendiente — Railway CLI necesita `railway login` (URL: railway.com/activate?user_code=NZFN-BFST)** |
+| **Railway deploy del SHA 9280941 — deployment f6849c7e SUCCESS** | ✅ **Desplegado (29/10/2026 11:35 ET)** |
 
 ---
 
