@@ -84,9 +84,10 @@ function ProductsTab({
   imageBase:    string;
   catalogLabel: "menú" | "catálogo";
 }) {
-  const [search,   setSearch]   = useState("");
-  const [catId,    setCatId]    = useState("");
-  const [statusF,  setStatusF]  = useState("");
+  // Single source of truth for all three filters
+  const [search,  setSearch]  = useState("");
+  const [catId,   setCatId]   = useState("");
+  const [statusF, setStatusF] = useState("");
 
   const allProducts = useMemo(
     () => cats.flatMap((c) =>
@@ -101,43 +102,54 @@ function ProductsTab({
       if (q && !p.name.toLowerCase().includes(q) &&
           !(p.description ?? "").toLowerCase().includes(q)) return false;
       if (catId && p._catId !== catId) return false;
-      // Filter by the canonical 4-way state (exclusive — no product in two buckets)
       if (statusF && productState(p) !== statusF) return false;
       return true;
     });
   }, [allProducts, search, catId, statusF]);
 
+  // Total counts always from allProducts (unaffected by active filter)
   const total     = allProducts.length;
-  // Exclusive 4-way counts derived from productState()
   const visible   = allProducts.filter((p) => productState(p) === "visible").length;
   const paused    = allProducts.filter((p) => productState(p) === "pausado").length;
   const sinPrecio = allProducts.filter((p) => productState(p) === "sin-precio").length;
   const drafts    = allProducts.filter((p) => productState(p) === "borrador").length;
+
   const hasFilter = search || catId || statusF;
+  function clearAll() { setSearch(""); setCatId(""); setStatusF(""); }
+
+  // Chip filter values: "" = all, or the productState key
+  const chips: Array<{ value: string; count: number; label: string; color: string }> = [
+    { value: "",           count: total,     label: "Total",     color: "#202337" },
+    { value: "visible",    count: visible,   label: "Visibles",  color: "#166534" },
+    ...(paused    > 0 ? [{ value: "pausado",    count: paused,    label: "Pausados",  color: "#92400E" }] : []),
+    ...(sinPrecio > 0 ? [{ value: "sin-precio", count: sinPrecio, label: "Sin precio", color: "#92400E" }] : []),
+    ...(drafts    > 0 ? [{ value: "borrador",   count: drafts,    label: "Borradores", color: "#667085" }] : []),
+  ];
 
   return (
     <>
-      {/* Counters — 4-way exclusive: visible | pausado | sin-precio | borrador */}
-      <div className="count-strip">
-        <span className="count-chip">{total} <span>Total</span></span>
-        <span className="count-chip" style={{ color: "#166534" }}>
-          {visible} <span style={{ color: "#667085" }}>Visibles</span>
-        </span>
-        {paused > 0 && (
-          <span className="count-chip" style={{ color: "#92400E" }}>
-            {paused} <span style={{ color: "#667085" }}>Pausados</span>
-          </span>
-        )}
-        {sinPrecio > 0 && (
-          <span className="count-chip" style={{ color: "#92400E" }}>
-            {sinPrecio} <span style={{ color: "#667085" }}>Sin precio</span>
-          </span>
-        )}
-        {drafts > 0 && (
-          <span className="count-chip" style={{ color: "#667085" }}>
-            {drafts} <span>Borradores</span>
-          </span>
-        )}
+      {/* Clickable count chips — single state, synced with select below */}
+      <div className="count-strip" role="group" aria-label="Filtrar por estado">
+        {chips.map((chip) => {
+          const active = statusF === chip.value;
+          return (
+            <button
+              key={chip.value}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setStatusF(chip.value)}
+              className="count-chip"
+              style={{
+                background: active ? "#EDE9FE" : "#fff",
+                border:     active ? "1px solid #703BE6" : "1px solid #E5E7EB",
+                color:      active ? "#5B21B6" : chip.color,
+              }}
+            >
+              {chip.count}{" "}
+              <span style={{ color: active ? "#7C3AED" : "#667085" }}>{chip.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Filter bar */}
@@ -164,6 +176,7 @@ function ProductsTab({
           ))}
         </select>
 
+        {/* State select — synced with chips above (single statusF state) */}
         <select
           value={statusF}
           onChange={(e) => setStatusF(e.target.value)}
@@ -178,10 +191,7 @@ function ProductsTab({
 
         <span className="filter-count">{filtered.length} de {total}</span>
         {hasFilter && (
-          <button
-            className="filter-clear"
-            onClick={() => { setSearch(""); setCatId(""); setStatusF(""); }}
-          >
+          <button className="filter-clear" onClick={clearAll}>
             Limpiar
           </button>
         )}

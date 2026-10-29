@@ -1071,8 +1071,12 @@ summary{font-size:15px}
 
 /* ── Counters strip ─── */
 .count-strip{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
-.count-chip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;color:#202337}
+.count-chip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #E5E7EB;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;color:#202337;min-height:32px}
 .count-chip span{font-size:11px;color:#667085;font-weight:400}
+/* When rendered as <button>: hover and focus states */
+button.count-chip{cursor:pointer;font-family:inherit;transition:background 0.12s,border-color 0.12s}
+button.count-chip:hover:not([aria-pressed="true"]){background:#F5F3FF;border-color:#C4B5FD}
+button.count-chip:focus-visible{outline:2px solid #703BE6;outline-offset:2px}
 
 /* ── Responsive ─── */
 @media(max-width:1100px){.metric-grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}}

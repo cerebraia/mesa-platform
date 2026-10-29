@@ -162,6 +162,7 @@
 | **Corrección contador panel/menu: visible=pub+avail (41); pausado=8 agotados; sin-precio=16 borradores; borrador=0** | ✅ **Corregido (29/10/2026)** |
 | **3 borradores v2 sin precio ocultos en catálogo (is_available=F); nunca mostraron "Sin precio" en producción** | ✅ **Corregido (29/10/2026)** |
 | **Contadores exclusivos 4-vías (productState); filtros "visible/pausado/sin-precio/borrador"; bloqueo sin precio al publicar; aviso de disponibilidad desactivada** | ✅ **Implementado (29/10/2026)** |
+| **Recuadros de resumen /panel/menu convertidos en filtros funcionales: chip → statusF único, sincronizado con select; hover/foco visible accesible; contadores no se reducen al filtrar** | ✅ **Publicado (29/10/2026)** |
 | **Tests C11-C13: pub=T avail=F oculto; pub=F avail=F oculto; pub=T avail=T visible + aislamiento escritura Beta** | ✅ **12/13 aprobadas (C07 preexistente no afectado)** |
 
 ---
