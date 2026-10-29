@@ -159,6 +159,8 @@
 | **Borradores Luale no visibles públicamente** | ✅ **Verificado (29/10/2026)** |
 | **Railway deploy del SHA 9280941 — deployment f6849c7e SUCCESS** | ✅ **Desplegado (29/10/2026 11:35 ET)** |
 | **Modal de confirmación de publicar/despublicar producto — reemplaza window.confirm** | ✅ **Implementado (29/10/2026)** |
+| **Corrección contador panel/menu: visible=pub+avail (41); pausado=8 agotados; sin-precio=16 borradores; borrador=0** | ✅ **Corregido (29/10/2026)** |
+| **3 borradores v2 sin precio ocultos en catálogo (is_available=F); nunca mostraron "Sin precio" en producción** | ✅ **Corregido (29/10/2026)** |
 
 ---
 

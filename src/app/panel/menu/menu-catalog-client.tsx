@@ -84,15 +84,22 @@ function ProductsTab({
       if (q && !p.name.toLowerCase().includes(q) &&
           !(p.description ?? "").toLowerCase().includes(q)) return false;
       if (catId && p._catId !== catId) return false;
-      if (statusF === "published" && !p.is_published) return false;
-      if (statusF === "draft"     &&  p.is_published) return false;
+      // "published"  = visible in public catalog (pub AND avail)
+      // "paused"     = published but not available (hidden from catalog)
+      // "draft"      = not published
+      if (statusF === "published" && !(p.is_published && p.is_available)) return false;
+      if (statusF === "paused"    && !(p.is_published && !p.is_available)) return false;
+      if (statusF === "draft"     &&    p.is_published)                    return false;
       return true;
     });
   }, [allProducts, search, catId, statusF]);
 
   const total     = allProducts.length;
-  const published = allProducts.filter((p) => p.is_published).length;
-  const drafts    = total - published;
+  // Visible in public catalog: RLS requires is_published=true AND is_available=true
+  const visible   = allProducts.filter((p) => p.is_published && p.is_available).length;
+  // Published but hidden (paused/out of stock)
+  const paused    = allProducts.filter((p) => p.is_published && !p.is_available).length;
+  const drafts    = allProducts.filter((p) => !p.is_published).length;
   const hasFilter = search || catId || statusF;
 
   return (
@@ -100,8 +107,19 @@ function ProductsTab({
       {/* Counters */}
       <div className="count-strip">
         <span className="count-chip">{total} <span>Total</span></span>
-        <span className="count-chip" style={{ color: "#166534" }}>{published} <span style={{ color: "#667085" }}>Publicados</span></span>
-        <span className="count-chip" style={{ color: "#667085" }}>{drafts} <span>Borradores</span></span>
+        <span className="count-chip" style={{ color: "#166534" }}>
+          {visible} <span style={{ color: "#667085" }}>Visibles</span>
+        </span>
+        {paused > 0 && (
+          <span className="count-chip" style={{ color: "#92400E" }}>
+            {paused} <span style={{ color: "#667085" }}>Pausados</span>
+          </span>
+        )}
+        {drafts > 0 && (
+          <span className="count-chip" style={{ color: "#667085" }}>
+            {drafts} <span>Borradores</span>
+          </span>
+        )}
       </div>
 
       {/* Filter bar */}
@@ -134,7 +152,8 @@ function ProductsTab({
           aria-label="Filtrar por estado"
         >
           <option value="">Todos los estados</option>
-          <option value="published">Publicados</option>
+          <option value="published">Visibles en catálogo</option>
+          <option value="paused">Pausados</option>
           <option value="draft">Borradores</option>
         </select>
 
@@ -215,17 +234,43 @@ function ProductsTab({
                         )}
                       </td>
                       <td>
-                        <span
-                          className="order-status-badge"
-                          style={{
-                            background: p.is_published ? "#D1FAE5" : "#F6F7FB",
-                            color:      p.is_published ? "#065F46" : "#667085",
-                          }}
-                        >
-                          {p.is_published
-                            ? p.is_available ? "Publicado" : "Pausado"
-                            : "Borrador"}
-                        </span>
+                        {(() => {
+                          // Determine the real visibility state:
+                          // "Visible"  = pub=T AND avail=T   → shown in public catalog
+                          // "Pausado"  = pub=T AND avail=F AND has price → manually hidden
+                          // "Sin precio" = pub=T AND avail=F AND price=null → needs price before publishing
+                          // "Borrador" = pub=F
+                          if (!p.is_published) {
+                            return (
+                              <span className="order-status-badge"
+                                style={{ background: "#F6F7FB", color: "#667085" }}>
+                                Borrador
+                              </span>
+                            );
+                          }
+                          if (p.is_available) {
+                            return (
+                              <span className="order-status-badge"
+                                style={{ background: "#D1FAE5", color: "#065F46" }}>
+                                Visible
+                              </span>
+                            );
+                          }
+                          if (p.base_price_cents == null) {
+                            return (
+                              <span className="order-status-badge"
+                                style={{ background: "#FEF3C7", color: "#92400E" }}>
+                                Sin precio
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="order-status-badge"
+                              style={{ background: "#FEF3C7", color: "#92400E" }}>
+                              Pausado
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td style={{ paddingRight: 20 }}>
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
