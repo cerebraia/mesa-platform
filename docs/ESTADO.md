@@ -163,12 +163,21 @@
 | **3 borradores v2 sin precio ocultos en catálogo (is_available=F); nunca mostraron "Sin precio" en producción** | ✅ **Corregido (29/10/2026)** |
 | **Contadores exclusivos 4-vías (productState); filtros "visible/pausado/sin-precio/borrador"; bloqueo sin precio al publicar; aviso de disponibilidad desactivada** | ✅ **Implementado (29/10/2026)** |
 | **Recuadros de resumen /panel/menu convertidos en filtros funcionales: chip → statusF único, sincronizado con select; hover/foco visible accesible; contadores no se reducen al filtrar** | ✅ **Publicado (29/10/2026)** |
-| **Tests C11-C13: pub=T avail=F oculto; pub=F avail=F oculto; pub=T avail=T visible + aislamiento escritura Beta** | ✅ **12/13 aprobadas (C07 preexistente no afectado)** |
+| **Tests C11-C13: pub=T avail=F oculto; pub=F avail=F oculto; pub=T avail=T visible + aislamiento escritura Beta** | ✅ **13/13 aprobadas (C07 corregido)** |
 | **Corrección variantes producto: eliminar última fila; sin fila vacía inicial; estado "único precio"; filledVariants al guardar; error por fila parcial; price=0 conservado; seguridad histórica verificada** | ✅ **Publicado (29/10/2026)** |
+| **Papelera de productos: migración 032 (deleted_at/deleted_by, RLS, soft_delete_product RPC, restore_product RPC, trigger order_items); pestaña "Productos eliminados"; modal eliminar; restaurar como borrador; tests C14-C17 17/17** | ✅ **Revisado y corregido (29/10/2026) — sin push** |
+| **C07/P11: bug de contaminación de BD (usuario NOACCESS con membresía stale); tests reforzados con limpieza vía admin antes de la aserción; 17/17 catálogo, 18/18 db-isolation** | ✅ **Corregido (29/10/2026)** |
+| **PL07 plans test: fallback UUID inconsistente en delete (usaba "00000000" en lugar de "00000000-0000-0000-0000-000000000099")** | ✅ **Corregido (29/10/2026)** |
+| **Bug: productos eliminados aparecían en pestaña Catálogo del panel — deleted_at ausente del SELECT anidado** | ✅ **Corregido en page.tsx + catalog-types.ts (29/10/2026)** |
+| **Guardia set_product_published: action-level check + migración 033 (AND deleted_at IS NULL en WHERE)** | ✅ **Implementado — migración 033 pendiente de aplicar en BD** |
+| **Guardia saveProduct (upsert): action-level check — no edita productos soft-deleted** | ✅ **Implementado en actions.ts (29/10/2026)** |
+| **Verificación browser: eliminar → papelera → recargar → restaurar → borrador** | ⏳ **Pendiente — sin acceso a navegador** |
+| **FALLO PRODUCCIÓN: 500 en todos los catálogos públicos — migración 032 re-introdujo bug de mig. 010 (EXISTS subqueries referenciando columnas revocadas de products en políticas anon de tablas hijo)** | ✅ **Corregido — migración 034 aplicada (30/10/2026)** |
+| **Catálogos públicos restaurados: luale-shop, lanz-technology, restaurante-alfa devuelven HTTP 200 con contenido real** | ✅ **Verificado (30/10/2026)** |
 
 ---
 
-## Migraciones aplicadas: 31/31
+## Migraciones aplicadas: 33/34 (033 pendiente en BD, 034 aplicada)
 
 | Versión | Archivo | Contenido |
 |---|---|---|
@@ -194,6 +203,9 @@
 | 20261014000020 | admin_plans.sql | advance_order_status v3 y confirm_order_payment v3: p_expected_* obligatorio para transiciones reales; is_restaurant_open verifica status='active'; tablas plans, subscriptions, subscription_payments, admin_audit_log; RLS; place_order verifica suscripción activa |
 | 20261014000021 | domains_v2.sql | restaurant_domains: añade status, requested_by, reviewed_by, updated_at; trigger sync_domain_status; RLS INSERT para owner; RPCs get_restaurant_slug_by_host (anon) y manage_restaurant_domain (admin) |
 | 20261015000022 | dashboard_metrics.sql | RPC get_dashboard_metrics(p_restaurant_id, p_period, p_timezone): owner/attention recibe conteos, confirmado cobrado, ticket promedio, 5 pedidos recientes; kitchen recibe conteos y cola de preparación; fechas calculadas en zona horaria del restaurante |
+| 20261029000032 | product_soft_delete.sql | deleted_at/deleted_by en products; RLS anon excluye deleted_at IS NOT NULL; RPCs soft_delete_product, restore_product; trigger trg_order_item_no_deleted_product en order_items |
+| 20261029000033 | set_product_published_guard.sql | set_product_published: añade AND deleted_at IS NULL al WHERE para bloquear publicar/despublicar productos eliminados — **PENDIENTE aplicar en BD** |
+| 20261030000034 | fix_anon_child_rls_policies.sql | **CORRECCIÓN URGENTE**: políticas anon de product_images, product_variants, option_groups, options — elimina referencias a columnas revocadas (is_published, is_available, deleted_at) de EXISTS subqueries; delega el filtrado a products_anon_select (patrón de mig. 010) |
 
 ---
 
@@ -272,16 +284,33 @@ Actualiza `restaurants.name` y `restaurants.timezone` + upsert de `restaurant_co
 |---|---|
 | `npm run typecheck` | ✅ limpio |
 | `npm test` (precios) | ✅ 5/5 |
-| `npm run test:db` (aislamiento core) | ✅ 18/18 |
-| `npm run test:catalog` (catálogo) | ✅ 10/10 |
+| `npm run test:db` (aislamiento core) | ✅ 18/18 (P11 corregido) |
+| `npm run test:catalog` (catálogo) | ✅ 17/17 (C07, C14-C17 corregidos) |
 | `npm run test:config` (configuración) | ✅ 18/18 |
 | `npm run test:orders` (pedidos) | ✅ 15/15 |
 | `npm run test:panel` (panel operativo) | ✅ 20/20 |
 | `npm run test:improvements` (mejoras pedidos) | ✅ 10/10 |
 | `npm run test:admin` (administración) | ✅ 10/10 |
 | `npm run test:domains` (dominios) | ✅ 13/13 |
-| `npm run build` (rediseño panel) | ✅ limpio |
-| `npm run build` (altura viewport panel) | ✅ limpio |
+| `npm run test:plans` (planes) | ✅ 10/10 |
+| `npm run build` (papelera + guardias) | ✅ limpio |
+
+---
+
+## Estado de soporte de moneda (USD / EUR / VES)
+
+| Área | USD | EUR | VES |
+|---|---|---|---|
+| Formulario admin (crear/editar restaurante) | ✅ opción disponible | ❌ ausente del select | ✅ opción disponible |
+| Formulario admin (crear plan) | ✅ | ❌ | ✅ |
+| Catálogo público `/r/[slug]` | ✅ dinámico | ✅ dinámico (requiere EUR en BD) | ✅ dinámico |
+| Panel dashboard `/panel` | ✅ dinámico | ✅ | ✅ |
+| Panel finanzas | ✅ dinámico | ✅ | ✅ |
+| Panel pedidos `/panel/pedidos/[id]` | ✅ | ❌ hardcoded USD | ❌ hardcoded USD |
+| Confirmación pedido `/r/[slug]/pedido` | ✅ | ❌ hardcoded USD | ❌ hardcoded USD |
+| `src/lib/catalog.ts` `money()` | ✅ | ❌ hardcoded USD | ❌ hardcoded USD |
+
+**Resumen:** El soporte multi-moneda **no está completo**. Los formularios admin incluyen VES pero no EUR. Las páginas de pedidos (panel/pedidos/[id] y /r/[slug]/pedido) y la función `money()` en catalog.ts tienen USD hardcodeado — mostrarán USD independientemente de la configuración del restaurante. Esta entrega **no implementa** el cambio de moneda completo.
 
 ---
 

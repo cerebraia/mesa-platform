@@ -138,6 +138,17 @@ export async function saveProduct(
     return { error: (e as Error).message };
   }
 
+  // Guard: editing a soft-deleted product is not allowed.
+  if (data.id) {
+    const { data: existing } = await supabase
+      .from("products")
+      .select("deleted_at")
+      .eq("id", data.id)
+      .eq("restaurant_id", restaurantId)
+      .maybeSingle();
+    if (existing?.deleted_at) return { error: "No se puede editar un producto eliminado." };
+  }
+
   // Call the atomic RPC — runs product + variants + option_groups in one transaction.
   const { data: productId, error: rpcError } = await supabase.rpc(
     "upsert_product",
@@ -214,6 +225,53 @@ export async function saveProduct(
   return { error: null, productId: productId as string };
 }
 
+// ── Soft-delete / restore ─────────────────────────────────────
+
+export async function softDeleteProduct(
+  productId: string,
+): Promise<{ error: string | null }> {
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerRestaurant());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const { error } = await supabase.rpc("soft_delete_product", {
+    p_restaurant_id: restaurantId,
+    p_product_id: productId,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/panel/menu");
+  revalidatePath("/r/[slug]", "page");
+  return { error: null };
+}
+
+export async function restoreProduct(
+  productId: string,
+): Promise<{ error: string | null }> {
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerRestaurant());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const { error } = await supabase.rpc("restore_product", {
+    p_restaurant_id: restaurantId,
+    p_product_id: productId,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/panel/menu");
+  return { error: null };
+}
+
 export async function setProductPublished(
   productId: string,
   published: boolean,
@@ -225,6 +283,15 @@ export async function setProductPublished(
   } catch (e) {
     return { error: (e as Error).message };
   }
+
+  // Guard: soft-deleted products cannot be published/unpublished from this action.
+  const { data: existing } = await supabase
+    .from("products")
+    .select("deleted_at")
+    .eq("id", productId)
+    .eq("restaurant_id", restaurantId)
+    .maybeSingle();
+  if (existing?.deleted_at) return { error: "No se puede publicar un producto eliminado." };
 
   const { error } = await supabase.rpc("set_product_published", {
     p_restaurant_id: restaurantId,

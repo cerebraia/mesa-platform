@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useTransition } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -8,11 +8,15 @@ import {
   LayoutGrid,
   Layers,
   Pencil,
+  Trash2,
+  RotateCcw,
 } from "lucide-react";
 import { CategoryActions } from "./category-actions";
 import { ProductRowActions } from "./product-row-actions";
 import { productState } from "@/lib/product-state";
+import { restoreProduct } from "./actions";
 import type { Category, Product, ProductImage } from "@/lib/catalog-types";
+import type { DeletedProduct } from "./page";
 
 type ProductWithImage = Product & { product_images: ProductImage[] };
 type CategoryWithProducts = Category & { products: ProductWithImage[] };
@@ -73,16 +77,153 @@ function ProductStateBadge({ state }: { state: string }) {
   );
 }
 
+// ── Deleted-products tab ─────────────────────────────────────────
+
+function TrashTab({
+  deleted,
+  imageBase,
+}: {
+  deleted:   DeletedProduct[];
+  imageBase: string;
+}) {
+  const [search, setSearch] = useState("");
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [restoredIds, setRestoredIds] = useState<Set<string>>(new Set());
+
+  const visible = deleted.filter((p) => !restoredIds.has(p.id));
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return visible.filter((p) => !q || p.name.toLowerCase().includes(q));
+  }, [visible, search]);
+
+  async function handleRestore(productId: string, productName: string) {
+    if (restoring) return;
+    setRestoring(productId);
+    setErrors((e) => { const n = { ...e }; delete n[productId]; return n; });
+    const result = await restoreProduct(productId);
+    setRestoring(null);
+    if (result.error) {
+      setErrors((e) => ({ ...e, [productId]: result.error! }));
+    } else {
+      setRestoredIds((s) => new Set([...s, productId]));
+    }
+  }
+
+  return (
+    <>
+      <p style={{ fontSize: 12, color: "#667085", marginBottom: 12 }}>
+        Los productos eliminados siguen contando para el límite del plan.
+        Restaurarlos los devuelve como <strong>borrador</strong>, sin publicarlos automáticamente.
+      </p>
+
+      <div className="panel-filter-bar" style={{ marginBottom: 16 }}>
+        <label className="filter-search-wrap">
+          <Search size={14} />
+          <input
+            type="search"
+            placeholder="Buscar en eliminados…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Buscar en productos eliminados"
+          />
+        </label>
+        <span className="filter-count">{filtered.length} de {visible.length}</span>
+        {search && (
+          <button className="filter-clear" onClick={() => setSearch("")}>Limpiar</button>
+        )}
+      </div>
+
+      {visible.length === 0 ? (
+        <div className="panel-empty">
+          <div className="panel-empty-icon"><Trash2 size={22} strokeWidth={1.5} /></div>
+          <p className="panel-empty-title">No tienes productos eliminados</p>
+          <p className="panel-empty-desc">Los productos que elimines aparecerán aquí.</p>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="panel-empty">
+          <div className="panel-empty-icon"><Search size={22} strokeWidth={1.5} /></div>
+          <p className="panel-empty-title">Sin resultados</p>
+          <button className="button secondary small" onClick={() => setSearch("")}>Limpiar</button>
+        </div>
+      ) : (
+        <div className="dashboard-card" style={{ padding: 0, overflow: "hidden" }}>
+          <div className="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th style={{ width: 56, paddingLeft: 20 }} />
+                  <th>Producto</th>
+                  <th>Categoría</th>
+                  <th>Eliminado</th>
+                  <th style={{ paddingRight: 20 }} />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((p) => {
+                  const imgSrc = p.storage_path ? `${imageBase}/${p.storage_path}` : null;
+                  const isRestoring = restoring === p.id;
+                  const rowError = errors[p.id];
+                  return (
+                    <tr key={p.id} style={{ opacity: 0.7 }}>
+                      <td style={{ paddingLeft: 20 }}>
+                        <Thumb src={imgSrc} alt={p.name} />
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: "#202337" }}>{p.name}</div>
+                        {rowError && (
+                          <div role="alert" style={{ fontSize: 11, color: "#dc2626", marginTop: 2 }}>{rowError}</div>
+                        )}
+                      </td>
+                      <td style={{ fontSize: 12, color: "#667085" }}>
+                        {p.category_name ?? (
+                          <span style={{ color: "#92400E", fontSize: 11 }}>
+                            Categoría no disponible — tras restaurar, edita el producto para reasignar
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ fontSize: 12, color: "#667085", whiteSpace: "nowrap" }}>
+                        {new Date(p.deleted_at).toLocaleDateString("es", {
+                          day: "numeric", month: "short", year: "numeric",
+                        })}
+                      </td>
+                      <td style={{ paddingRight: 20 }}>
+                        <button
+                          type="button"
+                          className="button secondary small"
+                          disabled={!!restoring}
+                          onClick={() => handleRestore(p.id, p.name)}
+                          aria-label={`Restaurar ${p.name}`}
+                          style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 5 }}
+                        >
+                          <RotateCcw size={11} />
+                          {isRestoring ? "Restaurando…" : "Restaurar"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Products tab ──────────────────────────────────────────────────
 
 function ProductsTab({
   cats,
   imageBase,
   catalogLabel,
+  onDeleted,
 }: {
   cats:         CategoryWithProducts[];
   imageBase:    string;
   catalogLabel: "menú" | "catálogo";
+  onDeleted:    () => void;
 }) {
   // Single source of truth for all three filters
   const [search,  setSearch]  = useState("");
@@ -282,6 +423,7 @@ function ProductsTab({
                             isAvailable={p.is_available}
                             hasPriceMissing={p.base_price_cents == null}
                             catalogLabel={catalogLabel}
+                            onDeleted={onDeleted}
                           />
                         </div>
                       </td>
@@ -397,18 +539,29 @@ function CategoriesTab({ cats }: { cats: CategoryWithProducts[] }) {
 
 // ── Main client component ─────────────────────────────────────────
 
+import { useRouter } from "next/navigation";
+
 export function MenuCatalogClient({
   cats,
   imageBase,
   defaultTab,
   catalogLabel = "catálogo",
+  deletedProducts = [],
 }: {
-  cats:          CategoryWithProducts[];
-  imageBase:     string;
-  defaultTab:    "productos" | "categorias";
-  catalogLabel?: "menú" | "catálogo";
+  cats:              CategoryWithProducts[];
+  imageBase:         string;
+  defaultTab:        "productos" | "categorias";
+  catalogLabel?:     "menú" | "catálogo";
+  deletedProducts?:  DeletedProduct[];
 }) {
-  const [tab, setTab] = useState<"productos" | "categorias">(defaultTab);
+  type TabId = "productos" | "categorias" | "eliminados";
+  const [tab, setTab] = useState<TabId>(defaultTab);
+  const router = useRouter();
+
+  // After a soft-delete, refresh server data so the trash tab populates
+  const handleDeleted = useCallback(() => {
+    router.refresh();
+  }, [router]);
 
   const totalProducts  = cats.reduce((s, c) => s + (c.products?.length ?? 0), 0);
 
@@ -440,12 +593,26 @@ export function MenuCatalogClient({
             </span>
           )}
         </button>
+        <button
+          className={`panel-tab${tab === "eliminados" ? " panel-tab--active" : ""}`}
+          onClick={() => setTab("eliminados")}
+        >
+          <Trash2 size={14} />
+          Productos eliminados
+          {deletedProducts.length > 0 && (
+            <span style={{ fontSize: 11, color: tab === "eliminados" ? "#703BE6" : "#667085" }}>
+              ({deletedProducts.length})
+            </span>
+          )}
+        </button>
       </div>
 
       {tab === "productos" ? (
-        <ProductsTab cats={cats} imageBase={imageBase} catalogLabel={catalogLabel} />
-      ) : (
+        <ProductsTab cats={cats} imageBase={imageBase} catalogLabel={catalogLabel} onDeleted={handleDeleted} />
+      ) : tab === "categorias" ? (
         <CategoriesTab cats={cats} />
+      ) : (
+        <TrashTab deleted={deletedProducts} imageBase={imageBase} />
       )}
     </>
   );

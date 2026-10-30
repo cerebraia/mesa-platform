@@ -154,7 +154,17 @@ test("C06 attention de Alfa no puede crear producto", { skip: SKIP }, async () =
 
 // ── C07: Usuario sin membresía no puede leer ni escribir catálogo ────────
 test("C07 usuario sin membresía no lee ni escribe catálogo", { skip: SKIP }, async () => {
-  const c = await clientFor(process.env.TEST_NOACCESS_EMAIL!, process.env.TEST_NOACCESS_PASSWORD!);
+  const c     = await clientFor(process.env.TEST_NOACCESS_EMAIL!, process.env.TEST_NOACCESS_PASSWORD!);
+  const admin = await clientFor(process.env.TEST_ADMIN_EMAIL!, process.env.TEST_ADMIN_PASSWORD!);
+
+  // Resolve the real UUID of the noaccess user so we can remove stale memberships.
+  // Contamination can occur when plans tests run without migration 023's trigger active.
+  const { data: { user: noAccessUser } } = await c.auth.getUser();
+  assert.ok(noAccessUser?.id, "Usuario noaccess debe autenticarse correctamente");
+
+  // Remove any stale memberships. platform_admin can DELETE other users' rows (RLS policy).
+  await admin.from("restaurant_members").delete().eq("user_id", noAccessUser!.id);
+
   const { data: cats } = await c.from("categories").select("id");
   assert.equal(cats?.length ?? 0, 0, "Sin membresía: 0 categorías");
 
@@ -402,4 +412,197 @@ test("C10 INSERT directo con categoría de otro restaurante es bloqueado por FK"
 
   // Cleanup
   await adminC.from("categories").delete().eq("id", betaCat!.id);
+});
+
+// ── C14: Soft-delete → anon no ve el producto ─────────────────────────────
+test("C14 soft-delete: producto eliminado no visible para anon", { skip: SKIP }, async () => {
+  const owner = await clientFor(process.env.TEST_OWNER_ALFA_EMAIL!, process.env.TEST_OWNER_ALFA_PASSWORD!);
+  const anon  = anonClient();
+
+  const { data: cat } = await owner.from("categories").insert({
+    restaurant_id: ALFA, name: "Cat C14", position: 991, is_active: true,
+  }).select("id").single();
+  assert.ok(cat?.id);
+
+  let prodId: string | null = null;
+  try {
+    // Create published+available product
+    const { data: rpcId } = await owner.rpc("upsert_product", {
+      p_restaurant_id: ALFA,
+      p_product: {
+        category_id: cat.id, name: "Prod C14",
+        base_price_cents: 1000, is_published: true, is_available: true,
+      },
+      p_variants: [{ name: "Regular", price_cents: 1000, is_available: true }],
+      p_option_groups: [],
+    });
+    prodId = rpcId as string;
+    assert.ok(prodId);
+
+    // Anon can see it before delete
+    const { data: before } = await anon.from("products").select("id").eq("id", prodId);
+    assert.equal(before?.length ?? 0, 1, "Anon debe ver el producto antes de eliminar");
+
+    // Soft-delete via owner RPC
+    const { error: delErr } = await owner.rpc("soft_delete_product", {
+      p_restaurant_id: ALFA, p_product_id: prodId,
+    });
+    assert.equal(delErr, null, `soft_delete_product falló: ${delErr?.message}`);
+
+    // Anon must NOT see it after delete
+    const { data: afterDel } = await anon.from("products").select("id").eq("id", prodId);
+    assert.equal(afterDel?.length ?? 0, 0, "Anon no debe ver producto soft-deleted");
+
+    // Variants and images also invisible to anon
+    const { data: anonVars } = await anon.from("product_variants").select("id").eq("product_id", prodId);
+    assert.equal(anonVars?.length ?? 0, 0, "Anon no debe ver variantes de producto eliminado");
+
+    // product still exists in DB (not physically deleted)
+    const { data: dbCheck } = await owner.from("products").select("id, deleted_at").eq("id", prodId).single();
+    assert.ok(dbCheck?.deleted_at, "deleted_at debe estar establecido en DB");
+  } finally {
+    if (prodId) await owner.from("products").delete().eq("id", prodId);
+    await owner.from("categories").delete().eq("id", cat.id);
+  }
+});
+
+// ── C15: Restaurar → vuelve como borrador con datos intactos ─────────────
+test("C15 restore: producto restaurado como borrador con datos intactos", { skip: SKIP }, async () => {
+  const owner = await clientFor(process.env.TEST_OWNER_ALFA_EMAIL!, process.env.TEST_OWNER_ALFA_PASSWORD!);
+  const anon  = anonClient();
+
+  const { data: cat } = await owner.from("categories").insert({
+    restaurant_id: ALFA, name: "Cat C15", position: 990, is_active: true,
+  }).select("id").single();
+  assert.ok(cat?.id);
+
+  let prodId: string | null = null;
+  try {
+    const { data: rpcId } = await owner.rpc("upsert_product", {
+      p_restaurant_id: ALFA,
+      p_product: {
+        category_id: cat.id, name: "Prod C15",
+        base_price_cents: 2500, is_published: true, is_available: true,
+        description: "Descripción de prueba C15",
+      },
+      p_variants: [],
+      p_option_groups: [],
+    });
+    prodId = rpcId as string;
+
+    // Soft-delete
+    await owner.rpc("soft_delete_product", { p_restaurant_id: ALFA, p_product_id: prodId });
+
+    // Restore
+    const { error: restoreErr } = await owner.rpc("restore_product", {
+      p_restaurant_id: ALFA, p_product_id: prodId,
+    });
+    assert.equal(restoreErr, null, `restore_product falló: ${restoreErr?.message}`);
+
+    // Product must be NOT published (draft) after restore
+    const { data: restored } = await owner.from("products")
+      .select("id, name, base_price_cents, is_published, deleted_at, description")
+      .eq("id", prodId).single();
+    assert.equal(restored?.is_published, false, "Restaurado debe ser borrador (is_published=false)");
+    assert.equal(restored?.deleted_at, null, "deleted_at debe ser null tras restaurar");
+    assert.equal(restored?.base_price_cents, 2500, "Precio debe conservarse");
+    assert.equal(restored?.name, "Prod C15", "Nombre debe conservarse");
+    assert.equal(restored?.description, "Descripción de prueba C15", "Descripción debe conservarse");
+
+    // Anon must NOT see it (is_published=false)
+    const { data: anonCheck } = await anon.from("products").select("id").eq("id", prodId);
+    assert.equal(anonCheck?.length ?? 0, 0, "Anon no debe ver borrador restaurado");
+  } finally {
+    if (prodId) await owner.from("products").delete().eq("id", prodId);
+    await owner.from("categories").delete().eq("id", cat.id);
+  }
+});
+
+// ── C16: Aislamiento — Beta no puede eliminar ni restaurar productos de Alfa ─
+test("C16 aislamiento: Beta no puede soft-delete ni restore productos de Alfa", { skip: SKIP }, async () => {
+  const ownerA = await clientFor(process.env.TEST_OWNER_ALFA_EMAIL!, process.env.TEST_OWNER_ALFA_PASSWORD!);
+  const ownerB = await clientFor(process.env.TEST_OWNER_BETA_EMAIL!, process.env.TEST_OWNER_BETA_PASSWORD!);
+
+  const { data: cat } = await ownerA.from("categories").insert({
+    restaurant_id: ALFA, name: "Cat C16", position: 989, is_active: true,
+  }).select("id").single();
+  assert.ok(cat?.id);
+
+  let prodId: string | null = null;
+  try {
+    const { data: rpcId } = await ownerA.rpc("upsert_product", {
+      p_restaurant_id: ALFA,
+      p_product: {
+        category_id: cat.id, name: "Prod C16",
+        base_price_cents: 1000, is_published: false, is_available: true,
+      },
+      p_variants: [], p_option_groups: [],
+    });
+    prodId = rpcId as string;
+
+    // Beta tries to delete Alfa's product — must fail
+    const { error: betaDelErr } = await ownerB.rpc("soft_delete_product", {
+      p_restaurant_id: ALFA, p_product_id: prodId,
+    });
+    assert.ok(betaDelErr != null, "Beta no debe poder eliminar productos de Alfa");
+
+    // Product still exists and is not deleted
+    const { data: stillActive } = await ownerA.from("products")
+      .select("deleted_at").eq("id", prodId).single();
+    assert.equal(stillActive?.deleted_at, null, "Producto de Alfa debe seguir activo");
+
+    // Soft-delete with ownerA, then try to restore with ownerB
+    await ownerA.rpc("soft_delete_product", { p_restaurant_id: ALFA, p_product_id: prodId });
+    const { error: betaRestErr } = await ownerB.rpc("restore_product", {
+      p_restaurant_id: ALFA, p_product_id: prodId,
+    });
+    assert.ok(betaRestErr != null, "Beta no debe poder restaurar productos de Alfa");
+  } finally {
+    if (prodId) await ownerA.from("products").delete().eq("id", prodId);
+    await ownerA.from("categories").delete().eq("id", cat.id);
+  }
+});
+
+// ── C17: place_order rechaza producto eliminado ────────────────────────────
+test("C17 place_order rechaza producto soft-deleted", { skip: SKIP }, async () => {
+  const owner = await clientFor(process.env.TEST_OWNER_ALFA_EMAIL!, process.env.TEST_OWNER_ALFA_PASSWORD!);
+
+  const { data: cat } = await owner.from("categories").insert({
+    restaurant_id: ALFA, name: "Cat C17", position: 988, is_active: true,
+  }).select("id").single();
+  assert.ok(cat?.id);
+
+  let prodId: string | null = null;
+  try {
+    const { data: rpcId } = await owner.rpc("upsert_product", {
+      p_restaurant_id: ALFA,
+      p_product: {
+        category_id: cat.id, name: "Prod C17",
+        base_price_cents: 1000, is_published: true, is_available: true,
+      },
+      p_variants: [{ name: "Regular", price_cents: 1000, is_available: true }],
+      p_option_groups: [],
+    });
+    prodId = rpcId as string;
+
+    // Soft-delete the product
+    await owner.rpc("soft_delete_product", { p_restaurant_id: ALFA, p_product_id: prodId });
+
+    // Attempt to place_order for the deleted product — must fail
+    const { error: orderErr } = await owner.rpc("place_order", {
+      p_restaurant_id: ALFA,
+      p_customer_name: "Test C17",
+      p_customer_phone: "+1234567890",
+      p_delivery_mode: "pickup",
+      p_delivery_zone_id: null,
+      p_payment_method_id: null,
+      p_notes: null,
+      p_idempotency_key: `c17-test-${Date.now()}`,
+      p_items: [{ product_id: prodId, variant_id: null, quantity: 1, options: [] }],
+    });
+    assert.ok(orderErr != null, "place_order debe rechazar producto eliminado");
+  } finally {
+    if (prodId) await owner.from("products").delete().eq("id", prodId);
+    await owner.from("categories").delete().eq("id", cat.id);
+  }
 });

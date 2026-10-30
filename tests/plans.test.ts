@@ -375,7 +375,7 @@ test("PL07 plan Inicio rechaza rol 'attention' aunque no haya miembros", { skip:
   } else {
     await svc.from("restaurant_members").delete()
       .eq("restaurant_id", BETA)
-      .eq("user_id", process.env.TEST_NOACCESS_UUID ?? "00000000");
+      .eq("user_id", process.env.TEST_NOACCESS_UUID ?? "00000000-0000-0000-0000-000000000099");
     console.warn("  ⚠ PL07 — trigger no disparó (migración 023 DDL pendiente)");
   }
 

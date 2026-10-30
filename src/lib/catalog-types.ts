@@ -24,6 +24,8 @@ export interface Product {
   position: number;
   // Added in migration 026. null → 'cover' (default). 'contain' → show full product.
   image_fit: string | null;
+  // Added in migration 032. null = active; non-null = soft-deleted (excluded from public queries).
+  deleted_at?: string | null;
   created_at: string;
   updated_at: string;
 }

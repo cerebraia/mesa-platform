@@ -10,6 +10,15 @@ import type { Category, Product, ProductImage } from "@/lib/catalog-types";
 type ProductWithImage = Product & { product_images: ProductImage[] };
 type CategoryWithProducts = Category & { products: ProductWithImage[] };
 
+export type DeletedProduct = {
+  id: string;
+  name: string;
+  category_id: string;
+  category_name: string | null;
+  deleted_at: string;
+  storage_path: string | null;
+};
+
 export default async function MenuPage() {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -20,6 +29,7 @@ export default async function MenuPage() {
 
   const restaurantId = active.restaurantId;
 
+  // Active products — exclude deleted
   const { data: categories, error } = await supabase
     .from("categories")
     .select(`
@@ -27,7 +37,7 @@ export default async function MenuPage() {
       products (
         id, name, base_price_cents, promo_price_cents,
         is_available, is_published, position, restaurant_id,
-        category_id, description, created_at, updated_at,
+        category_id, description, created_at, updated_at, deleted_at,
         product_images ( id, storage_path, position )
       )
     `)
@@ -37,11 +47,38 @@ export default async function MenuPage() {
 
   if (error) throw new Error(`Error al cargar el catálogo: ${error.message}`);
 
+  // Authenticated RLS sees all restaurant products; filter soft-deleted server-side.
+  const cats = (categories ?? []).map((c) => ({
+    ...c,
+    products: (c.products ?? []).filter((p) => !p.deleted_at),
+  }));
+
+  // Deleted products for the trash tab
+  const { data: deletedRaw } = await supabase
+    .from("products")
+    .select(`
+      id, name, category_id, deleted_at,
+      product_images ( storage_path )
+    `)
+    .eq("restaurant_id", restaurantId)
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false });
+
+  // Enrich with category names
+  const catMap = new Map((categories ?? []).map((c) => [c.id, c.name]));
+  const deletedProducts: DeletedProduct[] = (deletedRaw ?? []).map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    category_id: p.category_id,
+    category_name: catMap.get(p.category_id) ?? null,
+    deleted_at: p.deleted_at,
+    storage_path: (p.product_images?.[0] as { storage_path: string } | undefined)?.storage_path ?? null,
+  }));
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const imageBase   = `${supabaseUrl}/storage/v1/object/public/product-images`;
-  const cats        = categories ?? [];
 
-  // Fetch plan usage for the limit banner (graceful fallback if RPC not yet deployed)
+  // Plan usage
   type PlanUsageLite = { product_count: number; max_products: number | null; plan_name: string | null };
   const { data: planUsageRaw } = await supabase.rpc("get_plan_usage", {
     p_restaurant_id: restaurantId,
@@ -50,7 +87,6 @@ export default async function MenuPage() {
 
   const atLimit = planUsage?.max_products != null && planUsage.product_count >= planUsage.max_products;
 
-  // Determine catalog label for publish modal text
   const { data: cfgRow } = await supabase
     .from("restaurant_config")
     .select("orders_enabled")
@@ -121,6 +157,7 @@ export default async function MenuPage() {
           imageBase={imageBase}
           defaultTab="productos"
           catalogLabel={catalogLabel}
+          deletedProducts={deletedProducts}
         />
       </div>
     </>

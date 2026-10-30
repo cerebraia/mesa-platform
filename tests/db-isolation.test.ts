@@ -224,10 +224,14 @@ test("P10 usuario autenticado no puede asignarse platform_admin", { skip: SKIP }
 
 // ── Prueba 11: usuario sin membresía no lee restaurantes ──────
 test("P11 usuario sin membresía no ve ningún restaurante", { skip: SKIP }, async () => {
-  const c = await clientFor(
-    process.env.TEST_NOACCESS_EMAIL!,
-    process.env.TEST_NOACCESS_PASSWORD!
-  );
+  const c     = await clientFor(process.env.TEST_NOACCESS_EMAIL!, process.env.TEST_NOACCESS_PASSWORD!);
+  const admin = await clientFor(process.env.TEST_ADMIN_EMAIL!, process.env.TEST_ADMIN_PASSWORD!);
+
+  // Remove stale memberships so the invariant "noaccess has no memberships" is guaranteed.
+  const { data: { user: noAccessUser } } = await c.auth.getUser();
+  assert.ok(noAccessUser?.id, "Usuario noaccess debe autenticarse");
+  await admin.from("restaurant_members").delete().eq("user_id", noAccessUser!.id);
+
   const { data, error } = await c.from("restaurants").select("id");
   assert.ifError(error);
   assert.equal(data?.length, 0,
