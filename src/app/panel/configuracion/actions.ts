@@ -81,14 +81,21 @@ export async function saveConfig(
 // restaurant_config, so concurrent saves to different sections cannot
 // overwrite each other (no read-modify-write race).
 
+const ALLOWED_CURRENCIES = ["USD", "EUR", "VES"] as const;
+
 export async function saveIdentity(
   _prev: ConfigState,
   formData: FormData,
 ): Promise<ConfigState> {
-  const name     = String(formData.get("name") ?? "").trim();
+  const name     = String(formData.get("name")     ?? "").trim();
   const timezone = String(formData.get("timezone") ?? "").trim();
+  const currency = String(formData.get("currency") ?? "USD").trim().toUpperCase();
+
   if (!name)     return { error: "El nombre del negocio es obligatorio." };
   if (!timezone) return { error: "La zona horaria es obligatoria." };
+  if (!ALLOWED_CURRENCIES.includes(currency as (typeof ALLOWED_CURRENCIES)[number])) {
+    return { error: "Moneda no válida. Elige USD, EUR o VES." };
+  }
 
   let supabase: Awaited<ReturnType<typeof createServerClient>>;
   let restaurantId: string;
@@ -98,10 +105,10 @@ export async function saveIdentity(
     return { error: (e as Error).message };
   }
 
-  // restaurants.name and restaurants.timezone — direct update (restaurants_update RLS allows owner)
+  // restaurants.name, .timezone, .currency — direct update
   const { error: e1 } = await supabase
     .from("restaurants")
-    .update({ name, timezone })
+    .update({ name, timezone, currency })
     .eq("id", restaurantId);
   if (e1) return { error: e1.message };
 
@@ -232,10 +239,48 @@ export async function saveHours(
   return { error: null, success: true };
 }
 
-// ── Config image (logo / cover) ────────────────────────────────
+// ── SEO section ────────────────────────────────────────────────
+
+export async function saveSeo(
+  _prev: ConfigState,
+  formData: FormData,
+): Promise<ConfigState> {
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerMembership());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const seoTitle       = String(formData.get("seo_title")       ?? "").trim();
+  const seoDescription = String(formData.get("seo_description") ?? "").trim();
+  const allowIndexing  = formData.get("allow_indexing") !== "false";
+
+  if (seoTitle.length > 120) return { error: "El título SEO no puede superar 120 caracteres." };
+  if (seoDescription.length > 320) return { error: "La descripción SEO no puede superar 320 caracteres." };
+
+  const { error } = await supabase
+    .from("restaurant_config")
+    .upsert(
+      {
+        restaurant_id:   restaurantId,
+        seo_title:       seoTitle       || null,
+        seo_description: seoDescription || null,
+        allow_indexing:  allowIndexing,
+      },
+      { onConflict: "restaurant_id" },
+    );
+  if (error) return { error: error.message };
+
+  revalidateAll(restaurantId);
+  return { error: null, success: true };
+}
+
+// ── Config image (logo / cover / seo_image) ────────────────────
 
 export async function saveConfigImage(
-  field: "logo_path" | "cover_path",
+  field: "logo_path" | "cover_path" | "seo_image_path",
   newPath: string,
 ): Promise<{ error: string | null; oldPath?: string }> {
   let supabase: Awaited<ReturnType<typeof createServerClient>>;
@@ -266,12 +311,12 @@ export async function saveConfigImage(
   return { error: null, oldPath: oldPath as string | undefined };
 }
 
-// ── Remove config image (logo / cover) ────────────────────────
+// ── Remove config image (logo / cover / seo_image) ────────────
 // Atomically clears the path in DB, then deletes the Storage file.
 // If the DB update fails, the Storage file is preserved (safe fallback).
 
 export async function removeConfigImage(
-  field: "logo_path" | "cover_path",
+  field: "logo_path" | "cover_path" | "seo_image_path",
 ): Promise<ConfigState> {
   let supabase: Awaited<ReturnType<typeof createServerClient>>;
   let restaurantId: string;

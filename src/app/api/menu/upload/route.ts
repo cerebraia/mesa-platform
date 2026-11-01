@@ -63,7 +63,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const file = formData.get("file");
   const restaurantId = formData.get("restaurant_id");
   const productId = formData.get("product_id");
-  // type: "product" (default), "logo", or "cover"
+  // type: "product" (default), "logo", "cover", or "seo_image"
   const uploadType = String(formData.get("type") ?? "product");
 
   if (!(file instanceof File)) {
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if ((uploadType === "product" || uploadType === "product_thumb") && typeof productId !== "string") {
     return NextResponse.json({ error: "Falta product_id." }, { status: 400 });
   }
-  if (!["product", "product_thumb", "logo", "cover"].includes(uploadType)) {
+  if (!["product", "product_thumb", "logo", "cover", "seo_image"].includes(uploadType)) {
     return NextResponse.json({ error: "Tipo de upload no válido." }, { status: 400 });
   }
 
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let bucket: string;
   let path: string;
 
-  if (uploadType === "logo" || uploadType === "cover") {
+  if (uploadType === "logo" || uploadType === "cover" || uploadType === "seo_image") {
     bucket = "restaurant-assets";
     path = `${restaurantId}/${uploadType}/${uuid}.${ext}`;
   } else if (uploadType === "product_thumb") {

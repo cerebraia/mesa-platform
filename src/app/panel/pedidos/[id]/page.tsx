@@ -4,6 +4,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/panel-context";
 import { PageHeader } from "@/components/panel/page-header";
 import { OrderDetailClient } from "../order-detail-client";
+import { formatMoney } from "@/lib/money";
 
 type OrderDetail = {
   id: string;
@@ -48,9 +49,7 @@ type OrderDetail = {
   }>;
 };
 
-function money(cents: number) {
-  return new Intl.NumberFormat("es-VE", { style: "currency", currency: "USD" }).format(cents / 100);
-}
+// money() defined per-page below using the restaurant's currency.
 
 export default async function OrderDetailPage({
   params,
@@ -73,9 +72,12 @@ export default async function OrderDetailPage({
 
   const { data: restaurant } = await supabase
     .from("restaurants")
-    .select("id, name")
+    .select("id, name, currency")
     .eq("id", restaurantId)
     .single();
+
+  const currency = restaurant?.currency ?? "USD";
+  const money = (cents: number) => formatMoney(cents, currency);
 
   const { data: rawOrder, error } = await supabase.rpc("get_order_full_detail", {
     p_order_id:      id,

@@ -148,7 +148,7 @@ function unknownHostResponse(): NextResponse {
     "<title>No encontrado</title></head>" +
     "<body style='font-family:sans-serif;padding:40px'>" +
     "<h1>Dominio no configurado</h1>" +
-    "<p>Este dominio no está asociado a ningún restaurante en Mesa.</p>" +
+    "<p>Este dominio no está asociado a ningún restaurante en Wacatalog.</p>" +
     "</body></html>",
     { status: 404, headers: { "Content-Type": "text/html; charset=utf-8" } },
   );

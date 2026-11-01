@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import {
   LayoutDashboard,
   ClipboardList,
@@ -71,22 +71,40 @@ function getCurrentSection(pathname: string, items: NavItem[]): string {
   return "Panel";
 }
 
+// ── Business logo / initials avatar ────────────────────────────────
+
+function BusinessAvatar({ logoUrl, name }: { logoUrl: string | null; name: string }) {
+  const [imgErr, setImgErr] = useState(false);
+  const handleErr = useCallback(() => setImgErr(true), []);
+
+  if (logoUrl && !imgErr) {
+    return (
+      <div className="sidebar-logo" aria-hidden="true">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logoUrl} alt="" onError={handleErr} />
+      </div>
+    );
+  }
+  return <div className="sidebar-avatar">{name.slice(0, 2).toUpperCase()}</div>;
+}
+
 // ── Business block ─────────────────────────────────────────────────
 
 function BusinessDisplay({
   restaurantName,
   role,
   hasMultiple,
+  logoUrl,
 }: {
   restaurantName: string;
   role: MemberRole;
   hasMultiple: boolean;
+  logoUrl: string | null;
 }) {
-  const initials = restaurantName.slice(0, 2).toUpperCase();
   return (
     <div className="sb-biz-block">
       <div className="sb-biz-row">
-        <div className="sidebar-avatar">{initials}</div>
+        <BusinessAvatar logoUrl={logoUrl} name={restaurantName} />
         <div className="sb-biz-info">
           <span className="sidebar-name">{restaurantName}</span>
           <span className="sidebar-role">{ROLE_LABEL[role]}</span>
@@ -146,13 +164,14 @@ interface ShellProps {
   restaurantId:      string;
   userEmail:         string;
   ordersEnabled:     boolean;
+  logoUrl:           string | null;
   membershipOptions: MembershipOption[];
   children:          React.ReactNode;
 }
 
 function ShellInner({
   role, restaurantName, restaurantSlug, restaurantId: _restaurantId,
-  userEmail, ordersEnabled, membershipOptions, children,
+  userEmail, ordersEnabled, logoUrl, membershipOptions, children,
 }: ShellProps) {
   const pathname      = usePathname();
   const [open, setOpen] = useState(false);
@@ -214,6 +233,7 @@ function ShellInner({
         restaurantName={restaurantName}
         role={role}
         hasMultiple={hasMultiple}
+        logoUrl={logoUrl}
       />
 
       {/* Nav */}
@@ -294,6 +314,7 @@ function ShellInner({
             restaurantName={restaurantName}
             role={role}
             hasMultiple={hasMultiple}
+            logoUrl={logoUrl}
           />
 
           <nav aria-label="Panel" className="sidebar-nav">

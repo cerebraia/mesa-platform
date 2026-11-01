@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import type {
   PublicCategory,
@@ -12,12 +13,20 @@ import type {
   PlaceOrderRequest,
   PlaceOrderResponse,
   PriceChangedResponse,
+  BusinessOpenStatus,
 } from "@/lib/catalog-types";
 
 // ── Types ─────────────────────────────────────────────────────
 
 interface Restaurant {
   id: string; name: string; slug: string; status: string; currency: string;
+}
+
+export interface SocialLinks {
+  instagram: string | null;
+  facebook:  string | null;
+  twitter:   string | null;
+  whatsapp:  string | null;
 }
 
 interface AnonProduct {
@@ -38,11 +47,13 @@ interface Props {
   restaurant: Restaurant;
   config: PublicRestaurantConfig | null;
   isOpen: boolean;
+  openStatus: BusinessOpenStatus | null;
   categories: PublicCategory[];
   deliveryZones: PublicDeliveryZone[];
   paymentMethods: PublicPaymentMethod[];
   supabaseUrl: string;
   ordersEnabled: boolean;
+  socialLinks: SocialLinks;
 }
 
 type Step = "menu" | "checkout";
@@ -119,6 +130,149 @@ function CloseIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
       <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
     </svg>
+  );
+}
+
+function InstagramIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+    </svg>
+  );
+}
+
+function FacebookIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+    </svg>
+  );
+}
+
+function TwitterXIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+    </svg>
+  );
+}
+
+// Renders social icon links; returns null when there are no configured links.
+function SocialBar({
+  links, hero = false,
+}: {
+  links: SocialLinks;
+  hero?: boolean;
+}) {
+  const items: { href: string; label: string; icon: React.ReactNode }[] = [];
+  if (links.instagram) items.push({ href: links.instagram, label: "Instagram",  icon: <InstagramIcon /> });
+  if (links.facebook)  items.push({ href: links.facebook,  label: "Facebook",   icon: <FacebookIcon /> });
+  if (links.twitter)   items.push({ href: links.twitter,   label: "X (Twitter)", icon: <TwitterXIcon /> });
+  if (links.whatsapp)  items.push({ href: links.whatsapp,  label: "WhatsApp",   icon: <WaIcon /> });
+  if (items.length === 0) return null;
+  return (
+    <div className={`rm-social-bar${hero ? " rm-social-bar--hero" : ""}`} aria-label="Redes sociales">
+      {items.map(({ href, label, icon }) => (
+        <a key={label} href={href} target="_blank" rel="noopener noreferrer"
+          className="rm-social-btn" aria-label={label}>
+          {icon}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+// ── Business header ───────────────────────────────────────────
+// Replaces the separate hero + id-bar blocks.
+// Always rendered: cover photo → primary-color gradient fallback.
+
+function BizHeader({
+  restaurantId,
+  restaurantName,
+  config,
+  liveStatus,
+  logoUrl,
+  coverUrl,
+  primaryColor,
+  socialLinks,
+  supabaseUrl,
+  fontStyle,
+}: {
+  restaurantId: string;
+  restaurantName: string;
+  config: PublicRestaurantConfig | null;
+  liveStatus: BusinessOpenStatus | null;
+  logoUrl: string | null;
+  coverUrl: string | null;
+  primaryColor: string;
+  socialLinks: SocialLinks;
+  supabaseUrl: string;
+  fontStyle: React.CSSProperties;
+}) {
+  void supabaseUrl; // passed for future use
+  const initials = restaurantName.slice(0, 2).toUpperCase();
+  const hasCover = !!coverUrl;
+  const hasSocials = !!(socialLinks.instagram || socialLinks.facebook || socialLinks.twitter || socialLinks.whatsapp);
+
+  const bgStyle: React.CSSProperties = hasCover
+    ? { backgroundImage: `url(${coverUrl})` }
+    : { background: `linear-gradient(135deg,${darkenHex(primaryColor, 0.20)} 0%,${primaryColor} 100%)` };
+
+  let statusEl: React.ReactNode = null;
+  if (liveStatus && liveStatus.status !== "temporarily_closed") {
+    if (liveStatus.status === "open") {
+      statusEl = (
+        <span className="rm-bh-status rm-bh-status--open">
+          <span className="rm-bh-dot rm-bh-dot--open" aria-hidden="true" />
+          Abierto{liveStatus.closes_at ? ` · Cierra a las ${liveStatus.closes_at}` : ""}
+        </span>
+      );
+    } else {
+      statusEl = (
+        <span className="rm-bh-status rm-bh-status--closed">
+          <span className="rm-bh-dot rm-bh-dot--closed" aria-hidden="true" />
+          Cerrado{liveStatus.opens_at ? ` · Abre a las ${liveStatus.opens_at}` : ""}
+        </span>
+      );
+    }
+  }
+
+  const hasMeta = statusEl || hasSocials;
+
+  void restaurantId; // used for live-status updates in parent
+
+  return (
+    <div
+      className={`rm-bh${hasCover ? " rm-bh--photo" : " rm-bh--color"}`}
+      style={bgStyle}
+    >
+      <div className="rm-bh-overlay" aria-hidden="true" />
+      <div className="rm-bh-inner container">
+        {/* Logo / initials */}
+        <div className="rm-bh-logo-box" aria-hidden="true">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="" className="rm-bh-logo-img" />
+          ) : (
+            <span className="rm-bh-initials">{initials}</span>
+          )}
+        </div>
+
+        {/* Name, description, status, socials */}
+        <div className="rm-bh-info" style={fontStyle}>
+          <h1 className="rm-bh-name">{restaurantName}</h1>
+          {config?.description && (
+            <p className="rm-bh-desc">{config.description}</p>
+          )}
+          {hasMeta && (
+            <div className="rm-bh-meta">
+              {statusEl}
+              {hasSocials && <SocialBar links={socialLinks} hero />}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -235,7 +389,8 @@ function CatalogProductDialog({
   );
   const [selected, setSelected] = useState<Record<string, string[]>>({});
   const [imgIdx, setImgIdx]     = useState(0);
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef    = useRef<HTMLDialogElement>(null);
+  const touchStartX  = useRef(0);
 
   useEffect(() => {
     const trigger = document.activeElement as HTMLElement | null;
@@ -253,6 +408,12 @@ function CatalogProductDialog({
   const currentImg = images[imgIdx];
   const imgUrl = currentImg ? `${imgBase}/${currentImg.storage_path}` : null;
   const hasGallery = images.length > 1;
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (!hasGallery) return;
+    if (e.key === "ArrowLeft")  { e.preventDefault(); setImgIdx((i) => (i - 1 + images.length) % images.length); }
+    if (e.key === "ArrowRight") { e.preventDefault(); setImgIdx((i) => (i + 1) % images.length); }
+  }
 
   function toggleOption(groupId: string, optId: string, maxSel: number) {
     setSelected((prev) => {
@@ -295,6 +456,7 @@ function CatalogProductDialog({
       className="product-dialog"
       onClick={(e) => { if (e.target === dialogRef.current) onClose(); }}
       onCancel={onClose}
+      onKeyDown={handleKeyDown}
     >
       <div className="pd-close-zone">
         <button type="button" className="pd-close-btn" onClick={onClose} aria-label="Cerrar">
@@ -302,7 +464,16 @@ function CatalogProductDialog({
         </button>
       </div>
 
-      <div className="pd-img-section">
+      <div
+        className="pd-img-section"
+        onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+        onTouchEnd={(e) => {
+          const delta = e.changedTouches[0].clientX - touchStartX.current;
+          if (!hasGallery) return;
+          if (delta > 40)  setImgIdx((i) => (i - 1 + images.length) % images.length);
+          if (delta < -40) setImgIdx((i) => (i + 1) % images.length);
+        }}
+      >
         {imgUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img className="pd-img" src={imgUrl} alt={currentImg?.alt_text || product.name} />
@@ -311,6 +482,9 @@ function CatalogProductDialog({
         )}
         {hasGallery && (
           <>
+            <span className="pd-gallery-counter" aria-live="polite" aria-atomic="true">
+              {imgIdx + 1} / {images.length}
+            </span>
             <button type="button" className="pd-gallery-btn pd-gallery-prev"
               onClick={() => setImgIdx((i) => (i - 1 + images.length) % images.length)}
               aria-label="Imagen anterior">
@@ -321,15 +495,21 @@ function CatalogProductDialog({
               aria-label="Imagen siguiente">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg>
             </button>
-            <div className="pd-thumbs" role="tablist" aria-label="Galería">
-              {images.map((_, i) => (
-                <button key={i} type="button"
-                  className={`pd-thumb-dot${i === imgIdx ? " pd-thumb-dot--on" : ""}`}
-                  onClick={() => setImgIdx(i)}
-                  aria-label={`Imagen ${i + 1}`}
-                  aria-current={i === imgIdx ? "true" : undefined}
-                />
-              ))}
+            <div className="pd-thumbs" role="tablist" aria-label="Galería de imágenes">
+              {images.map((img, i) => {
+                const tSrc = `${imgBase}/${img.thumbnail_path ?? img.storage_path}`;
+                return (
+                  <button key={img.id} type="button" role="tab"
+                    className={`pd-thumb${i === imgIdx ? " pd-thumb--on" : ""}`}
+                    onClick={() => setImgIdx(i)}
+                    aria-label={`Imagen ${i + 1} de ${images.length}`}
+                    aria-selected={i === imgIdx}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={tSrc} alt="" loading="lazy" />
+                  </button>
+                );
+              })}
             </div>
           </>
         )}
@@ -431,7 +611,8 @@ function ProductDialog({
   const [qty, setQty] = useState(1);
   const [imgIdx, setImgIdx]     = useState(0);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dialogRef   = useRef<HTMLDialogElement>(null);
+  const touchStartX = useRef(0);
 
   useEffect(() => {
     const trigger = document.activeElement as HTMLElement | null;
@@ -458,10 +639,16 @@ function ProductDialog({
   const unitPrice = variantPrice + optionTotal;
   const total = unitPrice * qty;
 
-  const images    = product.product_images ?? [];
+  const images     = product.product_images ?? [];
   const currentImg = images[imgIdx];
-  const imgUrl    = currentImg ? `${imgBase}/${currentImg.storage_path}` : null;
+  const imgUrl     = currentImg ? `${imgBase}/${currentImg.storage_path}` : null;
   const hasGallery = images.length > 1;
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (!hasGallery) return;
+    if (e.key === "ArrowLeft")  { e.preventDefault(); setImgIdx((i) => (i - 1 + images.length) % images.length); }
+    if (e.key === "ArrowRight") { e.preventDefault(); setImgIdx((i) => (i + 1) % images.length); }
+  }
 
   function toggleOption(groupId: string, optId: string, maxSel: number) {
     setSelected((prev) => {
@@ -512,6 +699,7 @@ function ProductDialog({
       className="product-dialog"
       onClick={(e) => { if (e.target === dialogRef.current) onClose(); }}
       onCancel={onClose}
+      onKeyDown={handleKeyDown}
     >
       <div className="pd-close-zone">
         <button type="button" className="pd-close-btn" onClick={onClose} aria-label="Cerrar">
@@ -519,7 +707,16 @@ function ProductDialog({
         </button>
       </div>
 
-      <div className="pd-img-section">
+      <div
+        className="pd-img-section"
+        onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+        onTouchEnd={(e) => {
+          const delta = e.changedTouches[0].clientX - touchStartX.current;
+          if (!hasGallery) return;
+          if (delta > 40)  setImgIdx((i) => (i - 1 + images.length) % images.length);
+          if (delta < -40) setImgIdx((i) => (i + 1) % images.length);
+        }}
+      >
         {imgUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img className="pd-img" src={imgUrl} alt={currentImg?.alt_text || product.name} />
@@ -528,6 +725,9 @@ function ProductDialog({
         )}
         {hasGallery && (
           <>
+            <span className="pd-gallery-counter" aria-live="polite" aria-atomic="true">
+              {imgIdx + 1} / {images.length}
+            </span>
             <button type="button" className="pd-gallery-btn pd-gallery-prev"
               onClick={() => setImgIdx((i) => (i - 1 + images.length) % images.length)}
               aria-label="Imagen anterior">
@@ -538,15 +738,21 @@ function ProductDialog({
               aria-label="Imagen siguiente">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg>
             </button>
-            <div className="pd-thumbs" role="tablist" aria-label="Galería">
-              {images.map((_, i) => (
-                <button key={i} type="button"
-                  className={`pd-thumb-dot${i === imgIdx ? " pd-thumb-dot--on" : ""}`}
-                  onClick={() => setImgIdx(i)}
-                  aria-label={`Imagen ${i + 1}`}
-                  aria-current={i === imgIdx ? "true" : undefined}
-                />
-              ))}
+            <div className="pd-thumbs" role="tablist" aria-label="Galería de imágenes">
+              {images.map((img, i) => {
+                const tSrc = `${imgBase}/${img.thumbnail_path ?? img.storage_path}`;
+                return (
+                  <button key={img.id} type="button" role="tab"
+                    className={`pd-thumb${i === imgIdx ? " pd-thumb--on" : ""}`}
+                    onClick={() => setImgIdx(i)}
+                    aria-label={`Imagen ${i + 1} de ${images.length}`}
+                    aria-selected={i === imgIdx}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={tSrc} alt="" loading="lazy" />
+                  </button>
+                );
+              })}
             </div>
           </>
         )}
@@ -889,17 +1095,314 @@ function CheckoutForm({
   );
 }
 
+// ── Side cart panel ───────────────────────────────────────────
+
+function CartPanel({
+  cart,
+  imgBase,
+  categories,
+  primaryColor,
+  currency,
+  onClose,
+  onChangeQty,
+  onRemove,
+  onClear,
+  onCheckout,
+}: {
+  cart: CartEntry[];
+  imgBase: string;
+  categories: PublicCategory[];
+  primaryColor: string;
+  currency: string;
+  onClose: () => void;
+  onChangeQty: (key: string, delta: number) => void;
+  onRemove: (key: string) => void;
+  onClear: () => void;
+  onCheckout: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  // Scroll lock + initial focus
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeRef.current?.focus();
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+
+  // Escape closes (unless clear-confirm is open)
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        if (showClearConfirm) { setShowClearConfirm(false); return; }
+        onClose();
+      }
+    }
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose, showClearConfirm]);
+
+  // Focus trap within panel
+  useEffect(() => {
+    function handler(e: KeyboardEvent) {
+      if (e.key !== "Tab" || showClearConfirm) return;
+      const el = panelRef.current;
+      if (!el) return;
+      const nodes = el.querySelectorAll<HTMLElement>('button:not([disabled]),[href],[tabindex]:not([tabindex="-1"])');
+      if (!nodes.length) return;
+      const first = nodes[0], last = nodes[nodes.length - 1];
+      if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
+      else            { if (document.activeElement === last)  { e.preventDefault(); first.focus(); } }
+    }
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [showClearConfirm]);
+
+  // Build product-image lookup from categories (uses thumbnail when available)
+  const imageMap = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const cat of categories) {
+      for (const p of (cat.products as AnonProduct[])) {
+        const img = p.product_images?.[0];
+        m.set(p.id, img?.thumbnail_path ?? img?.storage_path ?? null);
+      }
+    }
+    return m;
+  }, [categories]);
+
+  const subtotal  = cart.reduce((s, it) => s + it.unitPriceCents * it.quantity, 0);
+  const itemCount = cart.reduce((s, it) => s + it.quantity, 0);
+
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <>
+      {/* Overlay */}
+      <div className="sc-overlay" onClick={onClose} aria-hidden="true" />
+
+      {/* Panel */}
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Tu pedido"
+        className="sc-panel"
+        tabIndex={-1}
+      >
+        {/* ── Header ── */}
+        <div className="sc-header">
+          <h2 className="sc-title">Tu pedido</h2>
+          <div className="sc-header-actions">
+            {cart.length > 0 && (
+              <button
+                className="sc-clear-btn"
+                onClick={() => setShowClearConfirm(true)}
+                aria-label="Vaciar carrito"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  aria-hidden="true">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                  <path d="M10 11v6"/><path d="M14 11v6"/>
+                  <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                </svg>
+                Vaciar
+              </button>
+            )}
+            <button
+              ref={closeRef}
+              className="sc-close-btn"
+              onClick={onClose}
+              aria-label="Cerrar carrito"
+            >
+              <CloseIcon />
+            </button>
+          </div>
+        </div>
+
+        {/* ── Body (scrollable) ── */}
+        <div className="sc-body">
+          {cart.length === 0 ? (
+            <div className="sc-empty">
+              <svg width="52" height="52" viewBox="0 0 24 24" fill="none"
+                stroke="#D1D5DB" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"
+                aria-hidden="true">
+                <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+              </svg>
+              <p className="sc-empty-title">Tu carrito está vacío</p>
+              <p className="sc-empty-sub">Agrega productos para comenzar tu pedido.</p>
+              <button
+                className="sc-explore-btn"
+                style={{ color: primaryColor, borderColor: primaryColor }}
+                onClick={onClose}
+              >
+                Explorar productos
+              </button>
+            </div>
+          ) : (
+            cart.map((entry) => {
+              const imgPath = imageMap.get(entry.productId);
+              const imgSrc  = imgPath ? `${imgBase}/${imgPath}` : null;
+              const lineTotal = entry.unitPriceCents * entry.quantity;
+              return (
+                <div key={entry.key} className="sc-item">
+                  {/* Thumbnail */}
+                  <div className="sc-item-img" aria-hidden="true">
+                    {imgSrc
+                      // eslint-disable-next-line @next/next/no-img-element
+                      ? <img src={imgSrc} alt="" />
+                      : <div className="sc-item-ph" />}
+                  </div>
+
+                  {/* Info */}
+                  <div className="sc-item-body">
+                    <p className="sc-item-name">{entry.productName}</p>
+                    {(entry.variantName || entry.options.length > 0) && (
+                      <p className="sc-item-extras">
+                        {[
+                          entry.variantName,
+                          ...entry.options.map((o) =>
+                            o.priceDeltaCents > 0
+                              ? `${o.optionName} +${money(o.priceDeltaCents, currency)}`
+                              : o.optionName
+                          ),
+                        ].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
+                    <div className="sc-item-row">
+                      {/* Qty controls */}
+                      <div className="sc-qty-ctrl" role="group"
+                        aria-label={`Cantidad de ${entry.productName}`}>
+                        <button
+                          className="sc-qty-btn"
+                          onClick={() => onChangeQty(entry.key, -1)}
+                          aria-label="Reducir cantidad"
+                        >−</button>
+                        <span className="sc-qty-val" aria-live="polite" aria-atomic="true">
+                          {entry.quantity}
+                        </span>
+                        <button
+                          className="sc-qty-btn"
+                          onClick={() => onChangeQty(entry.key, 1)}
+                          aria-label="Aumentar cantidad"
+                        >+</button>
+                      </div>
+                      <span className="sc-item-price">{money(lineTotal, currency)}</span>
+                    </div>
+                  </div>
+
+                  {/* Remove */}
+                  <button
+                    className="sc-item-del"
+                    onClick={() => onRemove(entry.key)}
+                    aria-label={`Quitar ${entry.productName}`}
+                  >×</button>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* ── Footer ── */}
+        {cart.length > 0 && (
+          <div className="sc-footer">
+            <div className="sc-subtotal-row">
+              <span className="sc-subtotal-label">
+                Subtotal
+                <span className="sc-subtotal-count">
+                  ({itemCount} {itemCount === 1 ? "producto" : "productos"})
+                </span>
+              </span>
+              <span className="sc-subtotal-val">{money(subtotal, currency)}</span>
+            </div>
+            <p className="sc-subtotal-note">
+              El costo de entrega y otros cargos se calculan al finalizar.
+            </p>
+            <button
+              className="sc-checkout-btn"
+              style={{ background: primaryColor }}
+              onClick={onCheckout}
+            >
+              Continuar con el pedido
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Clear confirmation modal ── */}
+      {showClearConfirm && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirmar vaciar carrito"
+          className="sc-confirm-wrap"
+        >
+          <div className="sc-confirm">
+            <p className="sc-confirm-title">¿Vaciar el carrito?</p>
+            <p className="sc-confirm-desc">Se eliminarán todos los productos.</p>
+            <div className="sc-confirm-actions">
+              <button
+                className="sc-confirm-cancel"
+                onClick={() => setShowClearConfirm(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="sc-confirm-ok"
+                onClick={() => { onClear(); setShowClearConfirm(false); }}
+              >
+                Vaciar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>,
+    document.body
+  );
+}
+
 // ── Main component ────────────────────────────────────────────
 
 export function PublicMenuClient({
-  restaurant, config, isOpen, categories,
-  deliveryZones, paymentMethods, supabaseUrl, ordersEnabled,
+  restaurant, config, isOpen, openStatus, categories,
+  deliveryZones, paymentMethods, supabaseUrl, ordersEnabled, socialLinks,
 }: Props) {
   const [activeCategory, setActiveCategory] = useState("");
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartEntry[]>([]);
   const [dialogProduct, setDialogProduct] = useState<AnonProduct | null>(null);
   const [step, setStep] = useState<Step>("menu");
+  const [cartOpen, setCartOpen] = useState(false);
+  // Set to true inside addToCart when cart transitions from empty → non-empty.
+  // Cleared by the auto-open effect once the product dialog has closed.
+  const shouldAutoOpenRef = useRef(false);
+
+  // Live status — refreshed every 60 s without full-page reload.
+  const [liveStatus, setLiveStatus] = useState<BusinessOpenStatus | null>(openStatus ?? null);
+  useEffect(() => {
+    const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+    if (!key) return;
+    const refresh = async () => {
+      try {
+        const res = await fetch(`${supabaseUrl}/rest/v1/rpc/get_business_open_status`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: key,
+            Authorization: `Bearer ${key}`,
+          },
+          body: JSON.stringify({ p_restaurant_id: restaurant.id }),
+        });
+        if (res.ok) setLiveStatus((await res.json()) as BusinessOpenStatus | null);
+      } catch { /* silent — keep last known status */ }
+    };
+    const t = setInterval(refresh, 60_000);
+    return () => clearInterval(t);
+  }, [supabaseUrl, restaurant.id]);
 
   const catalogOnly = !ordersEnabled;
   const cur = restaurant.currency;
@@ -925,15 +1428,8 @@ export function PublicMenuClient({
     ? { fontFamily: "var(--font-nunito,'Nunito',Arial,sans-serif)" }
     : {};
 
-  // Cover background: image → gradient from secondary_color → nothing (compact id-bar only)
+  // hasCoverImg kept for any remaining internal logic (not used in render).
   const hasCoverImg = !!coverUrl;
-  const hasCoverGradient = !hasCoverImg && !!config?.secondary_color;
-  const coverStyle = hasCoverImg
-    ? { backgroundImage: `url(${coverUrl})` }
-    : hasCoverGradient
-      ? { background: `linear-gradient(115deg,${darkenHex(config!.secondary_color!, 0.35)},${config!.secondary_color!})` }
-      : undefined;
-  const showHero = hasCoverImg || hasCoverGradient;
 
   const cartCount = cart.reduce((s, it) => s + it.quantity, 0);
   const cartTotal = cart.reduce((s, it) => s + it.unitPriceCents * it.quantity, 0);
@@ -941,9 +1437,9 @@ export function PublicMenuClient({
   const totalCount = categories.reduce((s, c) => s + (c.products as AnonProduct[]).length, 0);
 
   // WA contact link for topbar (catalog mode only)
-  const topbarWaUrl = catalogOnly && config?.whatsapp
-    ? `https://wa.me/${config.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(`Hola, me interesa conocer más sobre ${restaurant.name}`)}`
-    : null;
+  // Use the server-validated WhatsApp URL for the topbar contact button (catalog mode).
+  const topbarWaUrl = catalogOnly ? socialLinks.whatsapp : null;
+  const hasSocial = !!(socialLinks.instagram || socialLinks.facebook || socialLinks.twitter || socialLinks.whatsapp);
 
   const scrollingRef = useRef(false);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -994,6 +1490,9 @@ export function PublicMenuClient({
 
   const addToCart = useCallback((entry: CartEntry) => {
     setCart((prev) => {
+      // Schedule cart auto-open when going from empty → non-empty.
+      // The effect below waits until dialogProduct is null before opening.
+      if (prev.length === 0) shouldAutoOpenRef.current = true;
       const idx = prev.findIndex((e) => e.key === entry.key);
       if (idx >= 0) {
         const updated = [...prev];
@@ -1007,14 +1506,24 @@ export function PublicMenuClient({
   const removeFromCart = useCallback((key: string) => {
     setCart((prev) => prev.filter((e) => e.key !== key));
   }, []);
+
   const changeQty = useCallback((key: string, delta: number) => {
     setCart((prev) =>
       prev.map((e) => e.key === key ? { ...e, quantity: e.quantity + delta } : e)
           .filter((e) => e.quantity > 0),
     );
   }, []);
-  void removeFromCart;
-  void changeQty;
+
+  const clearCart = useCallback(() => setCart([]), []);
+
+  // Auto-open the cart after the first product is added, but only once the
+  // product modal has closed (requirement: don't open over an open modal).
+  useEffect(() => {
+    if (shouldAutoOpenRef.current && !dialogProduct && !cartOpen) {
+      shouldAutoOpenRef.current = false;
+      setCartOpen(true);
+    }
+  }, [dialogProduct, cartOpen]);
 
   const filtered = categories
     .map((cat) => ({
@@ -1051,19 +1560,9 @@ export function PublicMenuClient({
   return (
     <div className="rm-catalog-root" style={{ ...menuVars, ...fontFamilyStyle }}>
 
-      {/* Topbar — siempre visible */}
+      {/* Topbar — búsqueda sticky; logo/nombre viven en el banner */}
       <header className="rm-topbar">
         <div className="rm-topbar-inner container">
-          <div className="rm-topbar-brand">
-            <div className="rm-topbar-logo">
-              {logoUrl
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={logoUrl} alt="" aria-hidden="true" />
-                : <span aria-hidden="true">{initials}</span>}
-            </div>
-            <span className="rm-topbar-name">{restaurant.name}</span>
-          </div>
-
           <div className="rm-topbar-search">
             <SearchIcon className="rm-topbar-si" />
             <input
@@ -1081,56 +1580,36 @@ export function PublicMenuClient({
             )}
           </div>
 
-          <div className="rm-topbar-actions">
-            {topbarWaUrl && (
+          {topbarWaUrl && (
+            <div className="rm-topbar-actions">
               <a href={topbarWaUrl} target="_blank" rel="noopener noreferrer" className="rm-topbar-wa"
                 aria-label="Contactar por WhatsApp">
                 <WaIcon />
                 <span>Contactar</span>
               </a>
-            )}
-            {!catalogOnly && (
-              <span className={`rm-status-pill ${isOpen ? "rm-status-open" : "rm-status-closed"}`}>
-                <span className={`rm-status-dot ${isOpen ? "rm-status-dot-open" : "rm-status-dot-closed"}`} aria-hidden="true" />
-                {isOpen ? "Abierto" : "Cerrado"}
-              </span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </header>
+
+      {/* Business header — siempre visible; reemplaza hero + id-bar */}
+      <BizHeader
+        restaurantId={restaurant.id}
+        restaurantName={restaurant.name}
+        config={config}
+        liveStatus={liveStatus}
+        logoUrl={logoUrl}
+        coverUrl={coverUrl}
+        primaryColor={primaryColor}
+        socialLinks={socialLinks}
+        supabaseUrl={supabaseUrl}
+        fontStyle={fontFamilyStyle}
+      />
 
       {/* Aviso de cierre temporal */}
       {closedMessage && (
         <div role="alert" className="rm-closed-notice">
           {closedMessage}
-        </div>
-      )}
-
-      {/* Hero — con imagen o con degradado del color de marca */}
-      {showHero && (
-        <div className="rm-hero" style={coverStyle} role="banner">
-          <div className="rm-hero-overlay" aria-hidden="true" />
-          <div className="container rm-hero-content">
-            <h1 className="rm-hero-title">{restaurant.name}</h1>
-            {config?.description && (
-              <p className="rm-hero-sub">{config.description}</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Barra identidad — sin portada ni degradado, descripción compacta */}
-      {!showHero && config?.description && (
-        <div className="rm-id-bar">
-          <div className="container rm-id-bar-inner">
-            <p className="rm-id-desc">{config.description}</p>
-            {!catalogOnly && (
-              <span className={`rm-status-pill ${isOpen ? "rm-status-open" : "rm-status-closed"}`}>
-                <span className={`rm-status-dot ${isOpen ? "rm-status-dot-open" : "rm-status-dot-closed"}`} aria-hidden="true" />
-                {isOpen ? "Abierto" : "Cerrado"}
-              </span>
-            )}
-          </div>
         </div>
       )}
 
@@ -1205,15 +1684,20 @@ export function PublicMenuClient({
       </main>
 
       <footer className="rm-footer">
-        Creado con <strong style={{ color: "var(--menu-primary,var(--purple))", fontWeight: 600 }}>Mesa</strong>
+        {hasSocial && (
+          <div className="rm-footer-social">
+            <SocialBar links={socialLinks} />
+          </div>
+        )}
+        <span>Creado con <strong style={{ color: "var(--menu-primary,var(--purple))", fontWeight: 600 }}>Wacatalog</strong></span>
       </footer>
 
-      {/* FAB carrito — escritorio */}
+      {/* FAB carrito — escritorio (opens side panel) */}
       {!catalogOnly && cartCount > 0 && (
         <button
           className="cart-fab"
-          onClick={() => setStep("checkout")}
-          aria-label={`Ver pedido, ${cartCount} ${cartCount === 1 ? "producto" : "productos"}, total ${money(cartTotal, cur)}`}
+          onClick={() => setCartOpen(true)}
+          aria-label={`Ver pedido, ${cartCount} ${cartCount === 1 ? "producto" : "productos"}, subtotal ${money(cartTotal, cur)}`}
         >
           <CartIcon />
           <span className="cart-fab-label">Ver pedido</span>
@@ -1222,19 +1706,19 @@ export function PublicMenuClient({
         </button>
       )}
 
-      {/* Barra carrito — móvil */}
+      {/* Barra carrito — móvil (opens side panel) */}
       {!catalogOnly && cartCount > 0 && (
         <div className="cart-bar" role="complementary" aria-label="Resumen del pedido">
           <span className="cart-bar-qty">
             {cartCount} {cartCount === 1 ? "producto" : "productos"}
           </span>
-          <button className="cart-bar-btn" onClick={() => setStep("checkout")}>
+          <button className="cart-bar-btn" onClick={() => setCartOpen(true)}>
             Ver pedido · {money(cartTotal, cur)}
           </button>
         </div>
       )}
 
-      {/* Diálogos */}
+      {/* Diálogos de producto */}
       {!catalogOnly && dialogProduct && (
         <ProductDialog
           product={dialogProduct}
@@ -1254,6 +1738,22 @@ export function PublicMenuClient({
           whatsapp={config?.whatsapp ?? null}
           restaurantName={restaurant.name}
           onClose={() => setDialogProduct(null)}
+        />
+      )}
+
+      {/* Panel de carrito lateral — solo en modo pedidos */}
+      {!catalogOnly && cartOpen && (
+        <CartPanel
+          cart={cart}
+          imgBase={imgBase}
+          categories={categories}
+          primaryColor={primaryColor}
+          currency={cur}
+          onClose={() => setCartOpen(false)}
+          onChangeQty={changeQty}
+          onRemove={removeFromCart}
+          onClear={clearCart}
+          onCheckout={() => { setCartOpen(false); setStep("checkout"); }}
         />
       )}
     </div>

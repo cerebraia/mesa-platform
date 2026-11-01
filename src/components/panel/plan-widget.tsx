@@ -184,7 +184,7 @@ export async function PlanWidget({ restaurantId }: { restaurantId: string }) {
           ¿Necesitas más capacidad?
         </p>
         <p style={{ fontSize: 12, color: "#667085", marginBottom: 0 }}>
-          Los cambios de plan se gestionan directamente con el equipo de Mesa.
+          Los cambios de plan se gestionan directamente con el equipo de Wacatalog.
           Para solicitar un cambio, comunícate con tu contacto asignado.
         </p>
         {/* Pending: connect to a real contact channel once configured */}

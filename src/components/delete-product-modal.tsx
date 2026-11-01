@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 interface DeleteProductModalProps {
   productName: string;
@@ -55,7 +56,10 @@ export function DeleteProductModal({
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  return (
+  // Portal: renders at document.body so the row's opacity stacking context
+  // cannot affect the modal's compositing.
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -111,8 +115,8 @@ export function DeleteProductModal({
           id="dpm-desc"
           style={{ fontSize: 14, color: "#4B5563", margin: "0 0 20px", lineHeight: 1.5 }}
         >
-          «{productName}» dejará de aparecer en tu catálogo.
-          Podrás recuperarlo desde <strong>Productos eliminados</strong>.
+          «{productName}» se moverá a <strong>Productos eliminados</strong>.
+          Podrás restaurarlo cuando lo necesites.
         </p>
 
         {error && (
@@ -147,6 +151,7 @@ export function DeleteProductModal({
           </button>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }

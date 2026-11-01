@@ -305,3 +305,92 @@ export async function setProductPublished(
   revalidatePath("/r/[slug]", "page");
   return { error: null };
 }
+
+// ── Product image gallery actions ─────────────────────────────
+
+import type { ProductImage } from "@/lib/catalog-types";
+
+export async function addProductImage(
+  productId: string,
+  storagePath: string,
+  thumbPath: string | null,
+): Promise<{ error: string | null; image?: ProductImage }> {
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerRestaurant());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const { data: prod } = await supabase
+    .from("products").select("id")
+    .eq("id", productId).eq("restaurant_id", restaurantId).is("deleted_at", null).maybeSingle();
+  if (!prod) return { error: "Producto no encontrado." };
+
+  const { data: maxRow } = await supabase
+    .from("product_images").select("position")
+    .eq("product_id", productId).order("position", { ascending: false }).limit(1).maybeSingle();
+  const position = (maxRow?.position ?? -1) + 1;
+
+  const { data, error } = await supabase
+    .from("product_images")
+    .insert({ product_id: productId, restaurant_id: restaurantId, storage_path: storagePath, thumbnail_path: thumbPath, position })
+    .select("id, product_id, restaurant_id, storage_path, thumbnail_path, alt_text, position, created_at")
+    .single();
+
+  if (error) return { error: error.message };
+  revalidatePath("/panel/menu"); revalidatePath("/r/[slug]", "page");
+  return { error: null, image: data as ProductImage };
+}
+
+export async function removeProductImage(
+  imageId: string,
+): Promise<{ error: string | null }> {
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerRestaurant());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const { data: img } = await supabase
+    .from("product_images").select("storage_path, thumbnail_path")
+    .eq("id", imageId).eq("restaurant_id", restaurantId).maybeSingle();
+
+  const { error } = await supabase
+    .from("product_images").delete().eq("id", imageId).eq("restaurant_id", restaurantId);
+  if (error) return { error: error.message };
+
+  const toDelete: string[] = [];
+  if (img?.storage_path)   toDelete.push(img.storage_path);
+  if (img?.thumbnail_path) toDelete.push(img.thumbnail_path);
+  if (toDelete.length) await supabase.storage.from("product-images").remove(toDelete);
+
+  revalidatePath("/panel/menu"); revalidatePath("/r/[slug]", "page");
+  return { error: null };
+}
+
+export async function reorderProductImages(
+  productId: string,
+  orderedIds: string[],
+): Promise<{ error: string | null }> {
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerRestaurant());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  await Promise.all(
+    orderedIds.map((id, position) =>
+      supabase.from("product_images").update({ position })
+        .eq("id", id).eq("product_id", productId).eq("restaurant_id", restaurantId),
+    ),
+  );
+
+  revalidatePath("/panel/menu"); revalidatePath("/r/[slug]", "page");
+  return { error: null };
+}

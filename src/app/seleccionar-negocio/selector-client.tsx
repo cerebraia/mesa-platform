@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition, useState } from "react";
+import { useTransition, useState, useCallback } from "react";
 import { LayoutGrid, ClipboardList } from "lucide-react";
 import { selectAndGo } from "./actions";
 import type { MemberRole } from "@/lib/db-types";
@@ -16,7 +16,22 @@ export type BusinessOption = {
   restaurantName: string;
   role:           MemberRole;
   ordersEnabled:  boolean;
+  logoUrl:        string | null;
 };
+
+// ── Card avatar: logo when available, initials on error/missing ────
+function CardAvatar({ logoUrl, initials }: { logoUrl: string | null; initials: string }) {
+  const [err, setErr] = useState(false);
+  const handleErr = useCallback(() => setErr(true), []);
+
+  if (logoUrl && !err) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={logoUrl} alt="" className="sbx-avatar-img" onError={handleErr} />
+    );
+  }
+  return <>{initials}</>;
+}
 
 export function SelectorClient({
   options,
@@ -85,7 +100,7 @@ export function SelectorClient({
                 {isSelecting ? (
                   <span className="sbx-spinner" aria-hidden="true" />
                 ) : (
-                  initials
+                  <CardAvatar logoUrl={opt.logoUrl} initials={initials} />
                 )}
               </div>
               <div className="sbx-card-info">

@@ -26,7 +26,7 @@ export default function LoginPage() {
         <Brand />
         <h1>Accede a tu espacio</h1>
         <p className="muted" style={{ marginBottom: 28, fontSize: 14 }}>
-          Usa las credenciales que recibiste de Mesa.
+          Usa las credenciales que recibiste de Wacatalog.
         </p>
 
         <form action={action}>

@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition, useCallback } from "react";
 import { useFormStatus } from "react-dom";
+import { createPortal } from "react-dom";
 import {
   saveIdentity,
   saveAppearanceConfig,
@@ -11,6 +12,7 @@ import {
   type ConfigState,
 } from "./actions";
 import { useUnsavedChanges } from "@/components/unsaved-changes";
+import { CURRENCIES, CURRENCY_OPTIONS } from "@/lib/money";
 import type { RestaurantConfig } from "@/lib/catalog-types";
 
 // ── Shared helpers ────────────────────────────────────────────────
@@ -95,10 +97,12 @@ export function NegocioForm({
   restaurant,
   config,
   timezones,
+  hasExistingPrices,
 }: {
-  restaurant: { id: string; name: string; slug: string; timezone: string };
+  restaurant: { id: string; name: string; slug: string; timezone: string; currency: string };
   config?: RestaurantConfig;
   timezones: string[];
+  hasExistingPrices: boolean;
 }) {
   const initial: ConfigState = { error: null };
   const [state, action] = useActionState(saveIdentity, initial);
@@ -110,6 +114,11 @@ export function NegocioForm({
 
   // form key forces a reset when we discard
   const [formKey, setFormKey] = useState(0);
+
+  // Currency state — controlled select with change-warning modal
+  const [currency,        setCurrency]        = useState(restaurant.currency || "USD");
+  const [pendingCurrency, setPendingCurrency] = useState<string | null>(null);
+  const [showCurrencyModal, setShowCurrencyModal] = useState(false);
 
   useEffect(() => {
     if (state === prevState.current) return;
@@ -135,7 +144,42 @@ export function NegocioForm({
   }, [isDirty, setSaveHandler]);
 
   function markDirty() { setIsDirty(true); setDirty(true); }
-  function discard()   { setFormKey((k) => k + 1); setIsDirty(false); setDirty(false); }
+  function discard() {
+    setFormKey((k) => k + 1);
+    setCurrency(restaurant.currency || "USD");
+    setIsDirty(false);
+    setDirty(false);
+  }
+
+  function handleCurrencyChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const next = e.target.value;
+    if (next === currency) return;
+    if (hasExistingPrices) {
+      // Intercept: show warning modal before applying the change.
+      // stopPropagation prevents the form-level onChange from marking dirty prematurely.
+      e.stopPropagation();
+      setPendingCurrency(next);
+      setShowCurrencyModal(true);
+      // Keep select at current value until confirmed (controlled component reverts).
+    } else {
+      setCurrency(next);
+      // form-level onChange fires and calls markDirty
+    }
+  }
+
+  function confirmCurrencyChange() {
+    if (pendingCurrency) {
+      setCurrency(pendingCurrency);
+      setPendingCurrency(null);
+      setShowCurrencyModal(false);
+      markDirty();
+    }
+  }
+
+  function cancelCurrencyChange() {
+    setPendingCurrency(null);
+    setShowCurrencyModal(false);
+  }
 
   return (
     <form ref={formRef} key={formKey} action={action} onChange={markDirty} onSubmit={() => setIsDirty(false)}>
@@ -170,14 +214,31 @@ export function NegocioForm({
           <span className="cfg-field-hint">Visible en el encabezado del catálogo.</span>
         </div>
 
-        <div className="field">
-          <label htmlFor="cf-tz">Zona horaria *</label>
-          <select id="cf-tz" name="timezone" defaultValue={restaurant.timezone} required>
-            {timezones.map((tz) => (
-              <option key={tz} value={tz}>{tz}</option>
-            ))}
-          </select>
-          <span className="cfg-field-hint">Usada para calcular el estado abierto/cerrado.</span>
+        <div className="cfg-grid-2">
+          <div className="field">
+            <label htmlFor="cf-tz">Zona horaria *</label>
+            <select id="cf-tz" name="timezone" defaultValue={restaurant.timezone} required>
+              {timezones.map((tz) => (
+                <option key={tz} value={tz}>{tz}</option>
+              ))}
+            </select>
+            <span className="cfg-field-hint">Usada para calcular el estado abierto/cerrado.</span>
+          </div>
+
+          <div className="field">
+            <label htmlFor="cf-currency">Moneda del negocio</label>
+            <select
+              id="cf-currency"
+              name="currency"
+              value={currency}
+              onChange={handleCurrencyChange}
+            >
+              {CURRENCY_OPTIONS.map((c) => (
+                <option key={c.code} value={c.code}>{c.label}</option>
+              ))}
+            </select>
+            <span className="cfg-field-hint">Aplica a precios del catálogo y pedidos nuevos.</span>
+          </div>
         </div>
 
         <div className="field">
@@ -238,6 +299,76 @@ export function NegocioForm({
       </div>
 
       <SectionFooter state={state} isDirty={isDirty} saveLabel="Guardar datos" onDiscard={discard} />
+
+      {/* Currency-change warning modal — portal so it renders above the table/opacity stacking context */}
+      {showCurrencyModal && pendingCurrency && typeof document !== "undefined" && createPortal(
+        <>
+          <div
+            aria-hidden="true"
+            onClick={cancelCurrencyChange}
+            style={{ position: "fixed", inset: 0, background: "rgba(25,22,46,0.5)", zIndex: 1200 }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ccm-title"
+            aria-describedby="ccm-desc"
+            style={{
+              position: "fixed", top: "50%", left: "50%",
+              transform: "translate(-50%,-50%)",
+              zIndex: 1201,
+              background: "#fff", borderRadius: 16,
+              boxShadow: "0 24px 64px rgba(25,22,46,0.2), 0 2px 8px rgba(25,22,46,0.08)",
+              padding: "28px 28px 24px",
+              width: "min(460px, calc(100vw - 32px))",
+            }}
+          >
+            <div aria-hidden="true" style={{
+              width: 40, height: 40, borderRadius: 10, background: "#FEF3C7",
+              display: "grid", placeItems: "center", marginBottom: 16,
+            }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="#92400E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <h2 id="ccm-title" style={{
+              fontFamily: "var(--font-poppins,'Poppins',sans-serif)",
+              fontSize: 17, fontWeight: 600, color: "#19162E", margin: "0 0 8px", letterSpacing: -0.3,
+            }}>
+              Cambiar la moneda del negocio
+            </h2>
+            <p id="ccm-desc" style={{ fontSize: 14, color: "#4B5563", margin: "0 0 20px", lineHeight: 1.55 }}>
+              Cambiar la moneda <strong>no convierte los precios</strong>.
+              Por ejemplo, 20 {CURRENCIES[currency]?.symbol ?? currency} pasará a mostrarse
+              como 20 {CURRENCIES[pendingCurrency]?.symbol ?? pendingCurrency}.
+              Revisa tus importes en el catálogo antes de continuar.
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <button
+                className="button secondary"
+                onClick={cancelCurrencyChange}
+                style={{ minHeight: 40, fontSize: 13 }}
+                autoFocus
+              >
+                Cancelar
+              </button>
+              <button
+                className="button"
+                onClick={confirmCurrencyChange}
+                style={{
+                  minHeight: 40, fontSize: 13, minWidth: 150,
+                  background: "#92400E", color: "#fff", border: "none",
+                }}
+              >
+                Cambiar moneda
+              </button>
+            </div>
+          </div>
+        </>,
+        document.body,
+      )}
     </form>
   );
 }
@@ -421,7 +552,7 @@ export function AppearanceForm({
   }
 
   const COLOR_PRESETS = [
-    { label: "Mesa",      primary: "#703BE6", bg: "#faf9fc" },
+    { label: "Wacatalog",      primary: "#703BE6", bg: "#faf9fc" },
     { label: "Verde",     primary: "#059669", bg: "#f0fdf4" },
     { label: "Azul",      primary: "#2563eb", bg: "#eff6ff" },
     { label: "Coral",     primary: "#e63946", bg: "#fff5f5" },
@@ -551,7 +682,7 @@ export function AppearanceForm({
               Toca un preset para aplicarlo. Los cambios solo se guardan al pulsar "Guardar".
             </p>
 
-            <div className="cfg-grid-2">
+            <div className="cfg-color-grid">
               <div className="field">
                 <label>Color principal</label>
                 <div className="cfg-color-row">

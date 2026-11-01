@@ -181,6 +181,11 @@ export interface PublicCategory {
 export interface RestaurantConfig {
   restaurant_id: string;
   description: string | null;
+  // Added in migration 035.
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_image_path?: string | null;
+  allow_indexing?: boolean;
   logo_path: string | null;
   cover_path: string | null;
   primary_color: string | null;
@@ -243,11 +248,16 @@ export interface PaymentMethod {
   updated_at: string;
 }
 
-// Public-facing config: anon can read these fields (migrations 012 + 024 + 025 grants).
-// payment_methods.instructions is NOT included — private.
+// Public-facing config: anon can read these fields (migrations 012 + 024 + 025 + 035 grants).
+// payment_methods.instructions, stock_tracking_enabled NOT included — private.
 export interface PublicRestaurantConfig {
   restaurant_id: string;
   description: string | null;
+  // Added in migration 035 — server-side only (not rendered in client bundle).
+  seo_title?: string | null;
+  seo_description?: string | null;
+  seo_image_path?: string | null;
+  allow_indexing?: boolean;
   logo_path: string | null;
   cover_path: string | null;
   primary_color: string | null;
@@ -286,6 +296,16 @@ export interface PublicPaymentMethod {
   name: string;
   type: string;
   position: number;
+}
+
+// ── Business open status (get_business_open_status RPC) ──────
+// Returns null when no business hours are configured (status omitted in UI).
+
+export interface BusinessOpenStatus {
+  status: "open" | "closed" | "temporarily_closed";
+  closes_at?: string | null;   // "HH:MM" local time when status=open
+  opens_at?: string | null;    // "HH:MM" local time when status=closed
+  closed_message?: string | null;
 }
 
 // ── Order types ───────────────────────────────────────────────

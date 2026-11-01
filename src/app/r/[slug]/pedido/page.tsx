@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { createServerClient as createSsrClient } from "@supabase/ssr";
 import { createHash } from "crypto";
+import { formatMoney } from "@/lib/money";
 
 function createServiceClient() {
   return createSsrClient(
@@ -27,9 +28,7 @@ const PAYMENT_TYPE_LABEL: Record<string, string> = {
   card: "Tarjeta", other: "Otro",
 };
 
-function money(cents: number) {
-  return new Intl.NumberFormat("es-VE", { style: "currency", currency: "USD" }).format(cents / 100);
-}
+// money() is defined as a closure per-page using the restaurant's currency — see PedidoPage.
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleString("es-VE", {
@@ -66,11 +65,12 @@ type OrderData = {
   }>;
 };
 
-function OrderCard({ order, restaurantName, waUrl, isMain }: {
+function OrderCard({ order, restaurantName, waUrl, isMain, money }: {
   order: OrderData;
   restaurantName: string;
   waUrl: string | null;
   isMain: boolean;
+  money: (cents: number) => string;
 }) {
   const isTerminal = ["completed", "rejected", "cancelled"].includes(order.status);
   return (
@@ -224,12 +224,15 @@ export default async function PedidoPage({
   // Verify the restaurant exists and is active
   const { data: restaurant } = await supabase
     .from("restaurants")
-    .select("id, name")
+    .select("id, name, currency")
     .eq("slug", slug)
     .eq("status", "active")
     .maybeSingle();
 
   if (!restaurant) notFound();
+
+  const currency = restaurant.currency ?? "USD";
+  const money = (cents: number) => formatMoney(cents, currency);
 
   // Fetch all orders from the session tokens in parallel.
   // Each token is an independent credential: knowing one doesn't grant
@@ -296,6 +299,7 @@ export default async function PedidoPage({
         restaurantName={restaurant.name}
         waUrl={waUrl}
         isMain
+        money={money}
       />
 
       {olderOrders.length > 0 && (
@@ -310,6 +314,7 @@ export default async function PedidoPage({
                 restaurantName={restaurant.name}
                 waUrl={null}
                 isMain={false}
+                money={money}
               />
               {i < olderOrders.length - 1 && <hr style={{ border: "none", borderTop: "1px solid #f0f0f0", margin: "24px 0" }} />}
             </div>

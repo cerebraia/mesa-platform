@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Search,
@@ -15,6 +16,7 @@ import { CategoryActions } from "./category-actions";
 import { ProductRowActions } from "./product-row-actions";
 import { productState } from "@/lib/product-state";
 import { restoreProduct } from "./actions";
+import { formatMoney } from "@/lib/money";
 import type { Category, Product, ProductImage } from "@/lib/catalog-types";
 import type { DeletedProduct } from "./page";
 
@@ -25,22 +27,22 @@ function plural(n: number, s: string, p: string) {
   return `${n} ${n === 1 ? s : p}`;
 }
 
-function formatCents(cents: number | null) {
+function formatCents(cents: number | null, currency: string) {
   if (cents == null) return <span style={{ color: "#9CA3AF", fontSize: 11 }}>Sin precio</span>;
-  return `$${(cents / 100).toFixed(2)}`;
+  return formatMoney(cents, currency);
 }
 
 // ── Thumb ─────────────────────────────────────────────────────────
 
-function Thumb({ src, alt }: { src: string | null; alt: string }) {
+function Thumb({ src, alt, size = 44 }: { src: string | null; alt: string; size?: number }) {
   if (src) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         src={src}
         alt={alt}
-        width={44}
-        height={44}
+        width={size}
+        height={size}
         style={{ borderRadius: 8, objectFit: "cover", display: "block", flexShrink: 0 }}
       />
     );
@@ -48,7 +50,7 @@ function Thumb({ src, alt }: { src: string | null; alt: string }) {
   return (
     <div
       style={{
-        width: 44, height: 44, borderRadius: 8,
+        width: size, height: size, borderRadius: 8,
         background: "#F6F7FB", display: "grid", placeItems: "center",
         color: "#667085", fontSize: 9, fontWeight: 600, textTransform: "uppercase",
         letterSpacing: ".04em", flexShrink: 0,
@@ -86,6 +88,7 @@ function TrashTab({
   deleted:   DeletedProduct[];
   imageBase: string;
 }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [restoring, setRestoring] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -107,6 +110,8 @@ function TrashTab({
       setErrors((e) => ({ ...e, [productId]: result.error! }));
     } else {
       setRestoredIds((s) => new Set([...s, productId]));
+      // Refresh server data so the Products tab shows the restored draft.
+      router.refresh();
     }
   }
 
@@ -147,66 +152,118 @@ function TrashTab({
           <button className="button secondary small" onClick={() => setSearch("")}>Limpiar</button>
         </div>
       ) : (
-        <div className="dashboard-card" style={{ padding: 0, overflow: "hidden" }}>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ width: 56, paddingLeft: 20 }} />
-                  <th>Producto</th>
-                  <th>Categoría</th>
-                  <th>Eliminado</th>
-                  <th style={{ paddingRight: 20 }} />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p) => {
-                  const imgSrc = p.storage_path ? `${imageBase}/${p.storage_path}` : null;
-                  const isRestoring = restoring === p.id;
-                  const rowError = errors[p.id];
-                  return (
-                    <tr key={p.id} style={{ opacity: 0.7 }}>
-                      <td style={{ paddingLeft: 20 }}>
-                        <Thumb src={imgSrc} alt={p.name} />
-                      </td>
-                      <td>
-                        <div style={{ fontWeight: 600, fontSize: 13, color: "#202337" }}>{p.name}</div>
-                        {rowError && (
-                          <div role="alert" style={{ fontSize: 11, color: "#dc2626", marginTop: 2 }}>{rowError}</div>
+        <>
+          {/* Desktop table */}
+          <div className="product-list-desktop">
+            <div className="dashboard-card" style={{ padding: 0, overflow: "hidden" }}>
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 56, paddingLeft: 20 }} />
+                      <th>Producto</th>
+                      <th>Categoría</th>
+                      <th>Eliminado</th>
+                      <th style={{ paddingRight: 20 }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((p) => {
+                      const imgSrc = p.storage_path ? `${imageBase}/${p.storage_path}` : null;
+                      const isRestoring = restoring === p.id;
+                      const rowError = errors[p.id];
+                      return (
+                        <tr key={p.id} style={{ opacity: 0.7 }}>
+                          <td style={{ paddingLeft: 20 }}>
+                            <Thumb src={imgSrc} alt={p.name} />
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: "#202337" }}>{p.name}</div>
+                            {rowError && (
+                              <div role="alert" style={{ fontSize: 11, color: "#dc2626", marginTop: 2 }}>{rowError}</div>
+                            )}
+                          </td>
+                          <td style={{ fontSize: 12, color: "#667085" }}>
+                            {p.category_name ?? (
+                              <span style={{ color: "#92400E", fontSize: 11 }}>
+                                Categoría no disponible — tras restaurar, edita el producto para reasignar
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ fontSize: 12, color: "#667085", whiteSpace: "nowrap" }}>
+                            {new Date(p.deleted_at).toLocaleDateString("es", {
+                              day: "numeric", month: "short", year: "numeric",
+                            })}
+                          </td>
+                          <td style={{ paddingRight: 20 }}>
+                            <button
+                              type="button"
+                              className="button secondary small"
+                              disabled={!!restoring}
+                              onClick={() => handleRestore(p.id, p.name)}
+                              aria-label={`Restaurar ${p.name}`}
+                              style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 5 }}
+                            >
+                              <RotateCcw size={11} />
+                              {isRestoring ? "Restaurando…" : "Restaurar"}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="product-list-mobile">
+            {filtered.map((p) => {
+              const imgSrc = p.storage_path ? `${imageBase}/${p.storage_path}` : null;
+              const isRestoring = restoring === p.id;
+              const rowError = errors[p.id];
+              return (
+                <div key={p.id} className="product-mobile-card" style={{ opacity: 0.75 }}>
+                  <div className="pmc-row">
+                    <Thumb src={imgSrc} alt={p.name} size={64} />
+                    <div className="pmc-info">
+                      <div className="pmc-name">{p.name}</div>
+                      <div className="pmc-meta">
+                        {p.category_name ? (
+                          <span className="pmc-cat">{p.category_name}</span>
+                        ) : (
+                          <span style={{ fontSize: 11, color: "#92400E" }}>Categoría no disponible</span>
                         )}
-                      </td>
-                      <td style={{ fontSize: 12, color: "#667085" }}>
-                        {p.category_name ?? (
-                          <span style={{ color: "#92400E", fontSize: 11 }}>
-                            Categoría no disponible — tras restaurar, edita el producto para reasignar
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ fontSize: 12, color: "#667085", whiteSpace: "nowrap" }}>
-                        {new Date(p.deleted_at).toLocaleDateString("es", {
+                      </div>
+                      <div style={{ fontSize: 12, color: "#667085", marginTop: 4 }}>
+                        Eliminado: {new Date(p.deleted_at).toLocaleDateString("es", {
                           day: "numeric", month: "short", year: "numeric",
                         })}
-                      </td>
-                      <td style={{ paddingRight: 20 }}>
-                        <button
-                          type="button"
-                          className="button secondary small"
-                          disabled={!!restoring}
-                          onClick={() => handleRestore(p.id, p.name)}
-                          aria-label={`Restaurar ${p.name}`}
-                          style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 5 }}
-                        >
-                          <RotateCcw size={11} />
-                          {isRestoring ? "Restaurando…" : "Restaurar"}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </div>
+                      {rowError && (
+                        <div role="alert" style={{ fontSize: 11, color: "#dc2626", marginTop: 3 }}>{rowError}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="pmc-actions">
+                    <button
+                      type="button"
+                      className="button secondary small"
+                      disabled={!!restoring}
+                      onClick={() => handleRestore(p.id, p.name)}
+                      aria-label={`Restaurar ${p.name}`}
+                      style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, minHeight: 44, padding: "0 16px" }}
+                    >
+                      <RotateCcw size={13} />
+                      {isRestoring ? "Restaurando…" : "Restaurar"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        </>
       )}
     </>
   );
@@ -218,11 +275,13 @@ function ProductsTab({
   cats,
   imageBase,
   catalogLabel,
+  currency,
   onDeleted,
 }: {
   cats:         CategoryWithProducts[];
   imageBase:    string;
   catalogLabel: "menú" | "catálogo";
+  currency:     string;
   onDeleted:    () => void;
 }) {
   // Single source of truth for all three filters
@@ -364,76 +423,127 @@ function ProductsTab({
           )}
         </div>
       ) : (
-        <div className="dashboard-card" style={{ padding: 0, overflow: "hidden" }}>
-          <div className="table-scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ width: 56, paddingLeft: 20 }} />
-                  <th>Producto</th>
-                  <th>Categoría</th>
-                  <th>Precio</th>
-                  <th>Estado</th>
-                  <th style={{ paddingRight: 20 }} />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p) => {
-                  const imgPath = p.product_images?.[0]?.storage_path;
-                  const imgSrc  = imgPath ? `${imageBase}/${imgPath}` : null;
-                  return (
-                    <tr key={p.id} style={{ opacity: p.is_published ? 1 : 0.7 }}>
-                      <td style={{ paddingLeft: 20 }}>
-                        <Thumb src={imgSrc} alt={p.name} />
-                      </td>
-                      <td>
-                        <div style={{ fontWeight: 600, fontSize: 13, color: "#202337" }}>{p.name}</div>
-                        {p.description && (
-                          <div style={{ fontSize: 11, color: "#667085", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {p.description}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ fontSize: 12, color: "#667085" }}>{p._catName}</td>
-                      <td style={{ fontWeight: 600, fontSize: 13 }}>
-                        {formatCents(p.base_price_cents)}
-                        {p.promo_price_cents != null && (
-                          <span className="tag" style={{ marginLeft: 6, fontSize: 10 }}>
-                            Promo {formatCents(p.promo_price_cents)}
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        <ProductStateBadge state={productState(p)} />
-                      </td>
-                      <td style={{ paddingRight: 20 }}>
-                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                          <Link
-                            href={`/panel/menu/products/${p.id}/edit`}
-                            className="panel-quick-action"
-                            style={{ padding: "6px 10px", fontSize: 11 }}
-                            aria-label={`Editar ${p.name}`}
-                          >
-                            <Pencil size={12} /> Editar
-                          </Link>
-                          <ProductRowActions
-                            productId={p.id}
-                            productName={p.name}
-                            isPublished={p.is_published}
-                            isAvailable={p.is_available}
-                            hasPriceMissing={p.base_price_cents == null}
-                            catalogLabel={catalogLabel}
-                            onDeleted={onDeleted}
-                          />
-                        </div>
-                      </td>
+        <>
+          {/* Desktop table */}
+          <div className="product-list-desktop">
+            <div className="dashboard-card" style={{ padding: 0, overflow: "hidden" }}>
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 56, paddingLeft: 20 }} />
+                      <th>Producto</th>
+                      <th>Categoría</th>
+                      <th>Precio</th>
+                      <th>Estado</th>
+                      <th style={{ paddingRight: 20 }} />
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {filtered.map((p) => {
+                      const imgPath = p.product_images?.[0]?.storage_path;
+                      const imgSrc  = imgPath ? `${imageBase}/${imgPath}` : null;
+                      return (
+                        <tr key={p.id} style={{ opacity: p.is_published ? 1 : 0.7 }}>
+                          <td style={{ paddingLeft: 20 }}>
+                            <Thumb src={imgSrc} alt={p.name} />
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 600, fontSize: 13, color: "#202337" }}>{p.name}</div>
+                            {p.description && (
+                              <div style={{ fontSize: 11, color: "#667085", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {p.description}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ fontSize: 12, color: "#667085" }}>{p._catName}</td>
+                          <td style={{ fontWeight: 600, fontSize: 13 }}>
+                            {formatCents(p.base_price_cents, currency)}
+                            {p.promo_price_cents != null && (
+                              <span className="tag" style={{ marginLeft: 6, fontSize: 10 }}>
+                                Promo {formatCents(p.promo_price_cents, currency)}
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <ProductStateBadge state={productState(p)} />
+                          </td>
+                          <td style={{ paddingRight: 20 }}>
+                            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                              <Link
+                                href={`/panel/menu/products/${p.id}/edit`}
+                                className="panel-quick-action"
+                                style={{ padding: "6px 10px", fontSize: 11 }}
+                                aria-label={`Editar ${p.name}`}
+                              >
+                                <Pencil size={12} /> Editar
+                              </Link>
+                              <ProductRowActions
+                                productId={p.id}
+                                productName={p.name}
+                                isPublished={p.is_published}
+                                isAvailable={p.is_available}
+                                hasPriceMissing={p.base_price_cents == null}
+                                catalogLabel={catalogLabel}
+                                onDeleted={onDeleted}
+                              />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        </div>
+
+          {/* Mobile cards */}
+          <div className="product-list-mobile">
+            {filtered.map((p) => {
+              const imgPath = p.product_images?.[0]?.storage_path;
+              const imgSrc  = imgPath ? `${imageBase}/${imgPath}` : null;
+              const st = productState(p);
+              return (
+                <div key={p.id} className="product-mobile-card" style={{ opacity: p.is_published ? 1 : 0.85 }}>
+                  <div className="pmc-row">
+                    <Thumb src={imgSrc} alt={p.name} size={64} />
+                    <div className="pmc-info">
+                      <div className="pmc-name">{p.name}</div>
+                      <div className="pmc-meta">
+                        <span className="pmc-cat">{p._catName}</span>
+                        <span className="pmc-sep" aria-hidden="true">·</span>
+                        <span className="pmc-price">{formatCents(p.base_price_cents, currency)}</span>
+                      </div>
+                      <div style={{ marginTop: 5 }}>
+                        <ProductStateBadge state={st} />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pmc-actions">
+                    <Link
+                      href={`/panel/menu/products/${p.id}/edit`}
+                      className="panel-quick-action"
+                      style={{ padding: "6px 12px", fontSize: 12, minHeight: 36 }}
+                      aria-label={`Editar ${p.name}`}
+                    >
+                      <Pencil size={13} /> Editar
+                    </Link>
+                    <ProductRowActions
+                      productId={p.id}
+                      productName={p.name}
+                      isPublished={p.is_published}
+                      isAvailable={p.is_available}
+                      hasPriceMissing={p.base_price_cents == null}
+                      catalogLabel={catalogLabel}
+                      onDeleted={onDeleted}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
     </>
   );
@@ -539,19 +649,19 @@ function CategoriesTab({ cats }: { cats: CategoryWithProducts[] }) {
 
 // ── Main client component ─────────────────────────────────────────
 
-import { useRouter } from "next/navigation";
-
 export function MenuCatalogClient({
   cats,
   imageBase,
   defaultTab,
   catalogLabel = "catálogo",
+  currency = "USD",
   deletedProducts = [],
 }: {
   cats:              CategoryWithProducts[];
   imageBase:         string;
   defaultTab:        "productos" | "categorias";
   catalogLabel?:     "menú" | "catálogo";
+  currency?:         string;
   deletedProducts?:  DeletedProduct[];
 }) {
   type TabId = "productos" | "categorias" | "eliminados";
@@ -567,8 +677,22 @@ export function MenuCatalogClient({
 
   return (
     <>
-      {/* Tabs */}
-      <div className="panel-tabs">
+      {/* Mobile section selector — visible only on small screens */}
+      <div className="panel-tab-select-wrap">
+        <select
+          value={tab}
+          onChange={(e) => setTab(e.target.value as TabId)}
+          className="panel-tab-select"
+          aria-label="Sección"
+        >
+          <option value="productos">Productos ({totalProducts})</option>
+          <option value="categorias">Categorías ({cats.length})</option>
+          <option value="eliminados">Productos eliminados ({deletedProducts.length})</option>
+        </select>
+      </div>
+
+      {/* Desktop tabs — hidden on small screens */}
+      <div className="panel-tabs panel-tabs--catalog">
         <button
           className={`panel-tab${tab === "productos" ? " panel-tab--active" : ""}`}
           onClick={() => setTab("productos")}
@@ -608,7 +732,7 @@ export function MenuCatalogClient({
       </div>
 
       {tab === "productos" ? (
-        <ProductsTab cats={cats} imageBase={imageBase} catalogLabel={catalogLabel} onDeleted={handleDeleted} />
+        <ProductsTab cats={cats} imageBase={imageBase} catalogLabel={catalogLabel} currency={currency} onDeleted={handleDeleted} />
       ) : tab === "categorias" ? (
         <CategoriesTab cats={cats} />
       ) : (

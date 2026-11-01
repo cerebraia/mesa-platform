@@ -22,8 +22,8 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "Mesa — Tu catálogo digital",
-  description: "Organiza tu catálogo con fotos, precios y opciones. Personalízalo con tu marca y comparte un enlace para que tus clientes descubran lo que ofreces.",
+  title: "Wacatalog — Tus productos. Tu catálogo. Tu marca.",
+  description: "Crea tu catálogo digital con fotos, precios y opciones. Personalízalo con tu marca y comparte un enlace para que tus clientes descubran lo que ofreces.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

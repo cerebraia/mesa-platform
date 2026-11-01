@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 
 // ── Shared modal shell ─────────────────────────────────────────────
@@ -21,7 +22,10 @@ function ModalShell({
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  return (
+  // Portal: renders directly at document.body so no ancestor's opacity or
+  // transform stacking context can flatten the modal's compositing.
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <>
       <div
         aria-hidden="true"
@@ -46,7 +50,8 @@ function ModalShell({
       >
         {children}
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 

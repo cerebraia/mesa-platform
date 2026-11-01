@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Search, SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 import { advanceOrderStatus } from "./actions";
+import { formatMoney } from "@/lib/money";
 
 type OrderSummary = {
   id: string;
@@ -49,9 +50,7 @@ const ACTION_LABEL: Record<string, string> = {
   cancelled:  "Cancelar",
 };
 
-function money(cents: number) {
-  return `$${(cents / 100).toFixed(2)}`;
-}
+// money() is replaced by formatMoney from @/lib/money — see usages below.
 
 function timeAgo(iso: string) {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -173,12 +172,14 @@ export function OrdersListClient({
   orders,
   role,
   restaurantId,
+  currency = "USD",
   currentPage,
   currentFilters,
 }: {
   orders:         OrderSummary[];
   role:           "owner" | "attention" | "kitchen";
   restaurantId:   string;
+  currency?:      string;
   currentPage:    number;
   currentFilters: Filters;
 }) {
@@ -359,7 +360,7 @@ export function OrdersListClient({
                         <td style={{ fontSize: 13 }}>{order.customer_name ?? "—"}</td>
                       )}
                       {!isKitchen && (
-                        <td style={{ fontWeight: 600, fontSize: 13 }}>{money(order.total_cents)}</td>
+                        <td style={{ fontWeight: 600, fontSize: 13 }}>{formatMoney(order.total_cents, currency)}</td>
                       )}
                       {!isKitchen && (
                         <td>

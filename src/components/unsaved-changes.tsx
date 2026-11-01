@@ -39,6 +39,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
 // ── Context ────────────────────────────────────────────────────────────────
@@ -236,7 +237,8 @@ function UnsavedDialog({
     return () => document.removeEventListener("keydown", handler);
   }, [onStay, isSaving]);
 
-  return (
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -311,7 +313,8 @@ function UnsavedDialog({
           </button>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 

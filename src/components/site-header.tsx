@@ -49,7 +49,7 @@ export function SiteHeader({ requestHref }: { requestHref?: string }) {
           Ingresar
         </Link>
         {requestHref && (
-          <a className="button small lp-nav" href={requestHref}>
+          <a className="button small lp-header-cta" href={requestHref}>
             Solicitar catálogo
           </a>
         )}

@@ -7,6 +7,7 @@ import { saveProduct } from "./actions";
 import { saveProductControl, type FinanceState } from "@/app/panel/finanzas/actions";
 import { useUnsavedChanges, UnsavedAwareLink } from "@/components/unsaved-changes";
 import { CropTool } from "@/components/crop-tool";
+import { ProductImageGallery } from "./product-image-gallery";
 import type {
   Category,
   Product,
@@ -47,7 +48,10 @@ interface ProductFormProps {
   categories: Category[];
   defaultCategoryId?: string;
   product?: Product;
+  /** Legacy single-image prop — kept for new-product flow. */
   existingImage?: ProductImage;
+  /** All images for the product, sorted by position — used in edit mode. */
+  existingImages?: ProductImage[];
   existingVariants?: ProductVariant[];
   existingGroups?: (OptionGroup & { options: Option[] })[];
   restaurantId: string;
@@ -63,6 +67,7 @@ export function ProductFormPage({
   defaultCategoryId,
   product,
   existingImage,
+  existingImages,
   existingVariants,
   existingGroups,
   restaurantId,
@@ -466,7 +471,17 @@ export function ProductFormPage({
             </div>
           </div>
 
-          {/* ── Imagen ── */}
+          {/* ── Imagen: gallery editor in edit mode, single picker in new mode ── */}
+          {mode === "edit" && product && (
+            <ProductImageGallery
+              productId={product.id}
+              restaurantId={restaurantId}
+              initialImages={existingImages ?? (existingImage ? [existingImage] : [])}
+              supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL!}
+            />
+          )}
+
+          {mode === "new" && (
           <div className="dashboard-card" style={{ marginBottom: 16 }}>
             <h2 style={{ fontSize: 16, marginBottom: 12 }}>Fotografía</h2>
             <p className="muted" style={{ fontSize: 12, marginBottom: 14 }}>
@@ -553,8 +568,9 @@ export function ProductFormPage({
               </p>
             </div>
           </div>
+          )} {/* end mode === "new" */}
 
-          {/* ── Crop tool modal ── */}
+          {/* ── Crop tool modal (new-product mode only) ── */}
           {cropTarget && (
             <CropTool
               file={cropTarget.file}

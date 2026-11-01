@@ -1,4 +1,4 @@
-// Single source of truth for Mesa commercial plan data.
+// Single source of truth for Wacatalog commercial plan data.
 // These values are seeded into the database by migration 023.
 // Any UI that displays plan information MUST use this file — never hardcode
 // prices or limits elsewhere to avoid contradictions.
@@ -23,7 +23,7 @@ export interface PlanDefinition {
 export const PLAN_CATALOG: readonly PlanDefinition[] = [
   {
     code:         "inicio",
-    name:         "Mesa Inicio",
+    name:         "Wacatalog Inicio",
     price_cents:  1900,
     currency:     "USD",
     max_products: 50,
@@ -40,12 +40,12 @@ export const PLAN_CATALOG: readonly PlanDefinition[] = [
       "1 usuario (propietario)",
       "Soporte estándar",
     ],
-    contact_subject: "Solicitud de catálogo: Mesa Inicio",
-    wa_message: "Hola, me interesa el plan Mesa Inicio. ¿Podrían darme más información?",
+    contact_subject: "Solicitud de catálogo: Wacatalog Inicio",
+    wa_message: "Hola, me interesa el plan Wacatalog Inicio. ¿Podrían darme más información?",
   },
   {
     code:         "negocio",
-    name:         "Mesa Negocio",
+    name:         "Wacatalog Negocio",
     price_cents:  3900,
     currency:     "USD",
     max_products: 200,
@@ -65,12 +65,12 @@ export const PLAN_CATALOG: readonly PlanDefinition[] = [
       "Opción de dominio propio (pendiente de infraestructura)",
       "Soporte estándar",
     ],
-    contact_subject: "Solicitud de catálogo: Mesa Negocio",
-    wa_message: "Hola, me interesa el plan Mesa Negocio. ¿Podrían darme más información?",
+    contact_subject: "Solicitud de catálogo: Wacatalog Negocio",
+    wa_message: "Hola, me interesa el plan Wacatalog Negocio. ¿Podrían darme más información?",
   },
   {
     code:         "acompanado",
-    name:         "Mesa Acompañado",
+    name:         "Wacatalog Acompañado",
     price_cents:  6900,
     currency:     "USD",
     max_products: 400,
@@ -88,8 +88,8 @@ export const PLAN_CATALOG: readonly PlanDefinition[] = [
       "Hasta 10 cambios de catálogo al mes por nuestro equipo",
       "Soporte prioritario en horario laboral",
     ],
-    contact_subject: "Solicitud de catálogo: Mesa Acompañado",
-    wa_message: "Hola, me interesa el plan Mesa Acompañado con ayuda de catálogo. ¿Podrían darme más información?",
+    contact_subject: "Solicitud de catálogo: Wacatalog Acompañado",
+    wa_message: "Hola, me interesa el plan Wacatalog Acompañado con ayuda de catálogo. ¿Podrían darme más información?",
   },
 ] as const;
 

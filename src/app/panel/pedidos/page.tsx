@@ -40,13 +40,12 @@ export default async function PedidosPage({
   const role         = active.role;
   const isKitchen    = role === "kitchen";
 
-  // Check catalog-only mode before fetching orders.
-  const { data: cfgRow } = await supabase
-    .from("restaurant_config")
-    .select("orders_enabled")
-    .eq("restaurant_id", restaurantId)
-    .maybeSingle();
+  const [{ data: cfgRow }, { data: restRow }] = await Promise.all([
+    supabase.from("restaurant_config").select("orders_enabled").eq("restaurant_id", restaurantId).maybeSingle(),
+    supabase.from("restaurants").select("currency").eq("id", restaurantId).single(),
+  ]);
   const ordersEnabled = cfgRow?.orders_enabled ?? true;
+  const currency      = restRow?.currency ?? "USD";
 
   const statusFilter   = sp.status     ?? null;
   const paymentFilter  = sp.pago       ?? null;
@@ -98,6 +97,7 @@ export default async function PedidosPage({
           orders={orders}
           role={role}
           restaurantId={restaurantId}
+          currency={currency}
           currentPage={page}
           currentFilters={{
             status: statusFilter,

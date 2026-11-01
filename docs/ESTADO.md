@@ -1,4 +1,4 @@
-# Estado Mesa Platform — 29 de octubre de 2026 (actualizado)
+# Estado Wacatalog (mesa-platform) — 31 de octubre de 2026 (actualizado)
 
 ## Resumen ejecutivo
 
@@ -171,13 +171,34 @@
 | **Bug: productos eliminados aparecían en pestaña Catálogo del panel — deleted_at ausente del SELECT anidado** | ✅ **Corregido en page.tsx + catalog-types.ts (29/10/2026)** |
 | **Guardia set_product_published: action-level check + migración 033 (AND deleted_at IS NULL en WHERE)** | ✅ **Implementado — migración 033 pendiente de aplicar en BD** |
 | **Guardia saveProduct (upsert): action-level check — no edita productos soft-deleted** | ✅ **Implementado en actions.ts (29/10/2026)** |
-| **Verificación browser: eliminar → papelera → recargar → restaurar → borrador** | ⏳ **Pendiente — sin acceso a navegador** |
 | **FALLO PRODUCCIÓN: 500 en todos los catálogos públicos — migración 032 re-introdujo bug de mig. 010 (EXISTS subqueries referenciando columnas revocadas de products en políticas anon de tablas hijo)** | ✅ **Corregido — migración 034 aplicada (30/10/2026)** |
 | **Catálogos públicos restaurados: luale-shop, lanz-technology, restaurante-alfa devuelven HTTP 200 con contenido real** | ✅ **Verificado (30/10/2026)** |
+| **Papelera completa: texto modal corregido ("se moverá a…"); botón × usa CSS con :active/:focus-visible para touch; TrashTab llama router.refresh() tras restaurar** | ✅ **Completado (30/10/2026) — sin push** |
+| **Modales (eliminar, publicar, cambios sin guardar): createPortal al document.body — corrige transparencia causada por opacity:0.7 en las filas `<tr>` de productos no publicados** | ✅ **Corregido (30/10/2026) — sin push** |
+| **Logo del negocio en sidebar y /seleccionar-negocio: reutiliza logo_path de restaurant_config; object-fit:contain; fallback a iniciales; onError si falla la imagen; actualización al navegar sin re-login** | ✅ **Implementado (30/10/2026) — sin push** |
+| **SEO (migración 035): seo_title, seo_description, seo_image_path, allow_indexing en restaurant_config; formulario en Configuración → SEO; generateMetadata con OG/Twitter Cards y canonical; JSON-LD Organization; sitemap.xml; robots.txt** | ✅ **Implementado (30/10/2026) — sin push** |
+| **Moneda del negocio: selector USD/EUR/VES en Configuración → Mi negocio; saveIdentity guarda restaurants.currency; modal de advertencia si hay precios; src/lib/money.ts centraliza formatMoney(); hardcoded USD corregido en pedidos/[id], orders-list-client, r/slug/pedido, menu-catalog-client** | ✅ **Implementado (30/10/2026) — sin push** |
+| **Verificación browser: eliminar → papelera → recargar → restaurar → borrador; logo → sidebar; cambiar negocio → logo correspondiente; formulario SEO → HTML inspeccionado** | ⏳ **Pendiente — sin acceso a navegador** |
+| **Bug crítico galería panel: `existingImages` no se pasaba a ProductFormPage en edit/page.tsx — formulario mostraba solo 1 imagen aunque el producto tuviera varias** | ✅ **Corregido (30/10/2026)** |
+| **Tipos TypeScript: AnonProductImage añade thumbnail_path; AnonProduct añade image_fit** | ✅ **Corregido (30/10/2026)** |
+| **Galería pública mejorada: contador "N / total" sobre imagen, deslizamiento táctil (swipe), miniaturas reales (thumbnail_path o storage_path) con borde activo, navegación por teclado (ArrowLeft/ArrowRight), lazy loading en miniaturas, controles ocultos con una sola imagen** | ✅ **Implementado (30/10/2026)** |
+| **Redes sociales en catálogo público: Instagram, Facebook, X (Twitter), WhatsApp — iconos SVG en hero/id-bar (bajo descripción) y footer; validación http/https server-side (sanitizeUrl); sin duplicación de almacenamiento; aislamiento por negocio garantizado; oculto si no hay redes configuradas** | ✅ **Implementado (30/10/2026)** |
+| **Responsive /panel/menu — navegación de pestañas: selector \<select\> en móvil (≤760px), tabs con scroll en tablet, tabs completos en escritorio; Productos y Productos eliminados: tarjetas móvil (foto 64px, nombre 2 líneas, categoría+precio+estado, acciones 44px mínimo); tablas conservadas en escritorio; filtros full-width en móvil; header actions con flex-wrap; CLAUDE.md actualizado con requisito de responsive permanente** | ✅ **Implementado (30/10/2026) — revisión visual pendiente (sin navegador)** |
+| **Cambio de marca Mesa → Wacatalog (31/10/2026): nombre exacto "Wacatalog", slogan "Tus productos. Tu catálogo. Tu marca.", color morado conservado; nueva Brand component con isotipo "W"; src/lib/brand.ts creado como fuente centralizada; planes renombrados a "Wacatalog Inicio/Negocio/Acompañado"; mensajes de contacto actualizados; "Creado con Wacatalog" en catálogos públicos; títulos de página, siteName OG, 404, login, seleccionar-negocio, panel/configuracion, admin-shell, plan-widget, proxy y sitemap actualizados; identidad de Lanz, Luale y demás negocios intacta; identificadores técnicos (rutas, tablas, cookies, variables de entorno, repositorio) sin cambios** | ✅ **Implementado (31/10/2026) — revisión visual pendiente (sin navegador)** |
+| **Carrito lateral (CartPanel): panel 420px escritorio / pantalla completa móvil; header sticky "Tu pedido" + botón Vaciar (modal confirmación) + cerrar; lista scrollable con foto 64px, nombre, variante+extras, controles −/qty/+ con aria-live, precio línea, quitar ×; footer sticky con subtotal y nota de cargos pendientes; "Continuar con el pedido" → checkout existente; estado vacío con "Explorar productos"; auto-apertura tras primer producto solo cuando el modal de producto ya cerró; FAB y barra móvil abren el panel; clearCart; focus trap + Escape + scroll-lock; createPortal; solo cuando orders_enabled=true; imagen desde mapa productId→thumbnail o storage_path** | ✅ **Implementado (30/10/2026) — revisión visual pendiente (sin navegador)** |
+| **Ajuste cabecera catálogo: min-height 280px escritorio / 230-220px móvil (flex-end, crece con el contenido); padding 28-32px; overlay foto degradado transparente-a-oscuro (imagen visible arriba, texto legible abajo); logo duplicado eliminado del topbar; topbar conserva buscador + botón WA (catálogo); logo/nombre viven exclusivamente en el banner** | ✅ **Implementado (30/10/2026) — revisión visual pendiente (sin navegador)** |
+| **Rediseño cabecera catálogo público (`BizHeader`): logo 88-96px en contenedor blanco con object-fit:contain (60-64px en 360px); portada como fondo con overlay oscuro (fallback: degradado del color primario); nombre, descripción, estado abierto/cerrado con hora y redes sociales en línea; RPC `get_business_open_status` (migración 036) devuelve estado + cierra_a / abre_a con timezone correcto; estado se actualiza cada 60 s sin recarga; `is_restaurant_open` reemplazado; topbar conserva búsqueda y botón WA; catbar sticky no tocado; responsive 360/390/480/768/1024px** | ✅ **Implementado (30/10/2026) — revisión visual pendiente (sin navegador); migración 036 pendiente de aplicar en BD** |
+| **Bug Configuración→Apariencia "Color de fondo" se superpone: (1) stacking context — cfg-appearance-editor recibe position:relative;z-index:2 para que el picker DOM de Chromium quede encima del panel sticky (z-index:1); z-index se resetea a auto en ≤1050px cuando la preview pasa a static; (2) cfg-color-grid colapsa a 1fr a ≤900px en lugar de 760px, evitando celdas de ~220px junto a la preview; (3) cfg-color-row con flex-wrap:wrap; min-width:0 en celdas de grid** | ✅ **Corregido (30/10/2026) — revisión visual pendiente (sin navegador)** |
 
 ---
 
-## Migraciones aplicadas: 33/34 (033 pendiente en BD, 034 aplicada)
+## Migraciones aplicadas en BD Supabase: 34/36
+
+- **033** (`set_product_published_guard.sql`) — PENDIENTE en BD; funcionalidad cubierta por check a nivel de Server Action.
+- **035** (`seo_config.sql`) — Aplicada en BD (columnas SEO en `restaurant_config`).
+- **036** (`get_business_open_status.sql`) — PENDIENTE en BD; sin esta migración el header de catálogo muestra estado nulo (degradación graciosa, sin error en producción).
+
+## Migraciones aplicadas históricamente: 34/36 (033 y 036 pendientes en BD)
 
 | Versión | Archivo | Contenido |
 |---|---|---|
@@ -206,6 +227,7 @@
 | 20261029000032 | product_soft_delete.sql | deleted_at/deleted_by en products; RLS anon excluye deleted_at IS NOT NULL; RPCs soft_delete_product, restore_product; trigger trg_order_item_no_deleted_product en order_items |
 | 20261029000033 | set_product_published_guard.sql | set_product_published: añade AND deleted_at IS NULL al WHERE para bloquear publicar/despublicar productos eliminados — **PENDIENTE aplicar en BD** |
 | 20261030000034 | fix_anon_child_rls_policies.sql | **CORRECCIÓN URGENTE**: políticas anon de product_images, product_variants, option_groups, options — elimina referencias a columnas revocadas (is_published, is_available, deleted_at) de EXISTS subqueries; delega el filtrado a products_anon_select (patrón de mig. 010) |
+| 20261030000035 | seo_config.sql | seo_title, seo_description, seo_image_path, allow_indexing en restaurant_config; anon SELECT grant; update_config_image extendida a seo_image_path |
 
 ---
 

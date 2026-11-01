@@ -25,14 +25,18 @@ export default async function PanelLayout({
     redirect("/seleccionar-negocio");
   }
 
-  // Fetch orders_enabled for the "Ver menú / Ver catálogo" label.
+  // Fetch config for the sidebar label and logo.
   const { data: cfgRow } = active
     ? await supabase.from("restaurant_config")
-        .select("orders_enabled")
+        .select("orders_enabled, logo_path")
         .eq("restaurant_id", active.restaurantId)
         .maybeSingle()
     : { data: null };
   const ordersEnabled = cfgRow?.orders_enabled ?? true;
+  const supabaseUrl   = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const logoUrl: string | null = cfgRow?.logo_path
+    ? `${supabaseUrl}/storage/v1/object/public/restaurant-assets/${cfgRow.logo_path}`
+    : null;
 
   if (!active) {
     const email    = user.email ?? "";
@@ -56,7 +60,7 @@ export default async function PanelLayout({
           <h2 style={{ marginBottom: 12 }}>Acceso pendiente</h2>
           <p className="muted" style={{ fontSize: 14, maxWidth: 360 }}>
             Tu cuenta ({email}) aún no tiene una membresía activa en ningún
-            restaurante. Contacta a Mesa para activar tu acceso.
+            restaurante. Contacta a Wacatalog para activar tu acceso.
           </p>
           <div style={{ marginTop: 28 }}>
             <SignOutButton />
@@ -74,6 +78,7 @@ export default async function PanelLayout({
       restaurantId={active.restaurantId}
       userEmail={user.email ?? ""}
       ordersEnabled={ordersEnabled}
+      logoUrl={logoUrl}
       membershipOptions={options}
     >
       {children}

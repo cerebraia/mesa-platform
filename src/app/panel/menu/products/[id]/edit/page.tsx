@@ -104,6 +104,7 @@ export default async function EditProductPage({
         categories={categories!}
         product={product}
         existingImage={images?.[0]}
+        existingImages={images ?? []}
         existingVariants={variants ?? []}
         existingGroups={rawGroups ?? []}
         restaurantId={restaurantId}

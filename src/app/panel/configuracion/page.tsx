@@ -8,6 +8,7 @@ import {
   Clock,
   Globe,
   LayoutGrid,
+  Search,
 } from "lucide-react";
 import { createServerClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/panel-context";
@@ -26,10 +27,11 @@ import { HoursEditor }    from "./hours-editor";
 import { ZonesEditor }    from "./zones-editor";
 import { PaymentsEditor } from "./payments-editor";
 import { DomainSection }  from "./domain-section";
+import { SeoForm }        from "./seo-form";
 import { PlanWidget }     from "@/components/panel/plan-widget";
 import type { Metadata }  from "next";
 
-export const metadata: Metadata = { title: "Configuración — Mesa" };
+export const metadata: Metadata = { title: "Configuración — Wacatalog" };
 
 const TIMEZONES = [
   "America/Caracas", "America/Bogota", "America/Lima",
@@ -37,7 +39,7 @@ const TIMEZONES = [
   "America/New_York", "America/Los_Angeles", "Europe/Madrid", "UTC",
 ];
 
-type CfgTab = "negocio" | "apariencia" | "catalogo" | "entregas" | "pagos" | "horarios" | "dominio" | "plan";
+type CfgTab = "negocio" | "apariencia" | "catalogo" | "entregas" | "pagos" | "horarios" | "dominio" | "seo" | "plan";
 
 const TABS: { id: CfgTab; label: string; icon: React.ReactNode }[] = [
   { id: "negocio",   label: "Mi negocio",   icon: <Store      size={15} /> },
@@ -47,6 +49,7 @@ const TABS: { id: CfgTab; label: string; icon: React.ReactNode }[] = [
   { id: "pagos",     label: "Pagos",        icon: <CreditCard size={15} /> },
   { id: "horarios",  label: "Horarios",     icon: <Clock      size={15} /> },
   { id: "dominio",   label: "Dominio",      icon: <Globe      size={15} /> },
+  { id: "seo",       label: "SEO",          icon: <Search     size={15} /> },
   { id: "plan",      label: "Plan",         icon: <LayoutGrid size={15} /> },
 ];
 
@@ -90,6 +93,7 @@ export default async function ConfiguracionPage({
     { data: zones },
     { data: payments },
     { data: domains },
+    { count: priceCount },
   ] = await Promise.all([
     supabase.from("restaurants")
       .select("id, name, slug, currency, timezone")
@@ -111,7 +115,15 @@ export default async function ConfiguracionPage({
       .select("id, host, kind, status")
       .eq("restaurant_id", restaurantId)
       .order("updated_at", { ascending: false }),
+    // Detect existing priced products so the currency-change modal can warn the owner.
+    supabase.from("products")
+      .select("id", { count: "exact", head: true })
+      .eq("restaurant_id", restaurantId)
+      .not("base_price_cents", "is", null)
+      .is("deleted_at", null),
   ]);
+
+  const hasExistingPrices = (priceCount ?? 0) > 0;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const ordersEnabled = config?.orders_enabled ?? true;
@@ -147,9 +159,16 @@ export default async function ConfiguracionPage({
             desc="Nombre, descripción, contacto y datos públicos del negocio."
           >
             <NegocioForm
-              restaurant={{ id: restaurant!.id, name: restaurant!.name, slug: restaurant!.slug, timezone: restaurant!.timezone }}
+              restaurant={{
+                id:       restaurant!.id,
+                name:     restaurant!.name,
+                slug:     restaurant!.slug,
+                timezone: restaurant!.timezone,
+                currency: restaurant!.currency ?? "USD",
+              }}
               config={config ?? undefined}
               timezones={TIMEZONES}
+              hasExistingPrices={hasExistingPrices}
             />
           </SectionWrap>
         )}
@@ -238,7 +257,7 @@ export default async function ConfiguracionPage({
         {tab === "dominio" && (
           <SectionWrap
             title="Dominio personalizado"
-            desc="Solicita un dominio propio para tu catálogo público. El equipo de Mesa lo activa manualmente."
+            desc="Solicita un dominio propio para tu catálogo público. El equipo de Wacatalog lo activa manualmente."
           >
             <div className="dashboard-card">
               <DomainSection
@@ -246,6 +265,22 @@ export default async function ConfiguracionPage({
                 domains={(domains ?? []) as Array<{ id: string; host: string; kind: string; status: string }>}
               />
             </div>
+          </SectionWrap>
+        )}
+
+        {/* ── SEO ────────────────────────────────────────────── */}
+        {tab === "seo" && (
+          <SectionWrap
+            title="SEO y redes sociales"
+            desc="Controla cómo aparece tu catálogo en buscadores y al compartir el enlace."
+          >
+            <SeoForm
+              restaurantName={restaurant!.name}
+              restaurantSlug={restaurant!.slug}
+              config={config ?? undefined}
+              supabaseUrl={supabaseUrl}
+              restaurantId={restaurantId}
+            />
           </SectionWrap>
         )}
 

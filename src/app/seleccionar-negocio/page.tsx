@@ -8,7 +8,7 @@ import type { MemberRole } from "@/lib/db-types";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Seleccionar negocio — Mesa",
+  title: "Seleccionar negocio — Wacatalog",
 };
 
 export default async function SeleccionarNegocioPage() {
@@ -67,23 +67,32 @@ export default async function SeleccionarNegocioPage() {
     redirect("/panel");
   }
 
-  // ── Step 2: catalog mode for each restaurant (separate query) ─────
+  // ── Step 2: catalog mode + logo for each restaurant ──────────────
   const restaurantIds = valid.map((r) => r.restaurant_id);
   const { data: configs } = await supabase
     .from("restaurant_config")
-    .select("restaurant_id, orders_enabled")
+    .select("restaurant_id, orders_enabled, logo_path")
     .in("restaurant_id", restaurantIds);
 
-  const configMap: Record<string, boolean> = Object.fromEntries(
-    (configs ?? []).map((c) => [c.restaurant_id, c.orders_enabled ?? true]),
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  type ConfigRow = { restaurant_id: string; orders_enabled: boolean | null; logo_path: string | null };
+  const configMap: Record<string, ConfigRow> = Object.fromEntries(
+    (configs ?? []).map((c: ConfigRow) => [c.restaurant_id, c]),
   );
 
-  const options: BusinessOption[] = valid.map((r) => ({
-    restaurantId:   r.restaurant_id,
-    restaurantName: r.restaurants!.name,
-    role:           r.role,
-    ordersEnabled:  configMap[r.restaurant_id] ?? true,
-  }));
+  const options: BusinessOption[] = valid.map((r) => {
+    const cfg = configMap[r.restaurant_id];
+    const logoPath = cfg?.logo_path ?? null;
+    return {
+      restaurantId:   r.restaurant_id,
+      restaurantName: r.restaurants!.name,
+      role:           r.role,
+      ordersEnabled:  cfg?.orders_enabled ?? true,
+      logoUrl: logoPath
+        ? `${supabaseUrl}/storage/v1/object/public/restaurant-assets/${logoPath}`
+        : null,
+    };
+  });
 
   // Identify the currently selected restaurant (if any) so the UI can
   // highlight it — the cookie is only read for this cosmetic hint.
@@ -115,7 +124,7 @@ function SelectorPageShell({ children }: { children: React.ReactNode }) {
       <main className="sbx-main">{children}</main>
       <footer className="sbx-footer">
         Creado con{" "}
-        <strong style={{ color: "var(--purple)", fontWeight: 600 }}>Mesa</strong>
+        <strong style={{ color: "var(--purple)", fontWeight: 600 }}>Wacatalog</strong>
       </footer>
     </div>
   );

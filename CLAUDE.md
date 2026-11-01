@@ -27,3 +27,17 @@ npm ci; npm run dev; npm run typecheck; npm test; npm run build.
 
 ## Diseño
 Menú compacto horizontal con fotos reales aportadas por el usuario. Marcadores de fotografía son temporales. No crear testimonios, métricas o precios comerciales ficticios en la página principal. Funciones de prueba deben estar etiquetadas.
+
+## Responsive — requisito permanente
+Todo hito que afecte la interfaz debe verificarse en estos puntos de corte antes de darse por terminado:
+
+- **360 y 390 px** (móvil estrecho): sin scroll horizontal de página, todas las acciones alcanzables con el pulgar.
+- **768 px** (tablet): columnas reducidas, navegación lateral colapsada.
+- **1280 px o superior** (escritorio): diseño completo.
+
+Reglas generales:
+- Áreas táctiles mínimas de **44 × 44 px** (botones, enlaces, tabs).
+- Ninguna información ni acción debe quedar fuera del ancho visible; no usar `overflow-x:hidden` en el body para ocultar desbordamientos.
+- Nombres largos, estados vacíos, de carga y de error deben probarse con datos reales o ficticios representativos.
+- Las tablas de escritorio deben tener una vista alternativa en tarjetas/lista para ≤ 760 px.
+- Si no hay navegador disponible, indicar explícitamente que la revisión visual queda pendiente; typecheck y build no demuestran que el responsive esté correcto.

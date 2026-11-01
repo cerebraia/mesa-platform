@@ -83,29 +83,14 @@ export function ProductRowActions({
         {isPublished ? "Despublicar" : "Publicar"}
       </button>
 
-      {/* Delete button — × with tooltip, 44×44 touch area */}
+      {/* Delete button — trash icon, 44×44 touch target, hover/active/focus via CSS */}
       <button
         ref={delTriggerRef}
         type="button"
         onClick={openDelModal}
         aria-label={`Eliminar producto ${productName}`}
         title="Eliminar producto"
-        style={{
-          background: "none", border: "none", cursor: "pointer",
-          color: "#9CA3AF", padding: 0,
-          width: 44, height: 44,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          borderRadius: 8, flexShrink: 0,
-          transition: "color 0.12s, background 0.12s",
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color = "#a72b38";
-          (e.currentTarget as HTMLButtonElement).style.background = "#FEF2F2";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.color = "#9CA3AF";
-          (e.currentTarget as HTMLButtonElement).style.background = "none";
-        }}
+        className="btn-delete-product"
       >
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"

@@ -37,7 +37,7 @@ function EdProductDetail() {
       <div className="lp-ed-product-photo">
         <Image
           src="/images/burger-smash.png"
-          alt="Hamburguesa Smash — ejemplo de producto en catálogo Mesa"
+          alt="Hamburguesa Smash — ejemplo de producto en catálogo Wacatalog"
           width={480}
           height={220}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
@@ -379,7 +379,7 @@ export default function Home() {
             <div className="lp-live-demo-vis">
               <Image
                 src="/images/mesa-hero.png"
-                alt="Mesa — catálogo digital mostrado en tres teléfonos con menú, detalle de producto y estado del pedido"
+                alt="Wacatalog — catálogo digital mostrado en tres teléfonos con menú, detalle de producto y estado del pedido"
                 width={560}
                 height={420}
                 className="lp-live-hero-img"
@@ -445,7 +445,7 @@ export default function Home() {
                     rel="noopener noreferrer"
                     className={`lp-plan-cta${featured ? " lp-plan-cta--featured" : ""}`}
                   >
-                    Solicitar {plan.name.replace("Mesa ", "")}
+                    Solicitar {plan.name.replace("Wacatalog ", "")}
                   </a>
                   <p className="lp-plan-cta-note">Consulta por WhatsApp · sin cargo inmediato</p>
                 </article>
@@ -455,7 +455,7 @@ export default function Home() {
 
           <p className="lp-plans-domain">
             El dominio propio se compra y renueva aparte con tu proveedor de DNS.
-            Mesa configura la conexión una vez que el dominio esté activo.
+            Wacatalog configura la conexión una vez que el dominio esté activo.
           </p>
         </section>
 
@@ -464,8 +464,8 @@ export default function Home() {
           <h2 className="lp-section-h2">Preguntas frecuentes.</h2>
 
           {[
-            ["¿Qué tipos de negocio pueden usar Mesa?",
-              "Cualquier negocio que venda productos: tiendas de ropa, tecnología, accesorios, restaurantes, panaderías y más. Mesa crea un catálogo digital; los pedidos en línea son una función adicional que cada negocio puede activar o no."],
+            ["¿Qué tipos de negocio pueden usar Wacatalog?",
+              "Cualquier negocio que venda productos: tiendas de ropa, tecnología, accesorios, restaurantes, panaderías y más. Wacatalog crea un catálogo digital; los pedidos en línea son una función adicional que cada negocio puede activar o no."],
             ["¿Qué cuenta como un producto?",
               'Cada artículo de tu catálogo cuenta una vez, esté publicado o en borrador. Sus variantes (por ejemplo "Talla S", "Talla M") y sus opciones o extras están incluidas sin consumir cupo adicional.'],
             ["¿Puedo recibir pedidos a través del catálogo?",
@@ -473,11 +473,11 @@ export default function Home() {
             ["¿Necesita el cliente instalar una aplicación?",
               "No. El cliente abre el catálogo desde un enlace en su navegador. Sin instalación, sin registro."],
             ["¿Quiénes son los usuarios incluidos en el plan?",
-              "Los usuarios corresponden a las membresías activas del negocio: propietario, atención y cocina. El administrador de plataforma de Mesa no consume un cupo de tu negocio."],
-            ["¿Qué incluye la ayuda de catálogo en Mesa Acompañado?",
+              "Los usuarios corresponden a las membresías activas del negocio: propietario, atención y cocina. El administrador de plataforma de Wacatalog no consume un cupo de tu negocio."],
+            ["¿Qué incluye la ayuda de catálogo en Wacatalog Acompañado?",
               "Hasta 10 cambios al mes: crear o actualizar un producto con la información y los archivos que tú entregues. No incluye fotografía, diseño gráfico ni redacción extensa del contenido."],
             ["¿Cómo se compra y renueva el dominio propio?",
-              "El dominio lo adquieres con tu proveedor de DNS. Mesa configura la conexión técnica. El costo del dominio no está incluido en ningún plan."],
+              "El dominio lo adquieres con tu proveedor de DNS. Wacatalog configura la conexión técnica. El costo del dominio no está incluido en ningún plan."],
             ["¿Cómo solicito un cambio de plan?",
               "Escríbenos indicando el plan actual, el plan al que quieres cambiar y el nombre de tu negocio. Los cambios no son automáticos y aplican a partir de la nueva suscripción."],
           ].map(([q, a]) => (
@@ -510,7 +510,7 @@ export default function Home() {
         <div className="container lp-footer-inner">
           <div className="lp-footer-brand">
             <Brand />
-            <span className="lp-footer-copy">© 2026 Mesa · Nombre provisional</span>
+            <span className="lp-footer-copy">© 2026 Wacatalog</span>
           </div>
           <nav className="lp-footer-nav" aria-label="Footer">
             <a href="#funciones">Funciones</a>

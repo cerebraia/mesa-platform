@@ -110,7 +110,7 @@ function ShellInner({ userEmail, children }: AdminShellProps) {
             <ShieldCheck size={16} />
           </div>
           <div className="sb-biz-info">
-            <span className="sidebar-name">Plataforma Mesa</span>
+            <span className="sidebar-name">Plataforma Wacatalog</span>
             <span className="sidebar-role">Administrador</span>
           </div>
         </div>
@@ -194,7 +194,7 @@ function ShellInner({ userEmail, children }: AdminShellProps) {
                 <ShieldCheck size={16} />
               </div>
               <div className="sb-biz-info">
-                <span className="sidebar-name">Plataforma Mesa</span>
+                <span className="sidebar-name">Plataforma Wacatalog</span>
                 <span className="sidebar-role">Administrador</span>
               </div>
             </div>

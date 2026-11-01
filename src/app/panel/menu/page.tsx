@@ -87,12 +87,12 @@ export default async function MenuPage() {
 
   const atLimit = planUsage?.max_products != null && planUsage.product_count >= planUsage.max_products;
 
-  const { data: cfgRow } = await supabase
-    .from("restaurant_config")
-    .select("orders_enabled")
-    .eq("restaurant_id", restaurantId)
-    .maybeSingle();
+  const [{ data: cfgRow }, { data: restRow }] = await Promise.all([
+    supabase.from("restaurant_config").select("orders_enabled").eq("restaurant_id", restaurantId).maybeSingle(),
+    supabase.from("restaurants").select("currency").eq("id", restaurantId).single(),
+  ]);
   const catalogLabel: "menú" | "catálogo" = (cfgRow?.orders_enabled ?? true) ? "menú" : "catálogo";
+  const currency = restRow?.currency ?? "USD";
 
   return (
     <>
@@ -100,7 +100,7 @@ export default async function MenuPage() {
         title="Catálogo"
         description="Gestiona categorías, productos, variantes y extras."
         actions={
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Link href="/panel/menu/categories/new" className="panel-quick-action">
               <Plus size={13} /> Categoría
             </Link>
@@ -157,6 +157,7 @@ export default async function MenuPage() {
           imageBase={imageBase}
           defaultTab="productos"
           catalogLabel={catalogLabel}
+          currency={currency}
           deletedProducts={deletedProducts}
         />
       </div>

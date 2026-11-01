@@ -199,18 +199,29 @@ details p{margin-top:14px;font-size:14px;line-height:1.7}
 .pd-gallery-prev{left:10px}
 .pd-gallery-next{right:10px}
 
-/* Thumbnails */
+/* Gallery counter badge */
+.pd-gallery-counter{
+  position:absolute;top:10px;left:10px;z-index:2;
+  font-size:11px;font-weight:600;color:white;line-height:1;
+  background:rgba(0,0,0,.45);border-radius:20px;padding:4px 8px;pointer-events:none
+}
+
+/* Thumbnail strip */
 .pd-thumbs{
   position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
-  display:flex;gap:5px;z-index:2
+  display:flex;gap:5px;z-index:2;
+  max-width:calc(100% - 24px);overflow-x:auto;scrollbar-width:none
 }
-.pd-thumb-dot{
-  width:7px;height:7px;border-radius:50%;
-  background:rgba(255,255,255,.5);border:none;cursor:pointer;padding:0;
-  transition:background var(--trans),transform var(--trans)
+.pd-thumbs::-webkit-scrollbar{display:none}
+.pd-thumb{
+  width:36px;height:36px;border-radius:6px;overflow:hidden;
+  border:2px solid transparent;padding:0;cursor:pointer;flex-shrink:0;
+  opacity:.55;transition:opacity var(--trans),border-color var(--trans);
+  background:rgba(255,255,255,.15)
 }
-.pd-thumb-dot--on{background:white;transform:scale(1.25)}
-.pd-thumb-dot:focus-visible{outline:2px solid white;outline-offset:2px}
+.pd-thumb--on{opacity:1;border-color:white}
+.pd-thumb:focus-visible{outline:2px solid white;outline-offset:2px}
+.pd-thumb img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
 
 /* Scrollable body */
 .pd-body{overflow-y:auto;flex:1;overscroll-behavior:contain}
@@ -494,6 +505,66 @@ summary{font-size:15px}
 .rm-closed-notice{background:#fff3cd;color:#856404;text-align:center;padding:9px 16px;font-size:13px;border-bottom:1px solid #ffc107}
 
 /* ── Hero — solo cuando existe portada ──────────────────────── */
+/* ── Business header (rm-bh-*) — replaces hero + id-bar ─── */
+/* min-height drives the banner height; content can grow beyond it. */
+.rm-bh{
+  position:relative;
+  min-height:280px;
+  display:flex;flex-direction:column;justify-content:flex-end;
+  background-size:cover;background-position:center;
+}
+.rm-bh-overlay{position:absolute;inset:0;pointer-events:none}
+/* Photo: transparent at top so the image shows; darkens toward bottom where text sits */
+.rm-bh--photo .rm-bh-overlay{
+  background:linear-gradient(to bottom,rgba(0,0,0,.04) 0%,rgba(0,0,0,.50) 55%,rgba(0,0,0,.78) 100%)
+}
+/* Color: subtle tint so white text stays legible on any primary color */
+.rm-bh--color .rm-bh-overlay{
+  background:rgba(0,0,0,.18)
+}
+.rm-bh-inner{
+  position:relative;z-index:1;
+  display:flex;align-items:center;gap:18px;
+  padding:28px 0 32px;
+}
+/* Logo box — white container, object-fit:contain preserves the full logo */
+.rm-bh-logo-box{
+  width:88px;height:88px;border-radius:14px;
+  background:white;
+  display:grid;place-items:center;
+  flex-shrink:0;overflow:hidden;
+  box-shadow:0 3px 16px rgba(0,0,0,.35);
+  align-self:flex-start;
+}
+.rm-bh-logo-img{width:100%;height:100%;object-fit:contain;display:block}
+.rm-bh-initials{
+  font-size:22px;font-weight:800;color:#202337;letter-spacing:-.5px;line-height:1;
+}
+/* Text column */
+.rm-bh-info{flex:1;min-width:0;color:white}
+.rm-bh-name{
+  font-size:26px;font-weight:800;letter-spacing:-.7px;line-height:1.15;
+  margin:0 0 6px;word-break:break-word;
+  text-shadow:0 2px 10px rgba(0,0,0,.45);
+}
+.rm-bh-desc{
+  font-size:13px;color:rgba(255,255,255,.88);
+  margin:0 0 12px;line-height:1.5;
+  text-shadow:0 1px 4px rgba(0,0,0,.35);
+}
+/* Status + socials row */
+.rm-bh-meta{display:flex;align-items:center;flex-wrap:wrap;gap:6px 14px}
+.rm-bh-status{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:13px;font-weight:600;white-space:nowrap;
+}
+.rm-bh-status--open{color:#fff}
+.rm-bh-status--closed{color:rgba(255,255,255,.78)}
+.rm-bh-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.rm-bh-dot--open{background:#34d399;box-shadow:0 0 0 3px rgba(52,211,153,.28)}
+.rm-bh-dot--closed{background:rgba(255,255,255,.55)}
+
+/* Legacy hero kept for CSS backwards compat (element removed from render) */
 .rm-hero{position:relative;height:280px;background-size:cover;background-position:center;overflow:hidden}
 .rm-hero-overlay{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.12) 0%,rgba(0,0,0,.68) 100%);pointer-events:none}
 .rm-hero-content{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:32px;color:white}
@@ -580,6 +651,167 @@ summary{font-size:15px}
 .cart-bar-btn{background:white;color:var(--menu-primary,var(--purple));border:0;border-radius:8px;padding:10px 20px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent}
 .cart-bar-btn:focus-visible{outline:2px solid rgba(255,255,255,.7);outline-offset:2px}
 
+/* ── Side cart panel (sc-*) ─────────────────────────────────── */
+.sc-overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.52);
+  z-index:300;
+}
+.sc-panel{
+  position:fixed;top:0;right:0;bottom:0;
+  width:420px;max-width:100vw;
+  background:#fff;
+  z-index:301;
+  display:flex;flex-direction:column;
+  box-shadow:-2px 0 36px rgba(0,0,0,.18);
+  outline:none;
+}
+/* Header */
+.sc-header{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:16px 20px;
+  border-bottom:1px solid #E5E7EB;
+  flex-shrink:0;background:#fff;
+}
+.sc-title{font-size:17px;font-weight:700;color:#202337;margin:0;letter-spacing:-.3px}
+.sc-header-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.sc-clear-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 12px;border-radius:8px;
+  border:1.5px solid #FECACA;background:none;
+  color:#dc2626;font-size:12px;font-weight:600;cursor:pointer;
+  min-height:36px;min-width:36px;font-family:inherit;
+  transition:background .12s;-webkit-tap-highlight-color:transparent
+}
+@media(hover:hover) and (pointer:fine){.sc-clear-btn:hover{background:#FEF2F2}}
+.sc-clear-btn:focus-visible{outline:2px solid #dc2626;outline-offset:2px}
+.sc-close-btn{
+  width:36px;height:36px;border-radius:50%;
+  border:1.5px solid #E5E7EB;background:none;
+  display:grid;place-items:center;cursor:pointer;
+  color:#667085;flex-shrink:0;
+  transition:border-color .12s,color .12s;-webkit-tap-highlight-color:transparent
+}
+@media(hover:hover) and (pointer:fine){.sc-close-btn:hover{border-color:#9CA3AF;color:#202337}}
+.sc-close-btn:focus-visible{outline:2px solid var(--menu-primary,#703BE6);outline-offset:2px}
+/* Body — scrollable */
+.sc-body{flex:1;overflow-y:auto;overscroll-behavior:contain}
+/* Empty state */
+.sc-empty{
+  display:flex;flex-direction:column;align-items:center;
+  gap:10px;padding:56px 28px;text-align:center;
+}
+.sc-empty-title{font-size:15px;font-weight:600;color:#202337;margin:0}
+.sc-empty-sub{font-size:13px;color:#9CA3AF;margin:0}
+.sc-explore-btn{
+  margin-top:8px;padding:10px 22px;border-radius:9px;
+  background:none;border:1.5px solid currentColor;
+  font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;
+  min-height:44px;transition:background .12s;-webkit-tap-highlight-color:transparent
+}
+@media(hover:hover) and (pointer:fine){.sc-explore-btn:hover{background:rgba(0,0,0,.04)}}
+.sc-explore-btn:focus-visible{outline:2px solid var(--menu-primary,#703BE6);outline-offset:2px}
+/* Cart item */
+.sc-item{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:14px 20px;
+  border-bottom:1px solid #F3F4F6;
+}
+.sc-item-img{
+  width:64px;height:64px;border-radius:9px;
+  overflow:hidden;flex-shrink:0;background:#F6F7FB;
+}
+.sc-item-img img{width:100%;height:100%;object-fit:cover;display:block}
+.sc-item-ph{width:100%;height:100%;background:#E5E7EB}
+.sc-item-body{flex:1;min-width:0}
+.sc-item-name{font-size:13px;font-weight:600;color:#202337;line-height:1.35;margin:0 0 3px}
+.sc-item-extras{font-size:11px;color:#9CA3AF;line-height:1.4;margin:0 0 9px}
+.sc-item-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sc-qty-ctrl{display:flex;align-items:center;border:1.5px solid #E5E7EB;border-radius:8px;overflow:hidden}
+.sc-qty-btn{
+  width:32px;height:32px;border:none;background:none;
+  font-size:18px;line-height:1;cursor:pointer;
+  color:#202337;display:grid;place-items:center;
+  transition:background .1s;-webkit-tap-highlight-color:transparent;
+  min-width:32px;
+}
+@media(hover:hover) and (pointer:fine){.sc-qty-btn:hover{background:#F6F7FB}}
+.sc-qty-btn:focus-visible{outline:2px solid var(--menu-primary,#703BE6);outline-offset:-2px}
+.sc-qty-val{
+  min-width:32px;text-align:center;
+  font-size:13px;font-weight:700;color:#202337;
+}
+.sc-item-price{font-size:14px;font-weight:700;color:#202337;white-space:nowrap;flex-shrink:0}
+.sc-item-del{
+  width:32px;height:32px;border:none;background:none;
+  color:#C4C4C4;cursor:pointer;
+  display:grid;place-items:center;
+  font-size:20px;line-height:1;
+  flex-shrink:0;padding:0;border-radius:6px;
+  transition:color .1s,background .1s;-webkit-tap-highlight-color:transparent;
+  min-width:32px;align-self:flex-start;
+}
+@media(hover:hover) and (pointer:fine){.sc-item-del:hover{color:#dc2626;background:#FEF2F2}}
+.sc-item-del:focus-visible{outline:2px solid #dc2626;outline-offset:2px}
+/* Footer */
+.sc-footer{
+  flex-shrink:0;border-top:1.5px solid #E5E7EB;
+  padding:16px 20px;
+  padding-bottom:calc(16px + env(safe-area-inset-bottom,0px));
+  background:#fff;
+}
+.sc-subtotal-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;gap:8px}
+.sc-subtotal-label{font-size:14px;font-weight:500;color:#202337}
+.sc-subtotal-count{font-size:12px;font-weight:400;color:#9CA3AF;margin-left:4px}
+.sc-subtotal-val{font-size:18px;font-weight:800;color:#202337;letter-spacing:-.4px;flex-shrink:0}
+.sc-subtotal-note{font-size:11px;color:#9CA3AF;margin:0 0 14px;line-height:1.4}
+.sc-checkout-btn{
+  width:100%;padding:14px 20px;
+  border-radius:10px;border:none;
+  color:#fff;font-size:15px;font-weight:700;letter-spacing:-.2px;
+  cursor:pointer;min-height:48px;font-family:inherit;
+  transition:filter .12s;-webkit-tap-highlight-color:transparent
+}
+@media(hover:hover) and (pointer:fine){.sc-checkout-btn:hover{filter:brightness(1.07)}}
+.sc-checkout-btn:focus-visible{outline:3px solid currentColor;outline-offset:3px}
+/* Clear confirmation */
+.sc-confirm-wrap{
+  position:fixed;inset:0;
+  display:grid;place-items:center;
+  z-index:302;
+  padding:16px;
+  background:rgba(0,0,0,.40);
+}
+.sc-confirm{
+  background:#fff;border-radius:14px;
+  padding:24px 24px 20px;
+  width:min(320px,100%);
+  box-shadow:0 8px 32px rgba(0,0,0,.22);
+}
+.sc-confirm-title{font-size:16px;font-weight:700;color:#202337;margin:0 0 6px}
+.sc-confirm-desc{font-size:13px;color:#667085;margin:0 0 18px;line-height:1.5}
+.sc-confirm-actions{display:flex;gap:8px;justify-content:flex-end}
+.sc-confirm-cancel{
+  padding:9px 18px;border-radius:8px;
+  border:1.5px solid #E5E7EB;background:none;
+  font-size:13px;font-weight:500;cursor:pointer;
+  color:#667085;font-family:inherit;min-height:40px;
+  transition:border-color .12s;
+}
+@media(hover:hover) and (pointer:fine){.sc-confirm-cancel:hover{border-color:#9CA3AF}}
+.sc-confirm-ok{
+  padding:9px 18px;border-radius:8px;
+  border:none;background:#dc2626;color:#fff;
+  font-size:13px;font-weight:600;cursor:pointer;
+  font-family:inherit;min-height:40px;
+  transition:background .12s;
+}
+@media(hover:hover) and (pointer:fine){.sc-confirm-ok:hover{background:#b91c1c}}
+/* Mobile: full screen */
+@media(max-width:480px){
+  .sc-panel{width:100%;left:0;box-shadow:none}
+}
+
 /* ── Sin resultados ────────────────────────────────────────── */
 .rm-empty{display:flex;flex-direction:column;align-items:center;text-align:center;padding:60px 0 44px;gap:14px}
 .rm-empty-icon{font-size:36px;line-height:1}
@@ -587,10 +819,46 @@ summary{font-size:15px}
 .rm-empty-clear{display:inline-flex;align-items:center;gap:7px;background:none;border:1.5px solid var(--border);border-radius:20px;padding:8px 18px;font-size:13px;font-weight:600;color:var(--menu-primary,var(--purple));cursor:pointer;margin-top:4px;font-family:inherit;transition:background .12s,border-color .12s}
 @media(hover:hover) and (pointer:fine){.rm-empty-clear:hover{background:var(--soft)}}
 
+/* ── Social bar ──────────────────────────────────────────────── */
+.rm-social-bar{display:flex;gap:2px;align-items:center;flex-wrap:wrap}
+.rm-social-btn{
+  width:40px;height:40px;border-radius:50%;
+  display:grid;place-items:center;
+  color:var(--menu-primary,var(--purple));
+  opacity:.75;text-decoration:none;
+  transition:opacity var(--trans),background var(--trans)
+}
+@media(hover:hover) and (pointer:fine){
+  .rm-social-btn:hover{opacity:1;background:rgba(0,0,0,.06)}
+}
+.rm-social-btn:focus-visible{outline:2px solid var(--menu-primary,var(--purple));outline-offset:2px;border-radius:50%}
+/* In hero (dark background) */
+.rm-social-bar--hero .rm-social-btn{color:rgba(255,255,255,.9)}
+@media(hover:hover) and (pointer:fine){
+  .rm-social-bar--hero .rm-social-btn:hover{opacity:1;background:rgba(255,255,255,.15)}
+}
+.rm-social-bar--hero .rm-social-btn:focus-visible{outline-color:white}
+/* id-bar left column */
+.rm-id-bar-left{display:flex;flex-direction:column;gap:2px;min-width:0}
+.rm-id-bar-left .rm-id-desc{margin:0}
+
 /* ── Footer ─────────────────────────────────────────────────── */
-.rm-footer{text-align:center;padding:24px 0 40px;font-size:11px;color:var(--muted)}
+.rm-footer{
+  text-align:center;padding:24px 0 40px;font-size:11px;color:var(--muted);
+  display:flex;flex-direction:column;align-items:center;gap:6px
+}
+.rm-footer-social .rm-social-btn{color:var(--muted);opacity:.7}
+@media(hover:hover) and (pointer:fine){
+  .rm-footer-social .rm-social-btn:hover{opacity:1;color:var(--menu-primary,var(--purple));background:rgba(0,0,0,.05)}
+}
+.rm-footer-social .rm-social-btn:focus-visible{outline-color:var(--menu-primary,var(--purple))}
 
 /* ── Responsive ─────────────────────────────────────────────── */
+@media(min-width:1024px){
+  .rm-bh-logo-box{width:96px;height:96px}
+  .rm-bh-name{font-size:30px}
+  .rm-bh-inner{padding:32px 0 36px;gap:22px}
+}
 @media(min-width:1280px){
   .rm-hero{height:320px}
   .rm-hero-title{font-size:36px}
@@ -608,6 +876,8 @@ summary{font-size:15px}
   .cart-bar{display:flex}
   .mc-main{padding-bottom:80px}
   .rm-footer{padding-bottom:80px}
+  /* Biz header mobile */
+  .rm-bh{min-height:230px}
 }
 @media(max-width:480px){
   .mc-grid{grid-template-columns:repeat(2,1fr);gap:8px}
@@ -616,12 +886,22 @@ summary{font-size:15px}
   .rm-hero-title{font-size:20px}
   .rm-id-bar{display:none}
   .mc-section-title{font-size:16px}
+  /* Biz header small mobile */
+  .rm-bh{min-height:220px}
+  .rm-bh-logo-box{width:72px;height:72px;border-radius:10px}
+  .rm-bh-name{font-size:21px}
+  .rm-bh-inner{padding:22px 0 26px;gap:12px}
+  .rm-bh-initials{font-size:18px}
   .mc-card-body{padding:8px 10px 10px}
   .mc-card-name{font-size:12px}
   .mc-card-price{font-size:13px}
 }
 @media(max-width:360px){
   .mc-grid{grid-template-columns:repeat(2,1fr);gap:6px}
+  .rm-bh-logo-box{width:60px;height:60px}
+  .rm-bh-name{font-size:19px}
+  .rm-bh-desc{font-size:12px}
+  .rm-bh-inner{gap:10px}
 }
 
 /* ── Reducción de movimiento ────────────────────────────────── */
@@ -737,7 +1017,7 @@ summary{font-size:15px}
 }
 
 /* ══════════════════════════════════════════════════════════════
-   Mesa Platform — Panel design system
+   Wacatalog — Panel design system
    Overrides base .dashboard/.sidebar/.dashboard-* rules.
    Does not affect public site or /r/* menu routes.
    ══════════════════════════════════════════════════════════════ */
@@ -794,6 +1074,16 @@ summary{font-size:15px}
   font-size:13px;font-weight:700;
   letter-spacing:0;
 }
+/* Logo variant: shown when restaurant_config.logo_path exists */
+.sidebar-logo{
+  width:40px;height:40px;
+  flex-shrink:0;
+  border-radius:10px;
+  overflow:hidden;
+  background:rgba(255,255,255,.12);
+  display:grid;place-items:center;
+}
+.sidebar-logo img{width:100%;height:100%;object-fit:contain;display:block}
 .sidebar-name{font-size:13px;font-weight:600;color:#fff;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
 .sidebar-role{font-size:11px;color:rgba(255,255,255,.45);display:block;margin-top:1px}
 
@@ -953,10 +1243,47 @@ summary{font-size:15px}
 .filter-clear{font-size:12px;color:#703BE6;background:none;border:none;cursor:pointer;padding:0;font-weight:500}
 
 /* ── Tabs ─── */
-.panel-tabs{display:flex;border-bottom:1px solid #E5E7EB;margin-bottom:24px;gap:0}
+.panel-tabs{display:flex;border-bottom:1px solid #E5E7EB;margin-bottom:24px;gap:0;overflow-x:auto;scrollbar-width:none}
+.panel-tabs::-webkit-scrollbar{display:none}
 .panel-tab{display:inline-flex;align-items:center;gap:6px;padding:11px 18px;font-size:13px;font-weight:500;color:#667085;background:none;border:0;border-bottom:2.5px solid transparent;cursor:pointer;text-decoration:none;white-space:nowrap;transition:color .12s}
 @media(hover:hover) and (pointer:fine){.panel-tab:hover{color:#202337}}
 .panel-tab--active{color:#703BE6;border-bottom-color:#703BE6;font-weight:600}
+
+/* ── Mobile tab selector ─────────────────────────────────── */
+.panel-tab-select-wrap{display:none;margin-bottom:20px}
+.panel-tab-select{
+  width:100%;padding:10px 14px;
+  border:1.5px solid #E5E7EB;border-radius:10px;
+  font-size:14px;font-family:inherit;cursor:pointer;
+  color:#202337;background:#fff;
+  appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2.5' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;
+  padding-right:38px;min-height:44px
+}
+
+/* ── Mobile product / trash cards ───────────────────────── */
+.product-list-mobile{display:none}
+.product-mobile-card{
+  background:#fff;border:1px solid #E8E9EF;border-radius:12px;
+  padding:14px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.03)
+}
+.pmc-row{display:flex;gap:12px;align-items:flex-start}
+.pmc-info{flex:1;min-width:0}
+.pmc-name{
+  font-size:14px;font-weight:600;color:#202337;line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  margin-bottom:5px
+}
+.pmc-meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.pmc-cat{font-size:12px;color:#667085}
+.pmc-price{font-size:13px;font-weight:600;color:#202337}
+.pmc-sep{font-size:12px;color:#D1D5DB}
+.pmc-actions{
+  display:flex;gap:8px;flex-wrap:wrap;
+  padding-top:12px;border-top:1px solid #F3F4F6;margin-top:12px;
+  align-items:center
+}
 
 /* ── Mobile top bar ─── */
 .panel-mobile-header{
@@ -1078,6 +1405,15 @@ button.count-chip{cursor:pointer;font-family:inherit;transition:background 0.12s
 button.count-chip:hover:not([aria-pressed="true"]){background:#F5F3FF;border-color:#C4B5FD}
 button.count-chip:focus-visible{outline:2px solid #703BE6;outline-offset:2px}
 
+/* ── Delete product button ─── */
+.btn-delete-product{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:8px;border:none;background:none;cursor:pointer;color:#9CA3AF;padding:0;flex-shrink:0;transition:color .12s,background .12s;font-family:inherit}
+/* Desktop hover only — not triggered on touch */
+@media(hover:hover) and (pointer:fine){.btn-delete-product:hover{color:#a72b38;background:#FEF2F2}}
+/* Keyboard focus */
+.btn-delete-product:focus-visible{outline:2px solid #a72b38;outline-offset:2px;color:#a72b38}
+/* Touch active state (replaces hover on mobile) */
+.btn-delete-product:active{color:#a72b38;background:#FEF2F2}
+
 /* ── Responsive ─── */
 @media(max-width:1100px){.metric-grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:1050px){
@@ -1098,6 +1434,12 @@ button.count-chip:focus-visible{outline:2px solid #703BE6;outline-offset:2px}
   .filter-search-wrap{max-width:100%}
   .filter-count{margin-left:0}
   .admin-detail-grid{grid-template-columns:1fr !important}
+  /* Catalog: replace tabs with select, show mobile cards */
+  .panel-tab-select-wrap{display:block}
+  .panel-tabs--catalog{display:none !important}
+  .product-list-mobile{display:block}
+  .product-list-desktop{display:none}
+  .panel-filter-bar select{width:100%}
 }
 @media(max-width:900px){
   .admin-detail-grid{grid-template-columns:1fr !important}
@@ -1110,7 +1452,7 @@ button.count-chip:focus-visible{outline:2px solid #703BE6;outline-offset:2px}
 
 
 /* ══════════════════════════════════════════════════════════════
-   Mesa — Configuración (/panel/configuracion)
+   Wacatalog — Configuración (/panel/configuracion)
    ══════════════════════════════════════════════════════════════ */
 
 /* ── Tabs ─────────────────────────────────────────────────── */
@@ -1149,8 +1491,11 @@ button.count-chip:focus-visible{outline:2px solid #703BE6;outline-offset:2px}
 
 /* ── Appearance layout ────────────────────────────────────── */
 .cfg-appearance-layout{display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start}
-.cfg-appearance-editor{}
-.cfg-appearance-preview{position:sticky;top:76px}
+/* position:relative + z-index:2 creates a new stacking context so native
+   color-picker DOM popups (Chromium inline picker) paint above the sticky
+   preview column, which would otherwise sit on top due to sticky z-order. */
+.cfg-appearance-editor{position:relative;z-index:2}
+.cfg-appearance-preview{position:sticky;top:76px;z-index:1}
 .cfg-preview-label{font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:#9CA3AF;margin-bottom:8px}
 
 /* ── Mini catalog preview ─────────────────────────────────── */
@@ -1176,9 +1521,16 @@ button.count-chip:focus-visible{outline:2px solid #703BE6;outline-offset:2px}
 .cfg-preset-swatch:focus-visible{outline:3px solid #703BE6;outline-offset:2px}
 .cfg-preset-label{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:#202337;color:#fff;font-size:10px;padding:2px 6px;border-radius:4px;white-space:nowrap;opacity:0;transition:opacity .12s;pointer-events:none}
 .cfg-preset-swatch:hover .cfg-preset-label{opacity:1}
-.cfg-color-row{display:flex;align-items:center;gap:10px}
+/* Color field grid — collapses to 1 column at ≤900px so each picker
+   stays well inside the editor column at intermediate viewport widths. */
+.cfg-color-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+/* min-width:0 prevents flex/grid children from overflowing their track */
+.cfg-grid-2>*,.cfg-grid-3>*,.cfg-color-grid>*{min-width:0}
+.cfg-color-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .cfg-color-input{width:44px;height:36px;padding:2px;border-radius:8px;border:1.5px solid #E5E7EB;cursor:pointer;flex-shrink:0}
-.cfg-color-code{display:block;font-family:monospace;font-size:13px;font-weight:600;color:#202337}
+.cfg-color-code{display:block;font-family:monospace;font-size:13px;font-weight:600;color:#202337;word-break:break-all}
+/* Give the color row's text block a floor so it never squeezes to 0 */
+.cfg-color-row>div{min-width:0}
 
 /* ── Typography options ───────────────────────────────────── */
 .cfg-font-options{display:flex;flex-direction:column;gap:8px}
@@ -1229,17 +1581,43 @@ button.count-chip:focus-visible{outline:2px solid #703BE6;outline-offset:2px}
 .cfg-switch-track::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;background:white;border-radius:50%;transition:transform .15s;box-shadow:0 1px 3px rgba(0,0,0,.15)}
 .cfg-switch input[type=checkbox]:checked + .cfg-switch-track::after{transform:translateX(18px)}
 
+/* ── SEO form ────────────────────────────────────────────── */
+/* Search-result preview */
+.seo-preview{background:#F6F7FB;border:1px solid #E5E7EB;border-radius:10px;padding:16px 18px;max-width:560px}
+.seo-preview-url{display:flex;align-items:center;gap:5px;font-size:11px;color:#202337;margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.seo-preview-title{font-size:16px;color:#1a0dab;font-weight:400;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.3}
+.seo-preview-desc{font-size:13px;color:#4d5156;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+/* Upload area for OG image */
+.seo-upload-area{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:28px 16px;background:#F6F7FB;border:1.5px dashed #D1D5DB;border-radius:10px;cursor:pointer;max-width:360px;text-align:center;font-size:13px;color:#202337;transition:border-color .12s}
+@media(hover:hover) and (pointer:fine){.seo-upload-area:hover{border-color:#703BE6}}
+/* Indexing toggle — mirrors cfg-switch but with seo- prefix to not conflict */
+.seo-switch{display:inline-flex;align-items:center;cursor:pointer;flex-shrink:0}
+.seo-switch input[type=checkbox]{opacity:0;width:0;height:0;position:absolute}
+.seo-switch-track{display:block;width:40px;height:24px;background:#D1D5DB;border-radius:12px;position:relative;transition:background .15s;flex-shrink:0}
+.seo-switch input:checked + .seo-switch-track{background:#703BE6}
+.seo-switch-track::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;background:white;border-radius:50%;transition:transform .15s;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.seo-switch input:checked + .seo-switch-track::after{transform:translateX(16px)}
+.seo-switch:focus-within .seo-switch-track{outline:2px solid #703BE6;outline-offset:2px}
+
 /* ── Responsive ───────────────────────────────────────────── */
 @media(max-width:1050px){
   .cfg-appearance-layout{grid-template-columns:1fr}
-  .cfg-appearance-preview{position:static;margin-top:0}
+  .cfg-appearance-editor{z-index:auto}
+  .cfg-appearance-preview{position:static;margin-top:0;z-index:auto}
   .cfg-preview-frame{max-width:400px}
+}
+/* Color-picker grid collapses early — at 1050-1200px the editor column is
+   ~450-550px wide; side-by-side cells (~220px each) are too tight. */
+@media(max-width:900px){
+  .cfg-color-grid{grid-template-columns:1fr}
 }
 @media(max-width:760px){
   .cfg-grid-2,.cfg-grid-3{grid-template-columns:1fr}
   .cfg-mode-grid{grid-template-columns:1fr}
   .cfg-images-grid{grid-template-columns:1fr}
   .cfg-image-slot--square{width:80px;height:80px}
+  /* Color row: stack swatch and label vertically on small screens */
+  .cfg-color-row{align-items:flex-start}
 }
 @media(max-width:480px){
   .cfg-tabs{gap:0}
@@ -1260,8 +1638,10 @@ button.count-chip:focus-visible{outline:2px solid #703BE6;outline-offset:2px}
 .sbx-card--loading{border-color:#703BE6;box-shadow:0 4px 20px rgba(112,59,230,.12)}
 .sbx-card--current{border-color:#703BE6;box-shadow:inset 0 0 0 1px rgba(112,59,230,.18)}
 .sbx-card--disabled{opacity:.5;pointer-events:none}
-.sbx-card-avatar{display:grid;place-items:center;background:#EDE9FC;color:#703BE6;width:48px;height:48px;flex-shrink:0;border-radius:12px;font-size:16px;font-weight:700;letter-spacing:-.5px}
+.sbx-card-avatar{display:grid;place-items:center;background:#EDE9FC;color:#703BE6;width:48px;height:48px;flex-shrink:0;border-radius:12px;font-size:16px;font-weight:700;letter-spacing:-.5px;overflow:hidden}
 .sbx-card--loading .sbx-card-avatar{background:#EDE9FC}
+/* Logo image inside the card avatar */
+.sbx-avatar-img{width:100%;height:100%;object-fit:contain;display:block}
 .sbx-card-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .sbx-card-name{font-size:14px;font-weight:700;color:#202337;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sbx-card-meta{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#667085}
@@ -1282,7 +1662,7 @@ button.count-chip:focus-visible{outline:2px solid #703BE6;outline-offset:2px}
 }
 
 /* ══════════════════════════════════════════════════════════════
-   Mesa — Landing page v2
+   Wacatalog — Landing page v2
    Prefixes: lp-  (one page), lp-sc- (showcase), lp-ed- (editorial),
              lp-disc- (discovery), lp-plan- (plans v2)
    Does NOT affect /panel, /admin, /r/* or /demo routes.
@@ -1312,6 +1692,14 @@ button.count-chip:focus-visible{outline:2px solid #703BE6;outline-offset:2px}
 .lp-nav a { transition:color var(--trans) }
 .lp-nav a:hover { color:var(--ink) }
 .lp-header-actions { display:flex; align-items:center; gap:10px }
+/* Primary CTA button in the header — white text in all link states,
+   independent of the .lp-nav color cascade (same specificity, later order). */
+.lp-header-cta,
+.lp-header-cta:link,
+.lp-header-cta:visited,
+.lp-header-cta:hover,
+.lp-header-cta:focus { color:#fff }
+.lp-header-cta:focus-visible { outline:2px solid #fff; outline-offset:2px }
 .lp-mobile-btn {
   display:none; background:none; border:none; cursor:pointer;
   padding:8px; line-height:1; color:var(--ink)
@@ -1328,9 +1716,17 @@ button.count-chip:focus-visible{outline:2px solid #703BE6;outline-offset:2px}
 }
 .lp-mobile-menu a:hover { color:var(--purple) }
 .lp-mobile-menu-footer { display:flex; flex-direction:column; gap:8px; padding:16px 20px 20px }
+/* CTA button inside mobile menu footer — higher specificity (0,2,1) beats
+   .lp-mobile-menu a (0,1,1) which sets color:var(--ink). */
+.lp-mobile-menu-footer a.button:not(.secondary),
+.lp-mobile-menu-footer a.button:not(.secondary):link,
+.lp-mobile-menu-footer a.button:not(.secondary):visited,
+.lp-mobile-menu-footer a.button:not(.secondary):hover,
+.lp-mobile-menu-footer a.button:not(.secondary):focus { color:#fff }
 @media(max-width:860px) {
   .lp-nav { display:none !important }
   .lp-header-actions .lp-nav { display:none !important }
+  .lp-header-cta { display:none !important }
   .lp-mobile-btn { display:flex; align-items:center; justify-content:center }
 }
 
