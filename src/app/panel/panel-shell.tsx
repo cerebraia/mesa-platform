@@ -167,11 +167,14 @@ interface ShellProps {
   logoUrl:           string | null;
   membershipOptions: MembershipOption[];
   children:          React.ReactNode;
+  /** Canonical catalog URL — may be a subdomain when PLATFORM_SUBDOMAIN_BASE is set. */
+  catalogHref?:      string;
 }
 
 function ShellInner({
   role, restaurantName, restaurantSlug, restaurantId: _restaurantId,
   userEmail, ordersEnabled, logoUrl, membershipOptions, children,
+  catalogHref: catalogHrefProp,
 }: ShellProps) {
   const pathname      = usePathname();
   const [open, setOpen] = useState(false);
@@ -181,7 +184,9 @@ function ShellInner({
   const hasMultiple   = membershipOptions.length > 1;
   const sectionLabel  = getCurrentSection(pathname, items);
   const catalogLabel  = ordersEnabled ? "Ver menú" : "Ver catálogo";
-  const catalogHref   = `/r/${restaurantSlug}`;
+  // Use the server-computed canonical href (subdomain when configured), falling
+  // back to /r/[slug] for environments without PLATFORM_SUBDOMAIN_BASE.
+  const catalogHref   = catalogHrefProp ?? `/r/${restaurantSlug}`;
 
   // Close drawer on navigation
   useEffect(() => { setOpen(false); }, [pathname]);

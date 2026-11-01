@@ -29,6 +29,8 @@ import {
   extractPlatformSubdomain,
   couldBeRestaurantDomain,
   resolveRestaurantPath,
+  SLUG_RE,
+  RESERVED_SUBDOMAINS,
   type RestaurantAction,
 } from "./lib/host-resolver";
 
@@ -199,6 +201,21 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
   // ── 1. Platform host ──────────────────────────────────────
   if (isPlatformHost(host)) {
+    // When PLATFORM_SUBDOMAIN_BASE is active, redirect old /r/[slug][/…]
+    // paths to the clean subdomain URL.  Only public catalog paths are
+    // redirected; private routes (/panel, /admin, /api, …) are left alone.
+    // This avoids infinite loops because the subdomain is NOT a platform host.
+    const subBase = process.env.PLATFORM_SUBDOMAIN_BASE;
+    if (subBase && pathname.startsWith("/r/")) {
+      const afterR   = pathname.slice(3); // e.g. "luale-shop" or "luale-shop/pedido/…"
+      const slashIdx = afterR.indexOf("/");
+      const slug     = slashIdx === -1 ? afterR : afterR.slice(0, slashIdx);
+      const rest     = slashIdx === -1 ? ""     : afterR.slice(slashIdx); // "/pedido/…" or ""
+      if (slug && SLUG_RE.test(slug) && !RESERVED_SUBDOMAINS.has(slug)) {
+        const destination = `https://${slug}.${subBase}${rest || "/"}`;
+        return NextResponse.redirect(destination, { status: 301 });
+      }
+    }
     return runSessionProxy(request);
   }
 

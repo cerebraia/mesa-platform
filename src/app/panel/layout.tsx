@@ -4,6 +4,7 @@ import { getActiveMembership } from "@/lib/panel-context";
 import { Brand } from "@/components/brand";
 import { SignOutButton } from "@/components/sign-out-button";
 import { PanelShell } from "./panel-shell";
+import { getRestaurantCanonical } from "@/lib/canonical";
 export default async function PanelLayout({
   children,
 }: {
@@ -70,6 +71,11 @@ export default async function PanelLayout({
     );
   }
 
+  // Compute the canonical catalog URL server-side so the panel button
+  // links to the subdomain directly (when PLATFORM_SUBDOMAIN_BASE is set)
+  // rather than going through the /r/[slug] redirect.
+  const catalogHref = getRestaurantCanonical(active.restaurant.slug);
+
   return (
     <PanelShell
       role={active.role}
@@ -80,6 +86,7 @@ export default async function PanelLayout({
       ordersEnabled={ordersEnabled}
       logoUrl={logoUrl}
       membershipOptions={options}
+      catalogHref={catalogHref}
     >
       {children}
     </PanelShell>
