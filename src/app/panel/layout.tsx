@@ -40,6 +40,22 @@ export default async function PanelLayout({
     : null;
 
   if (!active) {
+    // Platform admins have no restaurant memberships — redirect them directly
+    // to /admin instead of showing "Acceso pendiente".
+    const { data: adminRow, error: adminError } = await supabase
+      .from("platform_admins")
+      .select("user_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (adminError) {
+      throw new Error(
+        `Error al verificar permisos de administrador: ${adminError.message}`,
+      );
+    }
+
+    if (adminRow) redirect("/admin");
+
     const email    = user.email ?? "";
     const initials = email.slice(0, 2).toUpperCase();
     return (
