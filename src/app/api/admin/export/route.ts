@@ -1,28 +1,22 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
-import { createClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // ── Auth ──────────────────────────────────────────────────────
+// Returns the admin's authenticated Supabase client, which has access to
+// all tables via is_platform_admin() RLS policies. This avoids the need
+// for a service-role client in Route Handlers, which has issues with the
+// @supabase/ssr cookie machinery in this execution context.
 
 async function requireAdminSession() {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: adminRow } = await supabase
+  const { data: adminRow, error: adminErr } = await supabase
     .from("platform_admins").select("user_id").eq("user_id", user.id).maybeSingle();
-  if (!adminRow) return null;
-  return { user, supabase };
-}
-
-// Service-role client for data exports. Uses supabase-js directly (not @supabase/ssr)
-// because Route Handlers don't go through the SSR cookie machinery for server operations.
-function svc() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  );
+  if (adminErr || !adminRow) return null;
+  return { user, db: supabase };
 }
 
 // ── CSV helpers ───────────────────────────────────────────────
@@ -33,7 +27,6 @@ function csvCell(value: unknown): string {
   const str = value == null ? "" : String(value);
   // Prevent formula injection: prefix cells starting with =+-@|
   const safe = /^[=+\-@|]/.test(str) ? "'" + str : str;
-  // Escape double quotes and wrap if needed
   const escaped = safe.replace(/"/g, '""');
   if (/[",\n\r]/.test(escaped)) return `"${escaped}"`;
   return escaped;
@@ -60,8 +53,7 @@ function csvResponse(csv: string, filename: string): NextResponse {
 
 // ── Export handlers ───────────────────────────────────────────
 
-async function exportRestaurants() {
-  const db = svc();
+async function exportRestaurants(db: SupabaseClient) {
   const { data, error } = await db
     .from("restaurants")
     .select("id, name, slug, business_type, status, currency, timezone, created_at, deleted_at")
@@ -80,8 +72,7 @@ async function exportRestaurants() {
   return buildCsv(headers, rows);
 }
 
-async function exportProducts(restaurantId: string | null) {
-  const db = svc();
+async function exportProducts(db: SupabaseClient, restaurantId: string | null) {
   let q = db
     .from("products")
     .select(`
@@ -117,8 +108,12 @@ async function exportProducts(restaurantId: string | null) {
   return buildCsv(headers, rows);
 }
 
-async function exportOrders(restaurantId: string | null, startDate: string | null, endDate: string | null) {
-  const db = svc();
+async function exportOrders(
+  db: SupabaseClient,
+  restaurantId: string | null,
+  startDate: string | null,
+  endDate: string | null,
+) {
   let q = db
     .from("orders")
     .select(`
@@ -159,8 +154,12 @@ async function exportOrders(restaurantId: string | null, startDate: string | nul
   return buildCsv(headers, rows);
 }
 
-async function exportMovements(restaurantId: string | null, startDate: string | null, endDate: string | null) {
-  const db = svc();
+async function exportMovements(
+  db: SupabaseClient,
+  restaurantId: string | null,
+  startDate: string | null,
+  endDate: string | null,
+) {
   let q = db
     .from("financial_movements")
     .select(`
@@ -194,8 +193,7 @@ async function exportMovements(restaurantId: string | null, startDate: string | 
   return buildCsv(headers, rows);
 }
 
-async function exportSubscriptions(restaurantId: string | null) {
-  const db = svc();
+async function exportSubscriptions(db: SupabaseClient, restaurantId: string | null) {
   let q = db
     .from("subscriptions")
     .select(`
@@ -243,10 +241,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const restaurantId = sp.get("restaurantId");
   const startDate    = sp.get("startDate");
   const endDate      = sp.get("endDate");
+  const { db } = auth;
 
-  // Audit log the export
-  const svcClient = svc();
-  await svcClient.from("admin_audit_log").insert({
+  // Audit log — best-effort, does not block the export on failure
+  await db.from("admin_audit_log").insert({
     admin_user_id: auth.user.id,
     action:        `export_${type}`,
     target_type:   "export",
@@ -257,26 +255,26 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     switch (type) {
       case "restaurants": {
-        const csv = await exportRestaurants();
+        const csv = await exportRestaurants(db);
         return csvResponse(csv, `negocios_${new Date().toISOString().slice(0, 10)}.csv`);
       }
       case "products": {
-        const csv = await exportProducts(restaurantId);
+        const csv = await exportProducts(db, restaurantId);
         const name = restaurantId ? `productos_${restaurantId.slice(0, 8)}` : "productos";
         return csvResponse(csv, `${name}_${new Date().toISOString().slice(0, 10)}.csv`);
       }
       case "orders": {
-        const csv = await exportOrders(restaurantId, startDate, endDate);
+        const csv = await exportOrders(db, restaurantId, startDate, endDate);
         const name = restaurantId ? `pedidos_${restaurantId.slice(0, 8)}` : "pedidos";
         return csvResponse(csv, `${name}_${new Date().toISOString().slice(0, 10)}.csv`);
       }
       case "movements": {
-        const csv = await exportMovements(restaurantId, startDate, endDate);
+        const csv = await exportMovements(db, restaurantId, startDate, endDate);
         const name = restaurantId ? `movimientos_${restaurantId.slice(0, 8)}` : "movimientos";
         return csvResponse(csv, `${name}_${new Date().toISOString().slice(0, 10)}.csv`);
       }
       case "subscriptions": {
-        const csv = await exportSubscriptions(restaurantId);
+        const csv = await exportSubscriptions(db, restaurantId);
         const name = restaurantId ? `suscripciones_${restaurantId.slice(0, 8)}` : "suscripciones";
         return csvResponse(csv, `${name}_${new Date().toISOString().slice(0, 10)}.csv`);
       }
