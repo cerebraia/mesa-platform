@@ -18,7 +18,9 @@ async function requireAdmin() {
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("No autenticado.");
-  const { data: adminRow } = await supabase.from("platform_admins").select("user_id").maybeSingle();
+  const { data: adminRow, error: adminErr } = await supabase
+    .from("platform_admins").select("user_id").eq("user_id", user.id).maybeSingle();
+  if (adminErr) throw new Error(`Error al verificar permisos: ${adminErr.message}`);
   if (!adminRow) throw new Error("Acceso denegado: se requiere platform_admin.");
   return { supabase, user };
 }
@@ -54,16 +56,20 @@ export type AdminResult = { error: string | null; data?: Record<string, unknown>
 // ── Create restaurant ─────────────────────────────────────────
 
 export async function createRestaurant(formData: FormData): Promise<AdminResult> {
-  const name     = String(formData.get("name") ?? "").trim();
-  const slug     = String(formData.get("slug") ?? "").trim().toLowerCase();
-  const currency = String(formData.get("currency") ?? "USD").trim().toUpperCase();
-  const timezone = String(formData.get("timezone") ?? "America/Caracas").trim();
+  const name         = String(formData.get("name") ?? "").trim();
+  const slug         = String(formData.get("slug") ?? "").trim().toLowerCase();
+  const currency     = String(formData.get("currency") ?? "USD").trim().toUpperCase();
+  const timezone     = String(formData.get("timezone") ?? "America/Caracas").trim();
+  const businessType = String(formData.get("business_type") ?? "restaurant").trim();
 
   if (!name || name.length < 2) return { error: "El nombre debe tener al menos 2 caracteres." };
   if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(slug)) {
     return { error: "El slug solo puede tener minúsculas, dígitos y guiones (3–63 chars)." };
   }
   if (currency.length !== 3) return { error: "La moneda debe tener exactamente 3 letras." };
+  if (!["restaurant", "store", "other"].includes(businessType)) {
+    return { error: "Tipo de negocio inválido." };
+  }
 
   let adminUser: { id: string } | null = null;
   try {
@@ -75,7 +81,7 @@ export async function createRestaurant(formData: FormData): Promise<AdminResult>
 
   const supabase = await createServerClient();
   const { data: restaurant, error } = await supabase.from("restaurants").insert({
-    name, slug, currency, timezone, status: "onboarding",
+    name, slug, currency, timezone, status: "onboarding", business_type: businessType,
   }).select("id, name, slug").single();
 
   if (error) {
@@ -479,6 +485,76 @@ export async function recordPayment(
   });
 
   revalidatePath(`/admin/restaurants/${restaurantId}`);
+  return { error: null };
+}
+
+// ── Soft-delete restaurant ────────────────────────────────────
+
+export async function softDeleteRestaurant(
+  restaurantId: string,
+  confirmedName: string,
+): Promise<AdminResult> {
+  const trimmed = confirmedName.trim();
+  if (!trimmed) return { error: "Se requiere el nombre del negocio para confirmar." };
+
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  // Verify name matches before deleting
+  const svc = adminServiceClient();
+  const { data: restaurant } = await svc
+    .from("restaurants")
+    .select("id, name")
+    .eq("id", restaurantId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!restaurant) return { error: "Negocio no encontrado." };
+  if (restaurant.name.trim() !== trimmed) {
+    return { error: "El nombre no coincide. Escríbelo exactamente como aparece." };
+  }
+
+  const { error } = await svc.rpc("soft_delete_restaurant", {
+    p_restaurant_id: restaurantId,
+  });
+
+  if (error) return { error: error.message };
+
+  await logAudit(adminUser.id, "soft_delete_restaurant", "restaurant", restaurantId, {
+    name: restaurant.name,
+  });
+
+  revalidatePath("/admin");
+  return { error: null };
+}
+
+// ── Restore restaurant ────────────────────────────────────────
+
+export async function restoreRestaurant(restaurantId: string): Promise<AdminResult> {
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const svc = adminServiceClient();
+  const { error } = await svc.rpc("restore_restaurant", {
+    p_restaurant_id: restaurantId,
+  });
+
+  if (error) return { error: error.message };
+
+  await logAudit(adminUser.id, "restore_restaurant", "restaurant", restaurantId, {});
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/restaurants/deleted");
   return { error: null };
 }
 

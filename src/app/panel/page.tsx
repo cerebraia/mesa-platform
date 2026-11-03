@@ -11,8 +11,10 @@ import {
 } from "lucide-react";
 import { createServerClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/panel-context";
+import { getRestaurantCanonical, getActiveDomainFromRows } from "@/lib/canonical";
 import { PageHeader } from "@/components/panel/page-header";
 import { EmptyState } from "@/components/panel/empty-state";
+import { CatalogShareCard } from "./catalog-share-card";
 // RestaurantSwitcher is now rendered in the sidebar (PanelShell).
 import { PeriodTabs } from "./period-tabs";
 import type { MemberRole } from "@/lib/db-types";
@@ -126,13 +128,14 @@ function ModalityBadge({ modality }: { modality: string }) {
 // ── Owner / Attention view ────────────────────────────────────────
 
 function OwnerDashboard({
-  metrics, periodo, currency, timezone, slug,
+  metrics, periodo, currency, timezone, catalogUrl, whatsappNumber,
 }: {
-  metrics: DashboardMetrics;
-  periodo: Period;
-  currency: string;
-  timezone: string;
-  slug: string;
+  metrics:         DashboardMetrics;
+  periodo:         Period;
+  currency:        string;
+  timezone:        string;
+  catalogUrl:      string;
+  whatsappNumber:  string | null;
 }) {
   const paid   = metrics.paid_cents ?? 0;
   const avg    = metrics.avg_ticket_cents ?? 0;
@@ -210,9 +213,9 @@ function OwnerDashboard({
             <Link href="/panel/pedidos" className="panel-quick-action">
               Ver pedidos
             </Link>
-            <Link href={`/r/${slug}`} target="_blank" rel="noopener noreferrer" className="panel-quick-action">
-              Abrir menú
-            </Link>
+            <a href={catalogUrl} target="_blank" rel="noopener noreferrer" className="panel-quick-action">
+              Abrir menú ↗
+            </a>
           </div>
         </div>
       </div>
@@ -277,6 +280,11 @@ function OwnerDashboard({
           </div>
         )}
       </div>
+
+      <CatalogShareCard
+        catalogUrl={catalogUrl}
+        whatsappNumber={whatsappNumber}
+      />
     </>
   );
 }
@@ -349,9 +357,12 @@ function KitchenDashboard({ metrics, timezone }: { metrics: DashboardMetrics; ti
 
 // ── Catalog-only dashboard ────────────────────────────────────────
 
-function CatalogDashboard({ slug, productCount }: { slug: string; productCount: number | null }) {
-  const catalogUrl = `/r/${slug}`;
-
+function CatalogDashboard({
+  catalogUrl, productCount,
+}: {
+  catalogUrl:   string;
+  productCount: number | null;
+}) {
   return (
     <>
       <div className="dashboard-card" style={{ marginBottom: 16 }}>
@@ -377,39 +388,23 @@ function CatalogDashboard({ slug, productCount }: { slug: string; productCount: 
             <Link href="/panel/menu/products/new" className="panel-quick-action panel-quick-action--primary">
               <Plus size={13} /> Añadir producto
             </Link>
-            <Link href={catalogUrl} target="_blank" rel="noopener noreferrer" className="panel-quick-action">
+            <a href={catalogUrl} target="_blank" rel="noopener noreferrer" className="panel-quick-action">
               Ver catálogo ↗
-            </Link>
+            </a>
           </div>
         </div>
       </div>
 
-      <div className="dashboard-card">
-        <h2 style={{ fontSize: 15, fontWeight: 600, color: "#202337", marginBottom: 12 }}>
-          Comparte tu catálogo
-        </h2>
-        <p style={{ fontSize: 13, color: "#667085", marginBottom: 12 }}>
-          Copia el enlace de tu catálogo y compártelo en redes sociales o por WhatsApp.
-        </p>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <code style={{
-            fontSize: 13, background: "#F6F7FB", border: "1px solid #E5E7EB",
-            borderRadius: 8, padding: "8px 14px", color: "#202337", flex: "1 1 auto",
-            wordBreak: "break-all", minWidth: 0,
-          }}>
-            {catalogUrl}
-          </code>
-          <Link href={catalogUrl} target="_blank" rel="noopener noreferrer" className="panel-quick-action">
-            Abrir
+      <CatalogShareCard
+        catalogUrl={catalogUrl}
+        whatsappNumber={null}
+        footnote="Los pedidos en línea están desactivados. Los clientes pueden explorar el catálogo y consultar por WhatsApp si está configurado."
+        footnoteAction={
+          <Link href="/panel/configuracion?tab=general" className="panel-breadcrumb-link" style={{ marginTop: 8, display: "inline-flex", fontSize: 12 }}>
+            Activar pedidos en línea →
           </Link>
-        </div>
-        <p style={{ fontSize: 11, color: "#9CA3AF", marginTop: 10 }}>
-          Los pedidos en línea están desactivados. Los clientes pueden explorar el catálogo y consultar por WhatsApp si está configurado.
-        </p>
-        <Link href="/panel/configuracion?tab=general" className="panel-breadcrumb-link" style={{ marginTop: 8, display: "inline-flex", fontSize: 12 }}>
-          Activar pedidos en línea →
-        </Link>
-      </div>
+        }
+      />
     </>
   );
 }
@@ -434,15 +429,20 @@ export default async function PanelPage({
 
   const { role, restaurant } = active;
 
-  const [{ data: rest }, { data: configRow }] = await Promise.all([
+  const [{ data: rest }, { data: configRow }, { data: domainRows }] = await Promise.all([
     supabase.from("restaurants").select("status, timezone, currency").eq("id", active.restaurantId).single(),
-    supabase.from("restaurant_config").select("orders_enabled").eq("restaurant_id", active.restaurantId).maybeSingle(),
+    supabase.from("restaurant_config").select("orders_enabled, whatsapp").eq("restaurant_id", active.restaurantId).maybeSingle(),
+    supabase.from("restaurant_domains").select("host, kind, status").eq("restaurant_id", active.restaurantId),
   ]);
 
-  const timezone      = rest?.timezone ?? "America/Caracas";
-  const currency      = rest?.currency ?? "USD";
-  const status        = rest?.status;
-  const ordersEnabled = configRow?.orders_enabled ?? true;
+  const activeDomain = getActiveDomainFromRows(domainRows);
+  const catalogUrl   = getRestaurantCanonical(restaurant.slug, activeDomain);
+
+  const timezone        = rest?.timezone ?? "America/Caracas";
+  const currency        = rest?.currency ?? "USD";
+  const status          = rest?.status;
+  const ordersEnabled   = configRow?.orders_enabled ?? true;
+  const whatsappNumber  = configRow?.whatsapp?.replace(/\D/g, "") || null;
 
   let metrics:      DashboardMetrics | null = null;
   let metricsError: string | null           = null;
@@ -493,7 +493,7 @@ export default async function PanelPage({
         {/* Catalog-only mode: show catalog summary instead of order metrics */}
         {catalogOnly && !isKitchen && (
           <CatalogDashboard
-            slug={restaurant.slug}
+            catalogUrl={catalogUrl}
             productCount={metrics?.published_products ?? null}
           />
         )}
@@ -517,7 +517,8 @@ export default async function PanelPage({
                   periodo={periodo}
                   currency={currency}
                   timezone={timezone}
-                  slug={restaurant.slug}
+                  catalogUrl={catalogUrl}
+                  whatsappNumber={whatsappNumber}
                 />
               )
             )}

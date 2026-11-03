@@ -45,3 +45,16 @@ export function getRestaurantCanonical(
 
   return `/r/${slug}`;
 }
+
+/**
+ * Resolves the active custom domain for a restaurant from an already-loaded
+ * list of domain rows (avoids an extra DB round-trip).
+ * Returns null when there is no active custom domain.
+ */
+export function getActiveDomainFromRows(
+  domains: Array<{ host: string; kind: string; status: string }> | null | undefined,
+): string | null {
+  if (!domains) return null;
+  const active = domains.find((d) => d.kind === "custom" && d.status === "active");
+  return active?.host ?? null;
+}

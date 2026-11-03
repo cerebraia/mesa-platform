@@ -12,6 +12,8 @@ type Props = {
   config?:         RestaurantConfig;
   supabaseUrl:     string;
   restaurantId:    string;
+  /** Canonical public URL — same source of truth as the rest of the panel. */
+  catalogUrl:      string;
 };
 
 const ASSET_BASE = (url: string) => `${url}/storage/v1/object/public/restaurant-assets`;
@@ -28,7 +30,7 @@ function charCount(len: number, lo: number, hi: number) {
   );
 }
 
-export function SeoForm({ restaurantName, restaurantSlug, config, supabaseUrl, restaurantId }: Props) {
+export function SeoForm({ restaurantName, restaurantSlug, config, supabaseUrl, restaurantId, catalogUrl }: Props) {
   const [state, action, pending] = useActionState(saveSeo, { error: null });
   const { setDirty } = useUnsavedChanges();
 
@@ -40,8 +42,8 @@ export function SeoForm({ restaurantName, restaurantSlug, config, supabaseUrl, r
   const [imgError,     setImgError]     = useState<string | null>(null);
   const [imgSuccess,   setImgSuccess]   = useState<string | null>(null);
 
-  const platformBase = (process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_PLATFORM_HOST ?? "mesa.app").replace(/^https?:\/\//, "");
-  const previewUrl   = `${platformBase}/r/${restaurantSlug}`;
+  // Use the canonical URL passed from the server — same priority logic as the rest of the panel.
+  const previewUrl = catalogUrl || `/r/${restaurantSlug}`;
   const previewTitle = title.trim() || restaurantName;
   const previewDesc  = desc.trim()  || config?.description || "";
 

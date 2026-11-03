@@ -4,7 +4,7 @@ import { getActiveMembership } from "@/lib/panel-context";
 import { Brand } from "@/components/brand";
 import { SignOutButton } from "@/components/sign-out-button";
 import { PanelShell } from "./panel-shell";
-import { getRestaurantCanonical } from "@/lib/canonical";
+import { getRestaurantCanonical, getActiveDomainFromRows } from "@/lib/canonical";
 export default async function PanelLayout({
   children,
 }: {
@@ -87,10 +87,14 @@ export default async function PanelLayout({
     );
   }
 
-  // Compute the canonical catalog URL server-side so the panel button
-  // links to the subdomain directly (when PLATFORM_SUBDOMAIN_BASE is set)
-  // rather than going through the /r/[slug] redirect.
-  const catalogHref = getRestaurantCanonical(active.restaurant.slug);
+  // Resolve canonical catalog URL: custom domain > subdomain > fallback path.
+  // Query the active custom domain so "Ver catálogo/menú" links to the right URL.
+  const { data: domainRows } = await supabase
+    .from("restaurant_domains")
+    .select("host, kind, status")
+    .eq("restaurant_id", active.restaurantId);
+  const activeDomain = getActiveDomainFromRows(domainRows);
+  const catalogHref  = getRestaurantCanonical(active.restaurant.slug, activeDomain);
 
   return (
     <PanelShell

@@ -115,6 +115,15 @@ export default function NewRestaurantPage() {
                 )}
               </div>
 
+              <div className="field" style={{ marginBottom: 16 }}>
+                <label>Tipo de negocio</label>
+                <select name="business_type" defaultValue="restaurant">
+                  <option value="restaurant">Restaurante</option>
+                  <option value="store">Tienda</option>
+                  <option value="other">Otro</option>
+                </select>
+              </div>
+
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
                 <div className="field">
                   <label>Moneda</label>

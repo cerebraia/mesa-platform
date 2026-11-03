@@ -1,13 +1,15 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Settings, Trash2 } from "lucide-react";
 import { RestaurantEditForm } from "./restaurant-edit-form";
 import { AssignOwnerForm } from "./assign-owner-form";
 import { StatusForm } from "./status-form";
 import { NewSubscriptionForm } from "./new-subscription-form";
 import { SubscriptionRow } from "./subscription-row";
 import { DomainsAdmin } from "./domains-admin";
+import { DeleteRestaurantModal } from "./delete-modal";
+import { BUSINESS_TYPE_LABEL } from "@/lib/db-types";
 
 const STATUS_LABEL: Record<string, string> = {
   onboarding: "En configuración",
@@ -44,7 +46,7 @@ export default async function RestaurantDetailPage({
 
   const { data: restaurant } = await supabase
     .from("restaurants")
-    .select("id, name, slug, currency, timezone, status, created_at")
+    .select("id, name, slug, currency, timezone, status, business_type, deleted_at, created_at")
     .eq("id", id)
     .maybeSingle();
   if (!restaurant) notFound();
@@ -126,16 +128,32 @@ export default async function RestaurantDetailPage({
           </div>
           <p className="panel-page-desc" style={{ marginTop: 4 }}>/{restaurant.slug} · {restaurant.currency}</p>
         </div>
-        <div className="panel-page-actions">
-          <Link
-            href={`/r/${restaurant.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-ver-menu"
-          >
-            <ExternalLink size={13} />
-            Ver menú
-          </Link>
+        <div className="panel-page-actions" style={{ flexWrap: "wrap" }}>
+          {!restaurant.deleted_at && (
+            <>
+              <Link
+                href={`/r/${restaurant.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-ver-menu"
+              >
+                <ExternalLink size={13} />
+                Ver catálogo
+              </Link>
+              <Link
+                href={`/admin/restaurants/${id}/manage`}
+                className="button small"
+                style={{ fontSize: 12 }}
+              >
+                <Settings size={13} />
+                Administrar negocio
+              </Link>
+              <DeleteRestaurantModal
+                restaurantId={id}
+                restaurantName={restaurant.name}
+              />
+            </>
+          )}
         </div>
       </div>
 
@@ -300,6 +318,7 @@ export default async function RestaurantDetailPage({
                 {[
                   { label: "ID",         val: <code style={{ fontSize: 11 }}>{id}</code> },
                   { label: "Slug",       val: `/${restaurant.slug}` },
+                  { label: "Tipo",       val: BUSINESS_TYPE_LABEL[restaurant.business_type as import("@/lib/db-types").BusinessType] ?? restaurant.business_type },
                   { label: "Moneda",     val: restaurant.currency },
                   { label: "Zona hor.",  val: restaurant.timezone },
                   { label: "Creado",     val: new Date(restaurant.created_at).toLocaleDateString("es-VE") },

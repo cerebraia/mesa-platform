@@ -193,16 +193,17 @@
 | **Subdominios Wacatalog (01/11/2026): PLATFORM_SUBDOMAIN_BASE=wacatalogo.com configurado en Railway; wildcard *.wacatalogo.com añadido (ID: 76f88f5d, ACTIVE); redirect 301 /r/[slug]→https://[slug].wacatalogo.com/ operativo en producción (SHA 0f80977); reservados y slugs inválidos devuelven 404; /panel y /login conservados en plataforma; 22/22 tests subdominios OK** | ✅ **Código y Railway configurados (01/11/2026)** |
 | **Registros DNS requeridos para *.wacatalogo.com**: `* CNAME f93otn7m.up.railway.app` y `_acme-challenge CNAME f93otn7m.authorize.railwaydns.net` | ⏳ **PENDIENTE — añadir en el registrador de wacatalogo.com para que luale-shop.wacatalogo.com y lanz-technology.wacatalogo.com resuelvan y obtengan certificado HTTPS** |
 | **Bug Configuración→Apariencia "Color de fondo" se superpone: (1) stacking context — cfg-appearance-editor recibe position:relative;z-index:2 para que el picker DOM de Chromium quede encima del panel sticky (z-index:1); z-index se resetea a auto en ≤1050px cuando la preview pasa a static; (2) cfg-color-grid colapsa a 1fr a ≤900px en lugar de 760px, evitando celdas de ~220px junto a la preview; (3) cfg-color-row con flex-wrap:wrap; min-width:0 en celdas de grid** | ✅ **Corregido (30/10/2026) — revisión visual pendiente (sin navegador)** |
+| **Fix acceso platform_admin: panel/layout.tsx y admin/layout.tsx corregidos — admin sin membresías entra a /admin; query con eq(user_id) previene ambigüedad; errores de BD se lanzan explícitamente** | ✅ **Corregido (02/11/2026) — SHA 2ddbc9f desplegado en Railway** |
+| **Administración global /admin — fase 1 (02/11/2026)**: Migración 037 (deleted_at/deleted_by/business_type en restaurants; RPCs soft_delete_restaurant/restore_restaurant; is_restaurant_open actualizada); filtros tipo/plan en lista admin; tab "Negocios eliminados"; modal de eliminación con nombre confirmado; botones "Administrar negocio" y "Eliminar" en detalle; campo business_type en creación; upload API acepta platform_admin; exportaciones CSV (restaurants/products/orders/movements/subscriptions) en /api/admin/export con auditoría; sección /admin/restaurants/[id]/manage/ con ManageShell, rutas menu/pedidos/configuración/finanzas/miembros, acciones admin independientes; 6/7 tests AB (AB06 requiere servidor activo) | ✅ **Implementado — sin push (02/11/2026)** |
+| **Fix enlaces URL pública del negocio (02/11/2026)**: "Enlace único" en Configuración→Mi negocio y preview SEO mostraban `mesa.app` hardcodeado; dashboard mostraba `/r/slug` relativo sin subdominio ni dominio propio. Corrección: `canonical.ts` añade `getActiveDomainFromRows()`; `panel/layout.tsx` y `panel/configuracion/page.tsx` consultan `restaurant_domains` y calculan `catalogUrl` con prioridad dominio_propio > subdominio > fallback path; `CatalogShareCard` nuevo componente cliente (copiar, WhatsApp, QR via Google Charts, abrir) usa exactamente la misma URL en los 4 puntos de acción; `OwnerDashboard` y `CatalogDashboard` reciben `catalogUrl`; `NegocioForm.catalogUrl` prop elimina `mesa.app` del campo readonly; `SeoForm.catalogUrl` prop elimina fallback `"mesa.app"` del preview. Verificado: luale-shop → `https://luale-shop.wacatalogo.com/`, lanz-technology → `https://lanz-technology.wacatalogo.com/`, dominio propio activo → `https://dominio.com/`, localhost → `/r/slug` (relativo) | ✅ **Implementado — sin push (02/11/2026)** |
 
 ---
 
-## Migraciones aplicadas en BD Supabase: 34/36
+## Migraciones aplicadas en BD Supabase: 37/37
 
-- **033** (`set_product_published_guard.sql`) — PENDIENTE en BD; funcionalidad cubierta por check a nivel de Server Action.
-- **035** (`seo_config.sql`) — Aplicada en BD (columnas SEO en `restaurant_config`).
-- **036** (`get_business_open_status.sql`) — PENDIENTE en BD; sin esta migración el header de catálogo muestra estado nulo (degradación graciosa, sin error en producción).
+Todas las migraciones aplicadas (033, 036 y 037 aplicadas 02/11/2026 con --include-all).
 
-## Migraciones aplicadas históricamente: 34/36 (033 y 036 pendientes en BD)
+## Migraciones aplicadas históricamente: 37/37
 
 | Versión | Archivo | Contenido |
 |---|---|---|

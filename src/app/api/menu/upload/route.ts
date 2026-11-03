@@ -112,21 +112,28 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Verify the caller is owner of the restaurant before upload.
-  // This server-side check comes before the Storage RLS check for cleaner errors.
-  const { data: memberRow } = await supabase
-    .from("restaurant_members")
-    .select("role")
-    .eq("restaurant_id", restaurantId)
+  // Verify the caller is owner of the restaurant OR a platform_admin.
+  const { data: adminRow } = await supabase
+    .from("platform_admins")
+    .select("user_id")
     .eq("user_id", user.id)
-    .eq("status", "active")
     .maybeSingle();
 
-  if (memberRow?.role !== "owner") {
-    return NextResponse.json(
-      { error: "Solo los propietarios pueden subir imágenes." },
-      { status: 403 },
-    );
+  if (!adminRow) {
+    const { data: memberRow } = await supabase
+      .from("restaurant_members")
+      .select("role")
+      .eq("restaurant_id", restaurantId)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (memberRow?.role !== "owner") {
+      return NextResponse.json(
+        { error: "Solo los propietarios o administradores de plataforma pueden subir imágenes." },
+        { status: 403 },
+      );
+    }
   }
 
   const ext = detectedType.split("/")[1].replace("jpeg", "jpg");

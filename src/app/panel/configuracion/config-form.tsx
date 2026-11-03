@@ -98,11 +98,14 @@ export function NegocioForm({
   config,
   timezones,
   hasExistingPrices,
+  catalogUrl,
 }: {
   restaurant: { id: string; name: string; slug: string; timezone: string; currency: string };
   config?: RestaurantConfig;
   timezones: string[];
   hasExistingPrices: boolean;
+  /** Canonical public URL for this restaurant. Passed from server to avoid env-var guessing client-side. */
+  catalogUrl: string;
 }) {
   const initial: ConfigState = { error: null };
   const [state, action] = useActionState(saveIdentity, initial);
@@ -201,7 +204,7 @@ export function NegocioForm({
               Enlace único
               <span className="cfg-field-hint">Solo lectura — cambiar rompe URLs existentes</span>
             </label>
-            <input id="cf-slug" value={`mesa.app/r/${restaurant.slug}`} readOnly
+            <input id="cf-slug" value={catalogUrl} readOnly
               className="cfg-readonly-input" />
           </div>
         </div>

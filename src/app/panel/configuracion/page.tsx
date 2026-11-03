@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { createServerClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/panel-context";
+import { getRestaurantCanonical, getActiveDomainFromRows } from "@/lib/canonical";
 import { PageHeader }      from "@/components/panel/page-header";
 import { UnsavedAwareLink } from "@/components/unsaved-changes";
 import type {
@@ -125,7 +126,15 @@ export default async function ConfiguracionPage({
 
   const hasExistingPrices = (priceCount ?? 0) > 0;
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  // Resolve canonical URL with the same priority used everywhere else.
+  const activeDomain = getActiveDomainFromRows(
+    (domains as Array<{ host: string; kind: string; status: string }> | null),
+  );
+  const catalogUrl = restaurant
+    ? getRestaurantCanonical(restaurant.slug, activeDomain)
+    : "";
+
+  const supabaseUrl   = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const ordersEnabled = config?.orders_enabled ?? true;
 
   function tabHref(id: string) { return `/panel/configuracion?tab=${id}`; }
@@ -169,6 +178,7 @@ export default async function ConfiguracionPage({
               config={config ?? undefined}
               timezones={TIMEZONES}
               hasExistingPrices={hasExistingPrices}
+              catalogUrl={catalogUrl}
             />
           </SectionWrap>
         )}
@@ -280,6 +290,7 @@ export default async function ConfiguracionPage({
               config={config ?? undefined}
               supabaseUrl={supabaseUrl}
               restaurantId={restaurantId}
+              catalogUrl={catalogUrl}
             />
           </SectionWrap>
         )}
