@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
-import { createServerClient as createSsrClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 
 // ── Auth ──────────────────────────────────────────────────────
 
@@ -15,11 +15,13 @@ async function requireAdminSession() {
   return { user, supabase };
 }
 
+// Service-role client for data exports. Uses supabase-js directly (not @supabase/ssr)
+// because Route Handlers don't go through the SSR cookie machinery for server operations.
 function svc() {
-  return createSsrClient(
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { cookies: { getAll: () => [], setAll: () => {} } },
+    { auth: { persistSession: false, autoRefreshToken: false } },
   );
 }
 
