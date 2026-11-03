@@ -114,12 +114,15 @@ async function exportOrders(
   startDate: string | null,
   endDate: string | null,
 ) {
+  // Only columns granted to authenticated role (migration 018 revoked customer PII
+  // columns from the authenticated grant). PII stays in the DB.
   let q = db
     .from("orders")
     .select(`
       id, order_number, status, payment_status, modality,
-      customer_name, customer_phone, delivery_address,
-      subtotal_cents, delivery_fee_cents, total_cents,
+      delivery_zone_name, delivery_fee_cents,
+      payment_method_name, payment_method_type,
+      subtotal_cents, total_cents,
       notes, created_at, restaurant_id,
       restaurants ( name, currency )
     `)
@@ -134,7 +137,7 @@ async function exportOrders(
   if (error) throw new Error(error.message);
 
   const headers = ["ID", "Negocio", "Moneda", "#Pedido", "Estado", "Pago",
-    "Modalidad", "Cliente", "Teléfono", "Dirección", "Subtotal", "Envío", "Total", "Notas", "Fecha"];
+    "Modalidad", "Zona entrega", "Tarifa envío", "Medio pago", "Subtotal", "Total", "Notas", "Fecha"];
   const rows = (data ?? []).map((o: Record<string, unknown>) => {
     const rest = (o.restaurants as { name: string; currency: string } | null);
     const currency = rest?.currency ?? "USD";
@@ -142,10 +145,11 @@ async function exportOrders(
     return [
       o.id, rest?.name ?? "", currency,
       o.order_number, o.status, o.payment_status ?? "",
-      o.modality, o.customer_name ?? "", o.customer_phone ?? "",
-      o.delivery_address ?? "",
-      toAmount(o.subtotal_cents as number | null),
+      o.modality,
+      o.delivery_zone_name ?? "",
       toAmount(o.delivery_fee_cents as number | null),
+      o.payment_method_name ?? "",
+      toAmount(o.subtotal_cents as number | null),
       toAmount(o.total_cents as number | null),
       o.notes ?? "",
       new Date(o.created_at as string).toISOString(),

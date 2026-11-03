@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import { ManageShell } from "./manage-shell";
+import { getRestaurantCanonical, getActiveDomainFromRows } from "@/lib/canonical";
 
 export default async function ManageLayout({
   children,
@@ -33,16 +34,27 @@ export default async function ManageLayout({
 
   if (!restaurant) notFound();
 
-  const { data: cfgRow } = await supabase
-    .from("restaurant_config")
-    .select("orders_enabled, logo_path")
-    .eq("restaurant_id", id)
-    .maybeSingle();
+  const [{ data: cfgRow }, { data: domainRows }] = await Promise.all([
+    supabase
+      .from("restaurant_config")
+      .select("orders_enabled, logo_path")
+      .eq("restaurant_id", id)
+      .maybeSingle(),
+    supabase
+      .from("restaurant_domains")
+      .select("host, kind, status")
+      .eq("restaurant_id", id),
+  ]);
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseUrl  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const logoUrl: string | null = cfgRow?.logo_path
     ? `${supabaseUrl}/storage/v1/object/public/restaurant-assets/${cfgRow.logo_path}`
     : null;
+
+  const activeDomain = getActiveDomainFromRows(
+    (domainRows as Array<{ host: string; kind: string; status: string }> | null),
+  );
+  const catalogUrl = getRestaurantCanonical(restaurant.slug, activeDomain);
 
   return (
     <ManageShell
@@ -52,6 +64,7 @@ export default async function ManageLayout({
       ordersEnabled={cfgRow?.orders_enabled ?? true}
       logoUrl={logoUrl}
       userEmail={user.email ?? ""}
+      catalogUrl={catalogUrl}
     >
       {children}
     </ManageShell>

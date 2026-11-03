@@ -17,12 +17,13 @@ interface ManageShellProps {
   ordersEnabled:  boolean;
   logoUrl:        string | null;
   userEmail:      string;
+  catalogUrl:     string;
   children:       React.ReactNode;
 }
 
 function ShellInner({
   restaurantId, restaurantName, restaurantSlug,
-  ordersEnabled, logoUrl, userEmail, children,
+  ordersEnabled, logoUrl, userEmail, catalogUrl, children,
 }: ManageShellProps) {
   const pathname    = usePathname();
   const [open, setOpen] = useState(false);
@@ -138,7 +139,7 @@ function ShellInner({
           Volver a negocios
         </Link>
         <a
-          href={`/r/${restaurantSlug}`}
+          href={catalogUrl}
           target="_blank"
           rel="noopener noreferrer"
           style={{ display: "flex", alignItems: "center", gap: 6,
