@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-06T13:44:21.533Z",
+  "generated_at": "2026-11-06T16:01:45.412Z",
   "business": {
     "name": "Goxo Valencia",
     "slug": "goxo-valencia",
@@ -165,18 +165,27 @@
       ],
       "variants": [],
       "options": [],
-      "product_id": "39ba43cd-ac38-4815-a4a5-b3a9c2d4b21e"
+      "product_id": "39ba43cd-ac38-4815-a4a5-b3a9c2d4b21e",
+      "status": "soft_deleted",
+      "note": "Consolidado en Tarta Vasca Tradicional (entera). Imagen transferida a galería del producto principal (posición 2). Soft-delete 2026-11-06."
     },
     {
       "name": "Tarta Vasca con Mermelada de Parchita (entera)",
       "category": "Tartas enteras",
-      "price_eur": 65,
+      "price_eur": 35,
       "images": [
         "img-016.jpg"
       ],
-      "variants": [],
+      "variants": [
+        "1 kg · Sin topping: 35€",
+        "2 kg · Sin topping: 60€",
+        "1 kg · Con frutos rojos: 40€",
+        "2 kg · Con frutos rojos: 65€"
+      ],
       "options": [],
-      "product_id": "e7aeb615-3651-4af9-9f55-040c4a7d8fa3"
+      "product_id": "e7aeb615-3651-4af9-9f55-040c4a7d8fa3",
+      "variants_updated_at": "2026-11-06",
+      "description_updated_at": "2026-11-06"
     },
     {
       "name": "Vasca Fudgy (entera)",
@@ -198,24 +207,38 @@
     {
       "name": "Tarta Vasca de Chocolate Dubái (entera)",
       "category": "Tartas enteras",
-      "price_eur": 50,
+      "price_eur": 35,
       "images": [
         "img-019.png"
       ],
-      "variants": [],
+      "variants": [
+        "1 kg · Sin topping: 35€",
+        "2 kg · Sin topping: 60€",
+        "1 kg · Con frutos rojos: 40€",
+        "2 kg · Con frutos rojos: 65€"
+      ],
       "options": [],
-      "product_id": "72fe6325-b8e0-4fad-abbc-2764c2afd314"
+      "product_id": "72fe6325-b8e0-4fad-abbc-2764c2afd314",
+      "variants_updated_at": "2026-11-06",
+      "description_updated_at": "2026-11-06"
     },
     {
       "name": "Tarta Vasca con Crema Lotus y Galleta Lotus (entera)",
       "category": "Tartas enteras",
-      "price_eur": 50,
+      "price_eur": 35,
       "images": [
         "img-020.jpg"
       ],
-      "variants": [],
+      "variants": [
+        "1 kg · Sin topping: 35€",
+        "2 kg · Sin topping: 60€",
+        "1 kg · Con frutos rojos: 40€",
+        "2 kg · Con frutos rojos: 65€"
+      ],
       "options": [],
-      "product_id": "be34ebce-a77d-4d3e-a6f6-2baa8399c648"
+      "product_id": "be34ebce-a77d-4d3e-a6f6-2baa8399c648",
+      "variants_updated_at": "2026-11-06",
+      "description_updated_at": "2026-11-06"
     }
   ],
   "pending": [
@@ -246,31 +269,19 @@
       "2 kg · Con frutos rojos: 65€"
     ],
     "base_price_updated_to": "35€ (mínimo de las 4 variantes)",
-    "ambiguous_pending": [
-      {
-        "name": "Tarta Vasca con Topping de Frutos Rojos (entera)",
-        "product_id": "39ba43cd-ac38-4815-a4a5-b3a9c2d4b21e",
-        "issue": "El nombre incluye el topping «frutos rojos». Añadir la variante «Sin topping» contradice el nombre. Pendiente de aclaración del propietario.",
-        "current_price": "65€ (precio único)"
-      },
-      {
-        "name": "Tarta Vasca con Mermelada de Parchita (entera)",
-        "product_id": "e7aeb615-3651-4af9-9f55-040c4a7d8fa3",
-        "issue": "El nombre incluye el topping «mermelada de parchita». ¿Las variantes aplican con «Sin topping» = sin parchita? Pendiente de aclaración.",
-        "current_price": "65€ (precio único)"
-      },
-      {
-        "name": "Tarta Vasca de Chocolate Dubái (entera)",
-        "product_id": "72fe6325-b8e0-4fad-abbc-2764c2afd314",
-        "issue": "«Dubái» es el sabor base (kataifi, pistacho, chocolate), no un topping añadido. «Sin topping» sería ambiguo. Pendiente de aclaración.",
-        "current_price": "50€ (precio único)"
-      },
-      {
-        "name": "Tarta Vasca con Crema Lotus y Galleta Lotus (entera)",
-        "product_id": "be34ebce-a77d-4d3e-a6f6-2baa8399c648",
-        "issue": "«Lotus» está en el nombre como topping definitorio. Añadir «Sin topping» lo contradice. Pendiente de aclaración.",
-        "current_price": "50€ (precio único)"
-      }
-    ]
+    "pending_resolution": "Resuelto 2026-11-06",
+    "resolution": {
+      "date": "2026-11-06",
+      "confirmed_by": "Propietario",
+      "action": "Las mismas 4 variantes aplicadas a las 4 tartas pendientes. Frutos Rojos consolidada en Tradicional (soft-delete). Parchita, Dubái y Lotus mantienen sus nombres; descripción actualizada para distinguir especialidad de cobertura adicional.",
+      "products_fully_updated": [
+        "Tarta Vasca Tradicional (entera)",
+        "Vasca Fudgy (entera)",
+        "Tarta Vasca con Mermelada de Parchita (entera)",
+        "Tarta Vasca de Chocolate Dubái (entera)",
+        "Tarta Vasca con Crema Lotus y Galleta Lotus (entera)"
+      ],
+      "product_consolidated_and_deleted": "Tarta Vasca con Topping de Frutos Rojos (entera)"
+    }
   }
 }
