@@ -114,9 +114,13 @@ test("SD16 /_next/static pasa como static-passthrough", () => {
   assert.equal(r.kind, "static-passthrough");
 });
 
-test("SD17 /favicon.ico pasa como static-passthrough", () => {
+test("SD17 /favicon.ico en dominio de restaurante redirige al icono del catálogo", () => {
   const r = resolveRestaurantPath("/favicon.ico", SLUG);
-  assert.equal(r.kind, "static-passthrough");
+  assert.equal(r.kind, "redirect");
+  if (r.kind === "redirect") {
+    assert.ok(r.to.startsWith("/api/catalog-icon"), `esperado /api/catalog-icon, recibido: ${r.to}`);
+    assert.ok(r.to.includes(`slug=${encodeURIComponent(SLUG)}`), "debe incluir el slug");
+  }
 });
 
 test("SD18 /r/[slug] redirige a la raíz limpia (301 para marcadores viejos)", () => {

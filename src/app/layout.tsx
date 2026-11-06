@@ -24,6 +24,10 @@ const nunito = Nunito({
 export const metadata: Metadata = {
   title: "Wacatalog — Tus productos. Tu catálogo. Tu marca.",
   description: "Crea tu catálogo digital con fotos, precios y opciones. Personalízalo con tu marca y comparte un enlace para que tus clientes descubran lo que ofreces.",
+  icons: {
+    icon:    [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    shortcut:[{ url: "/favicon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

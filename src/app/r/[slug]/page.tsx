@@ -94,6 +94,18 @@ export async function generateMetadata({
   const logoPath  = config?.logo_path ?? null;
   const logoUrl   = logoPath ? `${assetBase}/${logoPath}` : null;
 
+  // Favicon and apple-touch-icon pointing to our icon route.
+  // `v` is a stable cache-buster derived from the start of logo_path —
+  // it changes when the logo changes, but is identical for the same logo
+  // so browsers cache the icon without re-fetching every page load.
+  const iconBase = `${getPlatformBase()}/api/catalog-icon`;
+  const iconV    = logoPath ? logoPath.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12) : "";
+  const iconParams = logoPath
+    ? `?id=${restaurant.id}&v=${iconV}`
+    : "";
+  const icon32  = `${iconBase}${iconParams}&sz=32`;
+  const icon180 = `${iconBase}${iconParams}&sz=180`;
+
   const siteName = "Wacatalog";
   const platformBase = getPlatformBase();
 
@@ -102,6 +114,11 @@ export async function generateMetadata({
     ...(description && { description }),
     robots: allowIndex ? { index: true, follow: true } : { index: false, follow: false },
     alternates: { canonical },
+    icons: {
+      icon:             [{ url: icon32,  sizes: "32x32",   type: "image/png" }],
+      apple:            [{ url: icon180, sizes: "180x180", type: "image/png" }],
+      shortcut:         [{ url: icon32,  type: "image/png" }],
+    },
     openGraph: {
       title,
       ...(description && { description }),

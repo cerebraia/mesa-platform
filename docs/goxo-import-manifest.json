@@ -1,0 +1,229 @@
+{
+  "generated_at": "2026-11-06T13:44:21.533Z",
+  "business": {
+    "name": "Goxo Valencia",
+    "slug": "goxo-valencia",
+    "restaurant_id": "f5e62d68-8388-4e89-b2b2-e5fabaa526b1",
+    "currency": "EUR",
+    "timezone": "Europe/Madrid",
+    "whatsapp": "+584124297849",
+    "instagram": "https://www.instagram.com/goxovalencia/",
+    "catalog_url_local": "http://localhost:3000/r/goxo-valencia",
+    "catalog_url_prod": "https://goxo-valencia.wacatalogo.com/"
+  },
+  "categories": [
+    "Vas-Cream",
+    "Porciones de tarta",
+    "Tartas enteras"
+  ],
+  "products": [
+    {
+      "name": "Vas-Cream",
+      "category": "Vas-Cream",
+      "price_eur": 6,
+      "images": [
+        "img-000.jpg"
+      ],
+      "variants": [],
+      "options": [],
+      "product_id": "1c534375-0ae1-44b4-9695-6888abdffa06"
+    },
+    {
+      "name": "Vasca Fit",
+      "category": "Porciones de tarta",
+      "price_eur": 8,
+      "images": [
+        "img-001.jpg"
+      ],
+      "variants": [],
+      "options": [
+        "Dulce de leche sin azúcar +1€"
+      ],
+      "product_id": "9f463465-d95a-4502-bf70-d6220ef2f87d"
+    },
+    {
+      "name": "Basque de Pistacho",
+      "category": "Porciones de tarta",
+      "price_eur": 8,
+      "images": [
+        "img-003.jpg"
+      ],
+      "variants": [],
+      "options": [],
+      "product_id": "d753a317-5bf1-4aa6-974e-5720ef86aad5"
+    },
+    {
+      "name": "Basque de Chocolate Dubái",
+      "category": "Porciones de tarta",
+      "price_eur": 9,
+      "images": [
+        "img-002.jpg"
+      ],
+      "variants": [],
+      "options": [],
+      "product_id": "01111382-0244-453e-b24c-f697109a565d"
+    },
+    {
+      "name": "Tarta Vasca Tradicional",
+      "category": "Porciones de tarta",
+      "price_eur": 7,
+      "images": [
+        "img-004.png"
+      ],
+      "variants": [],
+      "options": [],
+      "product_id": "c85b3007-80b3-46b3-9115-827acbe31ae0"
+    },
+    {
+      "name": "Choco Chunch",
+      "category": "Porciones de tarta",
+      "price_eur": 8,
+      "images": [
+        "img-005.png"
+      ],
+      "variants": [],
+      "options": [],
+      "product_id": "b1479b18-5054-4dbc-b166-9fa8d94062ab"
+    },
+    {
+      "name": "Tradicional con Ovomaltina",
+      "category": "Porciones de tarta",
+      "price_eur": 8,
+      "images": [
+        "img-010.jpg"
+      ],
+      "variants": [],
+      "options": [],
+      "product_id": "c92fc37f-4c65-4fdb-a97f-2a5ec794eba3"
+    },
+    {
+      "name": "Tradicional con Dulce de Leche",
+      "category": "Porciones de tarta",
+      "price_eur": 7.5,
+      "images": [
+        "img-011.jpg"
+      ],
+      "variants": [],
+      "options": [],
+      "product_id": "a475dfcd-d825-424d-8c2c-2560b9d9e059"
+    },
+    {
+      "name": "Tradicional con Crema Lotus y Galleta Lotus",
+      "category": "Porciones de tarta",
+      "price_eur": 8,
+      "images": [
+        "img-009.jpg"
+      ],
+      "variants": [],
+      "options": [],
+      "product_id": "25bc9d8d-ed4a-4534-a066-e80675a8b507"
+    },
+    {
+      "name": "Tradicional con Ovomaltina y Pirulin",
+      "category": "Porciones de tarta",
+      "price_eur": 9,
+      "images": [
+        "img-012.jpg"
+      ],
+      "variants": [],
+      "options": [],
+      "product_id": "267299df-2e29-40c5-8319-2a9fb5e34d67"
+    },
+    {
+      "name": "Tradicional con Chocoavellanas",
+      "category": "Porciones de tarta",
+      "price_eur": 7.5,
+      "images": [],
+      "variants": [],
+      "options": [],
+      "product_id": "df47699f-7a73-4072-873c-2c0198d47c59"
+    },
+    {
+      "name": "Tarta Vasca Tradicional (entera)",
+      "category": "Tartas enteras",
+      "price_eur": 35,
+      "images": [
+        "img-014.jpg",
+        "img-017.jpg"
+      ],
+      "variants": [
+        "1 kg: 35€",
+        "2 kg: 60€"
+      ],
+      "options": [],
+      "product_id": "dfe412cf-dc54-4f0b-a0b9-cdc8c4664e8c"
+    },
+    {
+      "name": "Tarta Vasca con Topping de Frutos Rojos (entera)",
+      "category": "Tartas enteras",
+      "price_eur": 65,
+      "images": [
+        "img-015.jpg"
+      ],
+      "variants": [],
+      "options": [],
+      "product_id": "39ba43cd-ac38-4815-a4a5-b3a9c2d4b21e"
+    },
+    {
+      "name": "Tarta Vasca con Mermelada de Parchita (entera)",
+      "category": "Tartas enteras",
+      "price_eur": 65,
+      "images": [
+        "img-016.jpg"
+      ],
+      "variants": [],
+      "options": [],
+      "product_id": "e7aeb615-3651-4af9-9f55-040c4a7d8fa3"
+    },
+    {
+      "name": "Vasca Fudgy (entera)",
+      "category": "Tartas enteras",
+      "price_eur": 35,
+      "images": [
+        "img-018.jpg"
+      ],
+      "variants": [
+        "1 kg: 35€",
+        "2 kg: 65€"
+      ],
+      "options": [],
+      "product_id": "68f0667f-a588-42ae-90c6-f399cce3a6a1"
+    },
+    {
+      "name": "Tarta Vasca de Chocolate Dubái (entera)",
+      "category": "Tartas enteras",
+      "price_eur": 50,
+      "images": [
+        "img-019.png"
+      ],
+      "variants": [],
+      "options": [],
+      "product_id": "72fe6325-b8e0-4fad-abbc-2764c2afd314"
+    },
+    {
+      "name": "Tarta Vasca con Crema Lotus y Galleta Lotus (entera)",
+      "category": "Tartas enteras",
+      "price_eur": 50,
+      "images": [
+        "img-020.jpg"
+      ],
+      "variants": [],
+      "options": [],
+      "product_id": "be34ebce-a77d-4d3e-a6f6-2baa8399c648"
+    }
+  ],
+  "pending": [
+    "Propietario: email no conocido — membresía pendiente",
+    "Logo: no extraíble del PDF — subir manualmente",
+    "Foto: Tradicional con Chocoavellanas — sin foto única en PDF",
+    "Errata: 'Choco Chunch' (posible errata por 'Choco Crunch') — confirmar con propietario",
+    "DNS: * CNAME f93otn7m.up.railway.app pendiente para goxo-valencia.wacatalogo.com",
+    "Suscripción: sin plan asignado (modo onboarding libre)",
+    "Horarios: no disponibles en el PDF — configurar desde panel"
+  ],
+  "observations": {
+    "img_006_descartada": "img-006.jpg es imagen promocional con texto superpuesto 'MIÉRCOLES DE PROMO VASCA FUDGY' — no apta como foto de catálogo",
+    "img_013_duplicada": "img-013.jpg es físicamente idéntica a img-010.jpg; el PDF incrusta la misma imagen para Ovomaltina y Chocoavellanas",
+    "productos_18": "El brief menciona 18 'productos principales'. Se implementan 17 productos: las 2 tartas con variantes de tamaño (Tarta Vasca Tradicional y Vasca Fudgy) se consolidan como 1 producto con 2 variantes cada una, en lugar de 2 productos separados. Los 8 price-points de Tartas Enteras se representan en 6 productos."
+  }
+}

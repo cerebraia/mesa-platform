@@ -160,12 +160,20 @@ export function resolveRestaurantPath(
     return { kind: "api-passthrough" };
   }
 
-  if (
-    pathname.startsWith("/_next/") ||
-    pathname === "/favicon.ico" ||
-    pathname.startsWith("/images/")
-  ) {
+  if (pathname.startsWith("/_next/") || pathname.startsWith("/images/")) {
     return { kind: "static-passthrough" };
+  }
+
+  // /favicon.ico on a restaurant domain → redirect to the catalog icon API.
+  // The icon handler resolves the logo from the DB by restaurantId; the slug
+  // is embedded in the redirect so the browser lands on the right icon.
+  // Using a redirect (302) instead of a rewrite keeps the URL predictable and
+  // lets browsers cache the final PNG URL independently.
+  if (pathname === "/favicon.ico") {
+    return {
+      kind: "redirect",
+      to:   `/api/catalog-icon?slug=${encodeURIComponent(slug)}&sz=32`,
+    };
   }
 
   if (pathname === "/" || pathname === "") {
