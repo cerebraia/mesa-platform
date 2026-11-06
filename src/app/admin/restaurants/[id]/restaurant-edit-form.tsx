@@ -61,11 +61,13 @@ export function RestaurantEditForm({
       <label className="field-label" style={{ marginTop: 16 }}>
         Moneda
         <select name="currency" defaultValue={defaultCurrency}>
-          <option value="USD">USD</option>
-          <option value="VES">VES</option>
-          <option value="COP">COP</option>
-          <option value="MXN">MXN</option>
-          <option value="PEN">PEN</option>
+          <option value="USD">USD — Dólar</option>
+          <option value="EUR">EUR — Euro</option>
+          <option value="VES">VES — Bolívar</option>
+          <option value="COP">COP — Peso colombiano</option>
+          <option value="MXN">MXN — Peso mexicano</option>
+          <option value="PEN">PEN — Sol peruano</option>
+          <option value="GBP">GBP — Libra</option>
         </select>
       </label>
 

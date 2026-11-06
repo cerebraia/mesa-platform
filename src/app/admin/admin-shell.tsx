@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
+  LayoutDashboard,
   Store,
   Package,
   Menu,
@@ -22,8 +23,9 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/admin",        label: "Negocios", icon: <Store   size={20} />, exact: false },
-  { href: "/admin/planes", label: "Planes",   icon: <Package size={20} />, exact: true  },
+  { href: "/admin/resumen", label: "Resumen",  icon: <LayoutDashboard size={20} />, exact: true  },
+  { href: "/admin",         label: "Negocios", icon: <Store            size={20} />, exact: false },
+  { href: "/admin/planes",  label: "Planes",   icon: <Package          size={20} />, exact: true  },
 ];
 
 function isActive(href: string, pathname: string, exact?: boolean): boolean {
@@ -33,6 +35,7 @@ function isActive(href: string, pathname: string, exact?: boolean): boolean {
 }
 
 function getCurrentSection(pathname: string): string {
+  if (pathname === "/admin/resumen") return "Resumen";
   if (pathname.startsWith("/admin/planes")) return "Planes";
   if (pathname.startsWith("/admin/restaurants")) return "Negocios";
   if (pathname === "/admin") return "Negocios";

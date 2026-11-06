@@ -187,6 +187,7 @@ export async function setRestaurantStatus(
 export async function assignOwner(
   restaurantId: string,
   email: string,
+  password?: string,
 ): Promise<AdminResult & { invitePending?: boolean; inviteNote?: string }> {
   const trimmedEmail = email.trim().toLowerCase();
   if (!trimmedEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmedEmail)) {
@@ -252,16 +253,43 @@ export async function assignOwner(
     });
 
     revalidatePath(`/admin/restaurants/${restaurantId}`);
-    return { error: null, data: { method: "existing_user", email: trimmedEmail } };
+    return {
+      error: null,
+      data: { method: "existing_user", email: trimmedEmail, userId: existingUser.id },
+    };
   }
 
-  // User does not exist — create invited membership row first (no user_id yet)
-  // We'll use Supabase invite to create the user and give them access.
-  // The invite flow: user clicks link → sets password → logs in.
-  // Validate redirect URL to our own domain only.
+  // User does not exist.
+  // If a password was provided, create the user directly (no SMTP needed).
+  // Otherwise, use Supabase's invite flow (requires SMTP).
+  if (password) {
+    const { data: created, error: createErr } = await svc.auth.admin.createUser({
+      email: trimmedEmail,
+      password,
+      email_confirm: true,
+    });
+    if (createErr) return { error: `Error al crear usuario: ${createErr.message}` };
+    const newUserId = created.user.id;
+
+    await svc.from("restaurant_members").insert({
+      restaurant_id: restaurantId,
+      user_id: newUserId,
+      role: "owner",
+      status: "active",
+    });
+
+    await logAudit(adminUser.id, "assign_owner_created", "member", restaurantId, {
+      email: trimmedEmail, user_id: newUserId, method: "created_with_password",
+      note: "Password set by platform_admin. Value not logged.",
+    });
+
+    revalidatePath(`/admin/restaurants/${restaurantId}`);
+    return { error: null, data: { method: "created_with_password", email: trimmedEmail, userId: newUserId } };
+  }
+
+  // No password provided — use invite flow (requires SITE_URL and SMTP).
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   if (!siteUrl) {
-    // No site URL configured — can't send invite
     await logAudit(adminUser.id, "assign_owner_pending", "member", restaurantId, {
       email: trimmedEmail, reason: "NEXT_PUBLIC_SITE_URL not set",
     });
@@ -308,6 +336,11 @@ export async function assignOwner(
       role: "owner",
       status: "invited",
     });
+
+    // If a password was provided, set it now (value not logged)
+    if (password) {
+      await svc.auth.admin.updateUserById(newUserId, { password });
+    }
   }
 
   await logAudit(adminUser.id, "assign_owner_invited", "member", restaurantId, {
@@ -583,4 +616,152 @@ export async function manageDomain(
 
   revalidatePath(`/admin/restaurants/${restaurantId}`);
   return { error: null };
+}
+
+// ── Set/reset owner password ──────────────────────────────────
+// Sets a new password for the user via Auth Admin.
+// NEVER logs, returns, or persists the password itself.
+export async function setOwnerPassword(
+  userId: string,
+  password: string,
+): Promise<AdminResult> {
+  if (!userId) return { error: "userId requerido." };
+  if (!password || password.length < 8)
+    return { error: "La contraseña debe tener al menos 8 caracteres." };
+
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const svc = adminServiceClient();
+  const { data: userData, error: lookupErr } = await svc.auth.admin.getUserById(userId);
+  if (lookupErr || !userData.user) return { error: "Usuario no encontrado." };
+
+  const { error } = await svc.auth.admin.updateUserById(userId, { password });
+  if (error) return { error: `Error al actualizar contraseña: ${error.message}` };
+
+  await logAudit(adminUser.id, "set_owner_password", "member", userId, {
+    email: userData.user.email,
+    note: "Contraseña establecida por platform_admin. Valor no registrado.",
+  });
+
+  revalidatePath("/admin");
+  return { error: null, data: { email: userData.user.email } };
+}
+
+// ── Generate password reset link ──────────────────────────────
+// Generates a one-time Supabase recovery link for the user.
+// The link redirects to /auth/callback?next=/panel.
+export async function generatePasswordResetLink(
+  email: string,
+): Promise<{ error: string | null; link?: string }> {
+  if (!email) return { error: "Email requerido." };
+
+  try {
+    await requireAdmin();
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const platformHost = process.env.NEXT_PUBLIC_PLATFORM_HOST;
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (platformHost ? `https://${platformHost}` : "http://localhost:3000");
+
+  const svc = adminServiceClient();
+  const { data, error } = await svc.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: { redirectTo: `${siteUrl}/auth/callback?next=/panel` },
+  });
+
+  if (error) return { error: `Error generando enlace: ${error.message}` };
+  return { error: null, link: data.properties?.action_link };
+}
+
+// ── Create restaurant with config ────────────────────────────
+// Extended version of createRestaurant that also saves initial config.
+export async function createRestaurantWithConfig(
+  formData: FormData,
+): Promise<AdminResult> {
+  const name         = String(formData.get("name") ?? "").trim();
+  const slug         = String(formData.get("slug") ?? "").trim().toLowerCase();
+  const currency     = String(formData.get("currency") ?? "USD").trim().toUpperCase();
+  const timezone     = String(formData.get("timezone") ?? "America/Caracas").trim();
+  const businessType = String(formData.get("business_type") ?? "restaurant").trim();
+  const ordersEnabled = formData.get("orders_enabled") !== "false";
+  const whatsapp     = String(formData.get("whatsapp") ?? "").trim() || null;
+  const instagram    = String(formData.get("instagram_url") ?? "").trim() || null;
+  const description  = String(formData.get("description") ?? "").trim() || null;
+  const ownerEmail   = String(formData.get("owner_email") ?? "").trim() || null;
+  const ownerPassword = String(formData.get("owner_password") ?? "").trim() || null;
+  const planId       = String(formData.get("plan_id") ?? "").trim() || null;
+
+  if (!name || name.length < 2) return { error: "El nombre debe tener al menos 2 caracteres." };
+  if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(slug)) {
+    return { error: "El slug solo puede tener minúsculas, dígitos y guiones (3–63 chars)." };
+  }
+  if (currency.length !== 3) return { error: "La moneda debe tener exactamente 3 letras." };
+
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const supabase = await createServerClient();
+  const svc = adminServiceClient();
+
+  // 1. Create restaurant
+  const { data: restaurant, error: rErr } = await supabase.from("restaurants").insert({
+    name, slug, currency, timezone, status: "onboarding", business_type: businessType,
+  }).select("id, name, slug").single();
+  if (rErr) {
+    if (rErr.code === "23505") return { error: "Este slug ya está en uso." };
+    return { error: rErr.message };
+  }
+
+  // 2. Create initial config
+  await supabase.from("restaurant_config").upsert({
+    restaurant_id: restaurant.id,
+    orders_enabled: ordersEnabled,
+    whatsapp: whatsapp ?? undefined,
+    instagram_url: instagram ?? undefined,
+    description: description ?? undefined,
+  }, { onConflict: "restaurant_id" });
+
+  const details: Record<string, unknown> = { name, slug, currency, timezone };
+
+  // 3. Optionally handle owner
+  let ownerId: string | null = null;
+  if (ownerEmail) {
+    const ownerRes = await assignOwner(restaurant.id, ownerEmail, ownerPassword ?? undefined);
+    if (ownerRes.error) {
+      details.owner_warning = ownerRes.error;
+    } else {
+      ownerId = (ownerRes.data as Record<string, unknown> | undefined)?.userId as string ?? null;
+      details.owner_email = ownerEmail;
+    }
+  }
+
+  // 4. Optionally create subscription
+  if (planId) {
+    await supabase.from("subscriptions").insert({
+      restaurant_id: restaurant.id,
+      plan_id: planId,
+      status: "active",
+      starts_at: new Date().toISOString(),
+    });
+    details.plan_id = planId;
+  }
+
+  await logAudit(adminUser.id, "create_restaurant", "restaurant", restaurant.id, details);
+  revalidatePath("/admin");
+  return { error: null, data: { ...restaurant, ownerId, warning: details.owner_warning ?? null } };
 }

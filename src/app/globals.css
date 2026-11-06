@@ -2526,3 +2526,47 @@ button.count-chip:focus-visible{outline:2px solid #703BE6;outline-offset:2px}
   .fin-slideout{width:100vw}
   .ctrl-block-body .field{grid-column:1/-1}
 }
+
+/* ── Admin metrics ─────────────────────────────────────────── */
+.admin-metric-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:4px}
+.admin-metric-card{background:#fff;border:1px solid #E8E9EF;border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:14px;box-shadow:0 1px 3px rgba(0,0,0,.03)}
+.admin-metric-icon{width:40px;height:40px;border-radius:10px;background:#f3f0ff;color:#7C3AED;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.admin-metric-body{display:flex;flex-direction:column;gap:2px;min-width:0}
+.admin-metric-value{font-size:22px;font-weight:700;color:#202337;line-height:1.1}
+.admin-metric-label{font-size:12px;color:#667085;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── Wizard steps ──────────────────────────────────────────── */
+.wizard-nav{display:flex;align-items:center;gap:0;margin-bottom:28px}
+.wizard-step{display:flex;align-items:center;gap:8px;flex:1;position:relative}
+.wizard-step:not(:last-child)::after{content:'';position:absolute;top:50%;right:0;width:calc(100% - 36px);height:1px;background:#E8E9EF;transform:translateY(-50%);left:36px}
+.wizard-step-num{width:28px;height:28px;border-radius:50%;border:2px solid #E8E9EF;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#94a3b8;background:#fff;flex-shrink:0;position:relative;z-index:1}
+.wizard-step--active .wizard-step-num{border-color:#7C3AED;color:#7C3AED;background:#f3f0ff}
+.wizard-step--done .wizard-step-num{border-color:#22c55e;color:#fff;background:#22c55e}
+.wizard-step-label{font-size:12px;color:#94a3b8;white-space:nowrap}
+.wizard-step--active .wizard-step-label{color:#202337;font-weight:600}
+.wizard-step--done .wizard-step-label{color:#667085}
+
+/* ── Password field ────────────────────────────────────────── */
+.pwd-field-wrap{position:relative;display:flex}
+.pwd-field-wrap input{flex:1;padding-right:40px}
+.pwd-field-toggle{position:absolute;right:0;top:0;bottom:0;width:38px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:#94a3b8;border-radius:0 8px 8px 0}
+.pwd-field-toggle:hover{color:#202337}
+
+/* ── Admin mobile card view ────────────────────────────────── */
+@media(max-width:760px){
+  .admin-metric-grid{grid-template-columns:repeat(2,1fr)}
+  .admin-biz-card{display:block;padding:14px 16px;border-bottom:1px solid #E8E9EF}
+  .admin-biz-card:last-child{border-bottom:0}
+  .admin-biz-card-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .admin-biz-card-name{font-weight:600;color:#202337;font-size:14px}
+  .admin-biz-card-slug{font-size:11px;color:#94a3b8;margin-top:2px}
+  .admin-biz-card-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:8px}
+  .table-scroll table thead{display:none}
+  .table-scroll table tbody tr{display:block;padding:12px 16px;border-bottom:1px solid #E8E9EF}
+  .table-scroll table tbody td{display:flex;align-items:center;justify-content:space-between;padding:4px 0;font-size:13px;border:none}
+  .table-scroll table tbody td::before{content:attr(data-label);font-weight:600;font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px;min-width:90px}
+}
+@media(max-width:390px){
+  .admin-metric-grid{grid-template-columns:1fr 1fr}
+  .admin-metric-value{font-size:18px}
+}
