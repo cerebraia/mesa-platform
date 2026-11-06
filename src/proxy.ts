@@ -252,7 +252,11 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 }
 
 export const config = {
+  // favicon.ico is intentionally NOT excluded here: restaurant subdomains need
+  // the middleware to intercept it and redirect to /api/catalog-icon.
+  // Platform pages serve /favicon.svg via explicit <link> tags, so they never
+  // request /favicon.ico from the browser in the first place.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|images|api/health).*)",
+    "/((?!_next/static|_next/image|images|api/health).*)",
   ],
 };
