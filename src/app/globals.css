@@ -274,9 +274,12 @@ details p{margin-top:14px;font-size:14px;line-height:1.7}
   .product-dialog fieldset{padding:12px 18px}
   .pd-footer{padding:12px 18px calc(12px + env(safe-area-inset-bottom,0px))}
   .pd-name{font-size:18px}
+  /* Limit image height so name/price/variants are always visible */
+  .pd-img-section{max-height:40vh;max-height:40dvh}
 }
 @media(max-width:360px){
   .product-dialog{width:100%;border-radius:16px 16px 0 0;position:fixed;bottom:0;max-height:96dvh}
+  .pd-img-section{max-height:38vh;max-height:38dvh}
 }
 @media(prefers-reduced-motion:reduce){
   .product-dialog{transition:none}
@@ -525,7 +528,8 @@ summary{font-size:15px}
 .rm-bh-inner{
   position:relative;z-index:1;
   display:flex;align-items:center;gap:18px;
-  padding:28px 0 32px;
+  /* padding-top/bottom only: horizontal comes from the .container class */
+  padding-top:28px;padding-bottom:32px;
 }
 /* Logo box — white container, object-fit:contain preserves the full logo */
 .rm-bh-logo-box{
@@ -857,7 +861,7 @@ summary{font-size:15px}
 @media(min-width:1024px){
   .rm-bh-logo-box{width:96px;height:96px}
   .rm-bh-name{font-size:30px}
-  .rm-bh-inner{padding:32px 0 36px;gap:22px}
+  .rm-bh-inner{padding-top:32px;padding-bottom:36px;gap:22px}
 }
 @media(min-width:1280px){
   .rm-hero{height:320px}
@@ -890,7 +894,7 @@ summary{font-size:15px}
   .rm-bh{min-height:220px}
   .rm-bh-logo-box{width:72px;height:72px;border-radius:10px}
   .rm-bh-name{font-size:21px}
-  .rm-bh-inner{padding:22px 0 26px;gap:12px}
+  .rm-bh-inner{padding-top:22px;padding-bottom:26px;gap:12px}
   .rm-bh-initials{font-size:18px}
   .mc-card-body{padding:8px 10px 10px}
   .mc-card-name{font-size:12px}
