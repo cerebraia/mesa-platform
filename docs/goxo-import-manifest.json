@@ -147,11 +147,14 @@
         "img-017.jpg"
       ],
       "variants": [
-        "1 kg: 35€",
-        "2 kg: 60€"
+        "1 kg · Sin topping: 35€",
+        "2 kg · Sin topping: 60€",
+        "1 kg · Con frutos rojos: 40€",
+        "2 kg · Con frutos rojos: 65€"
       ],
       "options": [],
-      "product_id": "dfe412cf-dc54-4f0b-a0b9-cdc8c4664e8c"
+      "product_id": "dfe412cf-dc54-4f0b-a0b9-cdc8c4664e8c",
+      "variants_updated_at": "2026-11-06"
     },
     {
       "name": "Tarta Vasca con Topping de Frutos Rojos (entera)",
@@ -183,11 +186,14 @@
         "img-018.jpg"
       ],
       "variants": [
-        "1 kg: 35€",
-        "2 kg: 65€"
+        "1 kg · Sin topping: 35€",
+        "2 kg · Sin topping: 60€",
+        "1 kg · Con frutos rojos: 40€",
+        "2 kg · Con frutos rojos: 65€"
       ],
       "options": [],
-      "product_id": "68f0667f-a588-42ae-90c6-f399cce3a6a1"
+      "product_id": "68f0667f-a588-42ae-90c6-f399cce3a6a1",
+      "variants_updated_at": "2026-11-06"
     },
     {
       "name": "Tarta Vasca de Chocolate Dubái (entera)",
@@ -225,5 +231,46 @@
     "img_006_descartada": "img-006.jpg es imagen promocional con texto superpuesto 'MIÉRCOLES DE PROMO VASCA FUDGY' — no apta como foto de catálogo",
     "img_013_duplicada": "img-013.jpg es físicamente idéntica a img-010.jpg; el PDF incrusta la misma imagen para Ovomaltina y Chocoavellanas",
     "productos_18": "El brief menciona 18 'productos principales'. Se implementan 17 productos: las 2 tartas con variantes de tamaño (Tarta Vasca Tradicional y Vasca Fudgy) se consolidan como 1 producto con 2 variantes cada una, en lugar de 2 productos separados. Los 8 price-points de Tartas Enteras se representan en 6 productos."
+  },
+  "variants_update": {
+    "date": "2026-11-06",
+    "instruction": "Propietario confirmó 4 variantes estándar para tartas enteras",
+    "updated_products": [
+      "Tarta Vasca Tradicional (entera)",
+      "Vasca Fudgy (entera)"
+    ],
+    "variants_applied": [
+      "1 kg · Sin topping: 35€",
+      "2 kg · Sin topping: 60€",
+      "1 kg · Con frutos rojos: 40€",
+      "2 kg · Con frutos rojos: 65€"
+    ],
+    "base_price_updated_to": "35€ (mínimo de las 4 variantes)",
+    "ambiguous_pending": [
+      {
+        "name": "Tarta Vasca con Topping de Frutos Rojos (entera)",
+        "product_id": "39ba43cd-ac38-4815-a4a5-b3a9c2d4b21e",
+        "issue": "El nombre incluye el topping «frutos rojos». Añadir la variante «Sin topping» contradice el nombre. Pendiente de aclaración del propietario.",
+        "current_price": "65€ (precio único)"
+      },
+      {
+        "name": "Tarta Vasca con Mermelada de Parchita (entera)",
+        "product_id": "e7aeb615-3651-4af9-9f55-040c4a7d8fa3",
+        "issue": "El nombre incluye el topping «mermelada de parchita». ¿Las variantes aplican con «Sin topping» = sin parchita? Pendiente de aclaración.",
+        "current_price": "65€ (precio único)"
+      },
+      {
+        "name": "Tarta Vasca de Chocolate Dubái (entera)",
+        "product_id": "72fe6325-b8e0-4fad-abbc-2764c2afd314",
+        "issue": "«Dubái» es el sabor base (kataifi, pistacho, chocolate), no un topping añadido. «Sin topping» sería ambiguo. Pendiente de aclaración.",
+        "current_price": "50€ (precio único)"
+      },
+      {
+        "name": "Tarta Vasca con Crema Lotus y Galleta Lotus (entera)",
+        "product_id": "be34ebce-a77d-4d3e-a6f6-2baa8399c648",
+        "issue": "«Lotus» está en el nombre como topping definitorio. Añadir «Sin topping» lo contradice. Pendiente de aclaración.",
+        "current_price": "50€ (precio único)"
+      }
+    ]
   }
 }

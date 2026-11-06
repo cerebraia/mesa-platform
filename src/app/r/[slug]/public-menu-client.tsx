@@ -434,6 +434,13 @@ function CatalogProductDialog({
     const opts = product.option_groups.flatMap((g) =>
       (selected[g.id] ?? []).map((id) => g.options.find((o) => o.id === id)?.name ?? ""),
     ).filter(Boolean);
+    // Calculate the final price shown to the user (variant > promo > base)
+    const priceCents = variant?.price_cents ?? product.promo_price_cents ?? product.base_price_cents;
+    // Extra cost from options
+    const optsDeltaCents = product.option_groups.flatMap((g) =>
+      (selected[g.id] ?? []).map((id) => g.options.find((o) => o.id === id)?.price_delta_cents ?? 0),
+    ).reduce((a, b) => a + b, 0);
+    const totalCents = priceCents + optsDeltaCents;
     const lines = [
       `Hola, me interesa este producto de *${restaurantName}*:`,
       "",
@@ -441,6 +448,7 @@ function CatalogProductDialog({
     ];
     if (variant) lines.push(`Variante: ${variant.name}`);
     if (opts.length) lines.push(`Opciones: ${opts.join(", ")}`);
+    lines.push(`Precio: ${money(totalCents, currency)}`);
     lines.push("", "¿Está disponible?");
     return `https://wa.me/${number}?text=${encodeURIComponent(lines.join("\n"))}`;
   }
