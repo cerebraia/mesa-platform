@@ -223,8 +223,24 @@ details p{margin-top:14px;font-size:14px;line-height:1.7}
 .pd-thumb:focus-visible{outline:2px solid white;outline-offset:2px}
 .pd-thumb img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
 
-/* Scrollable body */
-.pd-body{overflow-y:auto;flex:1;overscroll-behavior:contain}
+/* Scrollable body — legacy (ProductDialog with cart) */
+.pd-body{overflow-y:auto;flex:1;min-height:0;overscroll-behavior:contain}
+
+/* ── Catalog dialog — single-scroll layout (pd-catalog) ─────── */
+/* pd-scroll is the ONLY scroll container: gallery + content scroll together.
+   The image is NOT fixed — it scrolls away as the user swipes up.
+   pd-close-btn is position:absolute on the dialog (no pd-close-zone needed). */
+.pd-catalog .pd-close-btn{position:absolute;top:12px;right:12px;z-index:10;pointer-events:auto}
+.pd-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+/* Gallery inside pd-scroll: compact on mobile */
+@media(max-width:460px){
+  .pd-catalog .pd-img-section{max-height:220px;aspect-ratio:unset;flex-shrink:0}
+  .pd-catalog .pd-img{height:220px;max-height:220px}
+}
+@media(max-width:360px){
+  .pd-catalog .pd-img-section{max-height:200px}
+  .pd-catalog .pd-img{height:200px;max-height:200px}
+}
 
 /* Content padding */
 .pd-content{padding:20px 24px 0}

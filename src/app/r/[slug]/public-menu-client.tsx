@@ -461,69 +461,70 @@ function CatalogProductDialog({
   return (
     <dialog
       ref={dialogRef}
-      className="product-dialog"
+      className="product-dialog pd-catalog"
       onClick={(e) => { if (e.target === dialogRef.current) onClose(); }}
       onCancel={onClose}
       onKeyDown={handleKeyDown}
     >
-      <div className="pd-close-zone">
-        <button type="button" className="pd-close-btn" onClick={onClose} aria-label="Cerrar">
-          <CloseIcon />
-        </button>
-      </div>
+      {/* Close button — absolute on dialog, always visible regardless of scroll */}
+      <button type="button" className="pd-close-btn" onClick={onClose} aria-label="Cerrar">
+        <CloseIcon />
+      </button>
 
-      <div
-        className="pd-img-section"
-        onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
-        onTouchEnd={(e) => {
-          const delta = e.changedTouches[0].clientX - touchStartX.current;
-          if (!hasGallery) return;
-          if (delta > 40)  setImgIdx((i) => (i - 1 + images.length) % images.length);
-          if (delta < -40) setImgIdx((i) => (i + 1) % images.length);
-        }}
-      >
-        {imgUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img className="pd-img" src={imgUrl} alt={currentImg?.alt_text || product.name} />
-        ) : (
-          <ImgPlaceholder />
-        )}
-        {hasGallery && (
-          <>
-            <span className="pd-gallery-counter" aria-live="polite" aria-atomic="true">
-              {imgIdx + 1} / {images.length}
-            </span>
-            <button type="button" className="pd-gallery-btn pd-gallery-prev"
-              onClick={() => setImgIdx((i) => (i - 1 + images.length) % images.length)}
-              aria-label="Imagen anterior">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
-            </button>
-            <button type="button" className="pd-gallery-btn pd-gallery-next"
-              onClick={() => setImgIdx((i) => (i + 1) % images.length)}
-              aria-label="Imagen siguiente">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg>
-            </button>
-            <div className="pd-thumbs" role="tablist" aria-label="Galería de imágenes">
-              {images.map((img, i) => {
-                const tSrc = `${imgBase}/${img.thumbnail_path ?? img.storage_path}`;
-                return (
-                  <button key={img.id} type="button" role="tab"
-                    className={`pd-thumb${i === imgIdx ? " pd-thumb--on" : ""}`}
-                    onClick={() => setImgIdx(i)}
-                    aria-label={`Imagen ${i + 1} de ${images.length}`}
-                    aria-selected={i === imgIdx}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={tSrc} alt="" loading="lazy" />
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </div>
+      {/* Single scroll container: gallery + name + price + variants scroll together */}
+      <div className="pd-scroll">
+        {/* Gallery: compact on mobile, scrolls away with content */}
+        <div
+          className="pd-img-section"
+          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            const delta = e.changedTouches[0].clientX - touchStartX.current;
+            if (!hasGallery) return;
+            if (delta > 40)  setImgIdx((i) => (i - 1 + images.length) % images.length);
+            if (delta < -40) setImgIdx((i) => (i + 1) % images.length);
+          }}
+        >
+          {imgUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className="pd-img" src={imgUrl} alt={currentImg?.alt_text || product.name} />
+          ) : (
+            <ImgPlaceholder />
+          )}
+          {hasGallery && (
+            <>
+              <span className="pd-gallery-counter" aria-live="polite" aria-atomic="true">
+                {imgIdx + 1} / {images.length}
+              </span>
+              <button type="button" className="pd-gallery-btn pd-gallery-prev"
+                onClick={() => setImgIdx((i) => (i - 1 + images.length) % images.length)}
+                aria-label="Imagen anterior">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="15 18 9 12 15 6" /></svg>
+              </button>
+              <button type="button" className="pd-gallery-btn pd-gallery-next"
+                onClick={() => setImgIdx((i) => (i + 1) % images.length)}
+                aria-label="Imagen siguiente">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true"><polyline points="9 18 15 12 9 6" /></svg>
+              </button>
+              <div className="pd-thumbs" role="tablist" aria-label="Galería de imágenes">
+                {images.map((img, i) => {
+                  const tSrc = `${imgBase}/${img.thumbnail_path ?? img.storage_path}`;
+                  return (
+                    <button key={img.id} type="button" role="tab"
+                      className={`pd-thumb${i === imgIdx ? " pd-thumb--on" : ""}`}
+                      onClick={() => setImgIdx(i)}
+                      aria-label={`Imagen ${i + 1} de ${images.length}`}
+                      aria-selected={i === imgIdx}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={tSrc} alt="" loading="lazy" />
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
 
-      <div className="pd-body">
         <div className="pd-content">
           <h2 className="pd-name">{product.name}</h2>
           <p className="pd-price" style={{ color: primaryColor }}>{money(displayPrice, currency)}</p>
@@ -583,6 +584,7 @@ function CatalogProductDialog({
         <div style={{ height: 8 }} />
       </div>
 
+      {/* Footer: outside the scroll container, always at bottom */}
       <div className="pd-footer">
         {waUrl ? (
           <a href={waUrl} target="_blank" rel="noopener noreferrer"
