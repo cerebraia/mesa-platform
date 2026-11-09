@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Store,
   Package,
+  Users,
   Menu,
   X,
   LogOut,
@@ -23,9 +24,10 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { href: "/admin/resumen", label: "Resumen",  icon: <LayoutDashboard size={20} />, exact: true  },
-  { href: "/admin",         label: "Negocios", icon: <Store            size={20} />, exact: false },
-  { href: "/admin/planes",  label: "Planes",   icon: <Package          size={20} />, exact: true  },
+  { href: "/admin/resumen",   label: "Resumen",  icon: <LayoutDashboard size={20} />, exact: true  },
+  { href: "/admin",           label: "Negocios", icon: <Store            size={20} />, exact: false },
+  { href: "/admin/planes",    label: "Planes",   icon: <Package          size={20} />, exact: true  },
+  { href: "/admin/usuarios",  label: "Usuarios", icon: <Users            size={20} />, exact: false },
 ];
 
 function isActive(href: string, pathname: string, exact?: boolean): boolean {
@@ -38,6 +40,7 @@ function getCurrentSection(pathname: string): string {
   if (pathname === "/admin/resumen") return "Resumen";
   if (pathname.startsWith("/admin/planes")) return "Planes";
   if (pathname.startsWith("/admin/restaurants")) return "Negocios";
+  if (pathname.startsWith("/admin/usuarios")) return "Usuarios";
   if (pathname === "/admin") return "Negocios";
   return "Administración";
 }

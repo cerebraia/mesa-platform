@@ -683,6 +683,189 @@ export async function generatePasswordResetLink(
   return { error: null, link: data.properties?.action_link };
 }
 
+// ── Check owner email ─────────────────────────────────────────
+// Looks up a user by email via Auth Admin API.
+// Used by the wizard to show the correct UI before creating a restaurant.
+export async function checkOwnerEmail(
+  email: string,
+): Promise<{ error: string | null; exists: boolean; userId?: string }> {
+  const trimmed = email.trim().toLowerCase();
+  if (!trimmed || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) {
+    return { error: "Dirección de correo inválida.", exists: false };
+  }
+
+  try {
+    await requireAdmin();
+  } catch (e) {
+    return { error: (e as Error).message, exists: false };
+  }
+
+  const svc = adminServiceClient();
+  const { data: userList, error: listErr } = await svc.auth.admin.listUsers({
+    page: 1,
+    perPage: 1000,
+  });
+  if (listErr) return { error: `Error al buscar usuario: ${listErr.message}`, exists: false };
+
+  const existing = userList?.users.find(
+    (u) => u.email?.toLowerCase() === trimmed,
+  );
+
+  if (existing) {
+    return { error: null, exists: true, userId: existing.id };
+  }
+  return { error: null, exists: false };
+}
+
+// ── Create restaurant (full) ──────────────────────────────────
+// Creates restaurant + config + optional owner + optional plan.
+// Never fails because of partial owner/plan errors — those go to pendingItems.
+export type RestaurantCreationResult = {
+  error: string | null;
+  restaurantId?: string;
+  restaurantName?: string;
+  slug?: string;
+  loginUrl?: string;
+  owner?: {
+    email: string;
+    method: "created" | "linked";
+    membershipCreated: boolean;
+  };
+  pendingItems?: string[];
+};
+
+export async function createRestaurantFull(
+  formData: FormData,
+): Promise<RestaurantCreationResult> {
+  const name         = String(formData.get("name") ?? "").trim();
+  const slug         = String(formData.get("slug") ?? "").trim().toLowerCase();
+  const currency     = String(formData.get("currency") ?? "USD").trim().toUpperCase();
+  const timezone     = String(formData.get("timezone") ?? "America/Caracas").trim();
+  const businessType = String(formData.get("business_type") ?? "restaurant").trim();
+  const ordersEnabled = formData.get("orders_enabled") !== "false";
+  const whatsapp     = String(formData.get("whatsapp") ?? "").trim() || null;
+  const instagram    = String(formData.get("instagram_url") ?? "").trim() || null;
+  const description  = String(formData.get("description") ?? "").trim() || null;
+  const ownerEmail   = String(formData.get("owner_email") ?? "").trim() || null;
+  const ownerPassword = String(formData.get("owner_password") ?? "").trim() || null;
+  const planId       = String(formData.get("plan_id") ?? "").trim() || null;
+
+  if (!name || name.length < 2)
+    return { error: "El nombre debe tener al menos 2 caracteres." };
+  if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(slug))
+    return { error: "El slug solo puede tener minúsculas, dígitos y guiones (3–63 chars)." };
+  if (currency.length !== 3)
+    return { error: "La moneda debe tener exactamente 3 letras." };
+
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const supabase = await createServerClient();
+  const svc = adminServiceClient();
+
+  // Check slug uniqueness before creating
+  const { data: slugCheck } = await svc
+    .from("restaurants").select("id").eq("slug", slug).is("deleted_at", null).maybeSingle();
+  if (slugCheck) return { error: "Este slug ya está en uso." };
+
+  // 1. Create restaurant
+  const { data: restaurant, error: rErr } = await supabase.from("restaurants").insert({
+    name, slug, currency, timezone, status: "onboarding", business_type: businessType,
+  }).select("id, name, slug").single();
+  if (rErr) {
+    if (rErr.code === "23505") return { error: "Este slug ya está en uso." };
+    return { error: rErr.message };
+  }
+
+  const restaurantId = restaurant.id;
+  const pendingItems: string[] = [];
+
+  // 2. Create initial config
+  await supabase.from("restaurant_config").upsert({
+    restaurant_id: restaurantId,
+    orders_enabled: ordersEnabled,
+    whatsapp: whatsapp ?? undefined,
+    instagram_url: instagram ?? undefined,
+    description: description ?? undefined,
+  }, { onConflict: "restaurant_id" });
+
+  // 3. Optionally handle owner — partial failure is non-fatal
+  let ownerResult: RestaurantCreationResult["owner"] | undefined;
+  if (ownerEmail) {
+    const ownerRes = await assignOwner(restaurantId, ownerEmail, ownerPassword ?? undefined);
+    if (ownerRes.error) {
+      pendingItems.push(
+        `No se pudo crear el acceso para ${ownerEmail}: ${ownerRes.error}. Ve al detalle del negocio para asignar el propietario manualmente.`,
+      );
+    } else {
+      const method = (ownerRes.data as Record<string, string> | undefined)?.method;
+      ownerResult = {
+        email: ownerEmail,
+        method: method === "existing_user" ? "linked" : "created",
+        membershipCreated: true,
+      };
+    }
+  }
+
+  // 4. Optionally create subscription — partial failure is non-fatal
+  if (planId) {
+    const { error: subErr } = await supabase.from("subscriptions").insert({
+      restaurant_id: restaurantId,
+      plan_id: planId,
+      status: "active",
+      starts_at: new Date().toISOString(),
+      created_by: adminUser.id,
+    });
+    if (subErr) {
+      pendingItems.push(
+        `No se pudo asignar el plan: ${subErr.message}. Ve al detalle del negocio para asignarlo manualmente.`,
+      );
+    }
+  }
+
+  // 5. Build loginUrl server-side
+  const subdomainBase = process.env.PLATFORM_SUBDOMAIN_BASE;
+  const rawSiteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (process.env.NEXT_PUBLIC_PLATFORM_HOST
+      ? `https://${process.env.NEXT_PUBLIC_PLATFORM_HOST}`
+      : null);
+
+  let loginUrl: string;
+  if (subdomainBase) {
+    loginUrl = `https://${slug}.${subdomainBase}/panel/login`;
+  } else if (rawSiteUrl) {
+    loginUrl = `${rawSiteUrl}/login?negocio=${slug}`;
+  } else {
+    loginUrl = `/login?negocio=${slug}`;
+  }
+
+  // 6. Audit log
+  await logAudit(adminUser.id, "create_restaurant_full", "restaurant", restaurantId, {
+    name, slug, currency, timezone,
+    owner_email: ownerEmail ?? null,
+    plan_id: planId ?? null,
+    pending_items: pendingItems,
+    note: ownerPassword ? "Password set by platform_admin. Value not logged." : undefined,
+  });
+
+  revalidatePath("/admin");
+  return {
+    error: null,
+    restaurantId,
+    restaurantName: name,
+    slug,
+    loginUrl,
+    owner: ownerResult,
+    pendingItems: pendingItems.length > 0 ? pendingItems : undefined,
+  };
+}
+
 // ── Create restaurant with config ────────────────────────────
 // Extended version of createRestaurant that also saves initial config.
 export async function createRestaurantWithConfig(
@@ -764,4 +947,343 @@ export async function createRestaurantWithConfig(
   await logAudit(adminUser.id, "create_restaurant", "restaurant", restaurant.id, details);
   revalidatePath("/admin");
   return { error: null, data: { ...restaurant, ownerId, warning: details.owner_warning ?? null } };
+}
+// ── List platform users ───────────────────────────────────────
+// Returns all auth users joined with their memberships.
+// Filtering is performed client-side (small user counts during pilot).
+export async function listPlatformUsers(opts?: {
+  q?: string;
+  restaurantId?: string;
+  role?: string;
+  memberStatus?: string;
+}): Promise<{
+  error: string | null;
+  users?: Array<{
+    userId: string;
+    email: string;
+    createdAt: string;
+    memberships: Array<{
+      membershipId: string;
+      restaurantId: string;
+      restaurantName: string;
+      restaurantSlug: string;
+      role: string;
+      status: string;
+    }>;
+  }>;
+}> {
+  try {
+    await requireAdmin();
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const svc = adminServiceClient();
+
+  // Fetch all auth users (paginate up to 10 000)
+  const allAuthUsers: Array<{ id: string; email?: string; created_at: string }> = [];
+  let page = 1;
+  while (true) {
+    const { data, error } = await svc.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) return { error: `Error al listar usuarios: ${error.message}` };
+    allAuthUsers.push(...(data?.users ?? []));
+    if (!data?.users || data.users.length < 1000) break;
+    page++;
+  }
+
+  // Fetch all memberships joined with restaurants
+  const { data: memberships, error: memErr } = await svc
+    .from("restaurant_members")
+    .select("id, restaurant_id, user_id, role, status, restaurants(id, name, slug)")
+    .order("created_at");
+  if (memErr) return { error: `Error al listar membresías: ${memErr.message}` };
+
+  // Build a map: userId → memberships
+  const memberMap = new Map<
+    string,
+    Array<{
+      membershipId: string;
+      restaurantId: string;
+      restaurantName: string;
+      restaurantSlug: string;
+      role: string;
+      status: string;
+    }>
+  >();
+  for (const m of memberships ?? []) {
+    const rest = m.restaurants as unknown as { id: string; name: string; slug: string } | null;
+    if (!memberMap.has(m.user_id)) memberMap.set(m.user_id, []);
+    memberMap.get(m.user_id)!.push({
+      membershipId: m.id,
+      restaurantId: m.restaurant_id,
+      restaurantName: rest?.name ?? "(eliminado)",
+      restaurantSlug: rest?.slug ?? "",
+      role: m.role,
+      status: m.status,
+    });
+  }
+
+  let users = allAuthUsers.map((u) => ({
+    userId: u.id,
+    email: u.email ?? "(sin correo)",
+    createdAt: u.created_at,
+    memberships: memberMap.get(u.id) ?? [],
+  }));
+
+  // Apply optional filters
+  if (opts?.q) {
+    const q = opts.q.toLowerCase();
+    users = users.filter((u) => u.email.toLowerCase().includes(q));
+  }
+  if (opts?.restaurantId) {
+    users = users.filter((u) =>
+      u.memberships.some((m) => m.restaurantId === opts.restaurantId),
+    );
+  }
+  if (opts?.role) {
+    users = users.filter((u) =>
+      u.memberships.some((m) => m.role === opts.role),
+    );
+  }
+  if (opts?.memberStatus) {
+    users = users.filter((u) =>
+      u.memberships.some((m) => m.status === opts.memberStatus),
+    );
+  }
+
+  return { error: null, users };
+}
+
+// ── Create user membership ────────────────────────────────────
+export async function createUserMembership(params: {
+  email: string;
+  restaurantId: string;
+  role: "owner" | "attention" | "kitchen";
+  password?: string;
+}): Promise<{
+  error: string | null;
+  method?: "created" | "linked";
+  userId?: string;
+  loginUrl?: string;
+  alreadyMember?: boolean;
+  existingRole?: string;
+  membershipId?: string;
+}> {
+  const { restaurantId, role, password } = params;
+  const email = params.email.trim().toLowerCase();
+
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    return { error: "Dirección de correo inválida." };
+  }
+  if (!["owner", "attention", "kitchen"].includes(role)) {
+    return { error: "Rol inválido. Use owner, attention o kitchen." };
+  }
+
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const svc = adminServiceClient();
+
+  // Verify restaurant exists and is not deleted
+  const { data: restaurant } = await svc
+    .from("restaurants")
+    .select("id, name, slug")
+    .eq("id", restaurantId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (!restaurant) return { error: "Negocio no encontrado o eliminado." };
+
+  // Build login URL the same way as createRestaurantFull
+  const subdomainBase = process.env.PLATFORM_SUBDOMAIN_BASE;
+  const rawSiteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (process.env.NEXT_PUBLIC_PLATFORM_HOST
+      ? `https://${process.env.NEXT_PUBLIC_PLATFORM_HOST}`
+      : null);
+  let loginUrl: string;
+  if (subdomainBase) {
+    loginUrl = `https://${restaurant.slug}.${subdomainBase}/panel/login`;
+  } else if (rawSiteUrl) {
+    loginUrl = `${rawSiteUrl}/login?negocio=${restaurant.slug}`;
+  } else {
+    loginUrl = `/login?negocio=${restaurant.slug}`;
+  }
+
+  // Check if user already exists in auth
+  const emailCheck = await checkOwnerEmail(email);
+  if (emailCheck.error) return { error: emailCheck.error };
+
+  if (emailCheck.exists && emailCheck.userId) {
+    const existingUserId = emailCheck.userId;
+
+    // Check if already a member of this restaurant
+    const { data: existingMember } = await svc
+      .from("restaurant_members")
+      .select("id, role, status")
+      .eq("restaurant_id", restaurantId)
+      .eq("user_id", existingUserId)
+      .maybeSingle();
+
+    if (existingMember) {
+      return {
+        error: null,
+        alreadyMember: true,
+        existingRole: existingMember.role,
+        membershipId: existingMember.id,
+        userId: existingUserId,
+      };
+    }
+
+    // Link existing user to restaurant
+    const { data: newMem, error: insertErr } = await svc
+      .from("restaurant_members")
+      .insert({
+        restaurant_id: restaurantId,
+        user_id: existingUserId,
+        role,
+        status: "active",
+      })
+      .select("id")
+      .single();
+    if (insertErr) return { error: insertErr.message };
+
+    await logAudit(adminUser.id, "create_user_membership", "member", newMem.id, {
+      email, restaurant_id: restaurantId, role, method: "linked",
+    });
+
+    revalidatePath("/admin/usuarios");
+    return { error: null, method: "linked", userId: existingUserId, loginUrl, membershipId: newMem.id };
+  }
+
+  // User does not exist — create new account
+  if (!password || password.length < 8) {
+    return { error: "Se requiere una contraseña de al menos 8 caracteres para cuentas nuevas." };
+  }
+
+  const { data: created, error: createErr } = await svc.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+  if (createErr) return { error: `Error al crear usuario: ${createErr.message}` };
+  const newUserId = created.user.id;
+
+  const { data: newMem, error: insertErr } = await svc
+    .from("restaurant_members")
+    .insert({
+      restaurant_id: restaurantId,
+      user_id: newUserId,
+      role,
+      status: "active",
+    })
+    .select("id")
+    .single();
+  if (insertErr) return { error: insertErr.message };
+
+  await logAudit(adminUser.id, "create_user_membership", "member", newMem.id, {
+    email, restaurant_id: restaurantId, role, method: "created",
+    note: "Password set by platform_admin. Value not logged.",
+  });
+
+  revalidatePath("/admin/usuarios");
+  return { error: null, method: "created", userId: newUserId, loginUrl, membershipId: newMem.id };
+}
+
+// ── Update membership role ────────────────────────────────────
+export async function updateMembershipRole(
+  membershipId: string,
+  newRole: "owner" | "attention" | "kitchen",
+): Promise<{ error: string | null }> {
+  if (!["owner", "attention", "kitchen"].includes(newRole)) {
+    return { error: "Rol inválido." };
+  }
+
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const svc = adminServiceClient();
+
+  // Verify membership exists and restaurant is not deleted
+  const { data: membership } = await svc
+    .from("restaurant_members")
+    .select("id, role, restaurant_id, restaurants(deleted_at)")
+    .eq("id", membershipId)
+    .maybeSingle();
+  if (!membership) return { error: "Membresía no encontrada." };
+  const rest = membership.restaurants as unknown as { deleted_at: string | null } | null;
+  if (rest?.deleted_at) return { error: "El negocio ha sido eliminado." };
+
+  const { error } = await svc
+    .from("restaurant_members")
+    .update({ role: newRole })
+    .eq("id", membershipId);
+  if (error) return { error: error.message };
+
+  await logAudit(adminUser.id, "update_membership_role", "member", membershipId, {
+    old_role: membership.role, new_role: newRole, restaurant_id: membership.restaurant_id,
+  });
+
+  revalidatePath("/admin/usuarios");
+  return { error: null };
+}
+
+// ── Revoke membership ─────────────────────────────────────────
+// Sets status=suspended. Blocks if this would remove the last active owner.
+export async function revokeMembership(
+  membershipId: string,
+): Promise<{ error: string | null; lastOwnerBlocked?: boolean }> {
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const svc = adminServiceClient();
+
+  // Fetch the membership
+  const { data: membership } = await svc
+    .from("restaurant_members")
+    .select("id, role, status, restaurant_id")
+    .eq("id", membershipId)
+    .maybeSingle();
+  if (!membership) return { error: "Membresía no encontrada." };
+
+  // Last-owner guard: if this member is an owner, verify there is at least one other active owner
+  if (membership.role === "owner") {
+    const { count, error: countErr } = await svc
+      .from("restaurant_members")
+      .select("id", { count: "exact", head: true })
+      .eq("restaurant_id", membership.restaurant_id)
+      .eq("role", "owner")
+      .eq("status", "active");
+    if (countErr) return { error: countErr.message };
+    if ((count ?? 0) <= 1) {
+      return { error: null, lastOwnerBlocked: true };
+    }
+  }
+
+  const { error } = await svc
+    .from("restaurant_members")
+    .update({ status: "suspended" })
+    .eq("id", membershipId);
+  if (error) return { error: error.message };
+
+  await logAudit(adminUser.id, "revoke_membership", "member", membershipId, {
+    restaurant_id: membership.restaurant_id, role: membership.role,
+  });
+
+  revalidatePath("/admin/usuarios");
+  return { error: null };
 }

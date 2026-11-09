@@ -96,13 +96,19 @@ async function runSessionProxy(request: NextRequest): Promise<NextResponse> {
   }
 
   if (user && pathname === "/login") {
-    const url = request.nextUrl.clone();
-    url.pathname = "/panel";
-    const redirect = NextResponse.redirect(url);
-    supabaseResponse.cookies
-      .getAll()
-      .forEach((c) => redirect.cookies.set(c.name, c.value, c));
-    return redirect;
+    // When a business-specific login link carries ?negocio=, let the page
+    // render so it can check membership and select the business automatically.
+    const negocio = request.nextUrl.searchParams.get("negocio");
+    if (!negocio) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/panel";
+      const redirect = NextResponse.redirect(url);
+      supabaseResponse.cookies
+        .getAll()
+        .forEach((c) => redirect.cookies.set(c.name, c.value, c));
+      return redirect;
+    }
+    // Fall through — let the login page handle the membership check.
   }
 
   return supabaseResponse;
@@ -142,6 +148,21 @@ function rewriteForRestaurant(
   const headers = new Headers(request.headers);
   headers.set("x-mesa-restaurant-slug", slug);
   return NextResponse.rewrite(url, { request: { headers } });
+}
+
+// Redirects /panel/login on a restaurant domain to the platform login page
+// with ?negocio=<slug>. Built from env vars — never from request headers.
+function redirectPanelLogin(request: NextRequest, slug: string): NextResponse {
+  const siteUrl      = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+  const platformHost = process.env.NEXT_PUBLIC_PLATFORM_HOST;
+  const base         = siteUrl || (platformHost ? `https://${platformHost}` : "");
+  if (!base) {
+    // No platform base configured (e.g. local dev without env vars) — 404 safely.
+    return new NextResponse("Not Found", { status: 404 });
+  }
+  const destination = new URL(`${base}/login`);
+  destination.searchParams.set("negocio", slug);
+  return NextResponse.redirect(destination.toString(), { status: 302 });
 }
 
 function unknownHostResponse(): NextResponse {
@@ -220,12 +241,18 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   }
 
   // ── 2. Restaurant domain — block private routes ───────────
+  // Exception: /panel/login is forwarded to the main platform login with
+  // ?negocio=<slug> so business owners get a branded sign-in experience.
+  const isPanelLoginPath =
+    pathname === "/panel/login" || pathname === "/panel/login/";
+
   if (
-    pathname.startsWith("/panel") ||
-    pathname.startsWith("/admin") ||
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/demo") ||
-    pathname.startsWith("/seleccionar-negocio")
+    !isPanelLoginPath &&
+    (pathname.startsWith("/panel") ||
+      pathname.startsWith("/admin") ||
+      pathname.startsWith("/login") ||
+      pathname.startsWith("/demo") ||
+      pathname.startsWith("/seleccionar-negocio"))
   ) {
     return new NextResponse("Not Found", { status: 404 });
   }
@@ -234,6 +261,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   // extractPlatformSubdomain validates: non-reserved, single label, SLUG_RE.
   const subdomainSlug = extractPlatformSubdomain(host);
   if (subdomainSlug !== null) {
+    if (isPanelLoginPath) return redirectPanelLogin(request, subdomainSlug);
     return routeRestaurantPath(request, pathname, subdomainSlug);
   }
 
@@ -248,6 +276,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     return unknownHostResponse();
   }
 
+  if (isPanelLoginPath) return redirectPanelLogin(request, slug);
   return routeRestaurantPath(request, pathname, slug);
 }
 
