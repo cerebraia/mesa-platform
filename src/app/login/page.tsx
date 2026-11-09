@@ -22,6 +22,9 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 export default async function LoginPage({ searchParams }: Props) {
   const sp      = await searchParams;
   const negocio = sp.negocio ?? "";
+  // next param: validated server-side — exact allowlist only, no wildcards.
+  const nextRaw  = sp.next ?? "";
+  const nextPath = nextRaw === "/admin/usuarios" ? nextRaw : null;
 
   let brand: BizBrand | null = null;
   if (negocio) {
@@ -56,11 +59,23 @@ export default async function LoginPage({ searchParams }: Props) {
     }
   }
 
+  // Authenticated user landing here with a ?next= param (e.g. admin path).
+  // The proxy only lets this through when next is set; check for auth here too
+  // so the page never renders the login form for a user who is already in.
+  if (!brand && nextPath) {
+    const supabase = await createServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) redirect(nextPath);
+  }
+
   // Render the form (branded if brand is resolved, standard otherwise).
   return (
     <LoginForm
       brand={brand}
       negocio={brand ? negocio : ""}
+      next={nextPath}
     />
   );
 }

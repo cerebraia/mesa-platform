@@ -12,13 +12,27 @@ export type LoginState = {
   noAccess?: boolean;
 };
 
+// Exact allowlist of internal paths accepted via the ?next= post-login param.
+// Keeping it exact (not a wildcard) eliminates open-redirect risk entirely.
+// Add entries here when other protected pages need this flow.
+const ALLOWED_NEXT_PATHS = new Set(["/admin/usuarios"]);
+
+function sanitizeNext(next: string | null | undefined): string | null {
+  if (!next) return null;
+  // Reject anything that is not a simple pathname (no host, protocol, query or fragment).
+  if (!/^\/[a-zA-Z0-9/_-]*$/.test(next)) return null;
+  return ALLOWED_NEXT_PATHS.has(next) ? next : null;
+}
+
 export async function signIn(
   _prev: LoginState,
   formData: FormData,
 ): Promise<LoginState> {
-  const email   = String(formData.get("email")   ?? "").trim();
+  const email    = String(formData.get("email")    ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const negocio  = String(formData.get("negocio")  ?? "").trim();
+  const nextRaw  = String(formData.get("next")     ?? "").trim();
+  const nextPath = sanitizeNext(nextRaw);
 
   if (!email || !password) {
     return { error: "Ingresa tu correo y contraseña." };
@@ -89,7 +103,8 @@ export async function signIn(
   const cookieStore = await cookies();
   cookieStore.delete("panel_restaurant_id");
 
-  redirect("/panel");
+  // If the user was trying to reach a specific internal path, go there now.
+  redirect(nextPath ?? "/panel");
 }
 
 export async function signOut(): Promise<void> {

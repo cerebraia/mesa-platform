@@ -1,8 +1,12 @@
-import { redirect } from "next/navigation";
-import { createServerClient } from "@/lib/supabase/server";
-import { createServerClient as createSsrClient } from "@supabase/ssr";
+// Admin → Usuarios page.
+// Auth and platform_admin authorization are handled exclusively in
+// src/app/admin/layout.tsx — this page trusts that the layout already ran.
+// Duplicating the check here caused a redirect to /admin when the service-role
+// query returned no row (race or permission gap), sending users in circles.
+
 import { listPlatformUsers } from "../actions";
 import { UsersClient } from "./users-client";
+import { createServerClient as createSsrClient } from "@supabase/ssr";
 
 function adminServiceClient() {
   return createSsrClient(
@@ -13,23 +17,9 @@ function adminServiceClient() {
 }
 
 export default async function UsuariosPage() {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
   const svc = adminServiceClient();
 
-  // Verify admin
-  const { data: adminRow } = await svc
-    .from("platform_admins")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!adminRow) redirect("/admin");
-
-  // Load all users (no filters — client-side filtering)
+  // Load all users (no filters — client-side filtering for small user counts)
   const usersResult = await listPlatformUsers();
 
   // Load all restaurants for filter dropdown

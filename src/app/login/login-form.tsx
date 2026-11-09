@@ -95,9 +95,11 @@ function MobileStrip({ brand }: { brand: BizBrand }) {
 export default function LoginForm({
   brand,
   negocio,
+  next,
 }: {
   brand:   BizBrand | null;
   negocio: string;
+  next:    string | null;
 }) {
   const [state, action] = useActionState(signIn, initial);
 
@@ -145,6 +147,9 @@ export default function LoginForm({
     <form action={action}>
       {negocio && (
         <input type="hidden" name="negocio" value={negocio} />
+      )}
+      {next && (
+        <input type="hidden" name="next" value={next} />
       )}
       <div className="field">
         <label htmlFor="email">Correo electrónico</label>

@@ -88,6 +88,12 @@ async function runSessionProxy(request: NextRequest): Promise<NextResponse> {
   if (!user && isPrivate) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    // Preserve the requested path for exact destinations that support ?next=.
+    // Using an exact match (not startsWith) keeps the allowlist minimal and
+    // avoids forwarding unexpected sub-paths.
+    if (pathname === "/admin/usuarios") {
+      url.searchParams.set("next", pathname);
+    }
     const redirect = NextResponse.redirect(url);
     supabaseResponse.cookies
       .getAll()
@@ -99,16 +105,24 @@ async function runSessionProxy(request: NextRequest): Promise<NextResponse> {
     // When a business-specific login link carries ?negocio=, let the page
     // render so it can check membership and select the business automatically.
     const negocio = request.nextUrl.searchParams.get("negocio");
-    if (!negocio) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/panel";
-      const redirect = NextResponse.redirect(url);
-      supabaseResponse.cookies
-        .getAll()
-        .forEach((c) => redirect.cookies.set(c.name, c.value, c));
-      return redirect;
+    if (negocio) {
+      // Fall through — let the login page handle the membership check.
+      return supabaseResponse;
     }
-    // Fall through — let the login page handle the membership check.
+    // When a ?next= param is present, let the login page handle the redirect
+    // to the requested path after verifying it is an allowed internal destination.
+    const next = request.nextUrl.searchParams.get("next");
+    if (next) {
+      return supabaseResponse;
+    }
+    // Standard case: authenticated user visiting /login → send to panel.
+    const url = request.nextUrl.clone();
+    url.pathname = "/panel";
+    const redirect = NextResponse.redirect(url);
+    supabaseResponse.cookies
+      .getAll()
+      .forEach((c) => redirect.cookies.set(c.name, c.value, c));
+    return redirect;
   }
 
   return supabaseResponse;
