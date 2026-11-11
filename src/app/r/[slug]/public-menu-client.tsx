@@ -537,12 +537,14 @@ function CatalogProductDialog({
           <fieldset>
             <legend>
               Variante{" "}
-              <span style={{ background: primaryTint(primaryColor, 0.12), color: primaryColor, borderRadius: 20, padding: "2px 8px", fontSize: 11 }}>
-                Selecciona
-              </span>
+              {variantId === null && (
+                <span style={{ background: primaryTint(primaryColor, 0.12), color: primaryColor, borderRadius: 20, padding: "2px 8px", fontSize: 11 }}>
+                  Selecciona
+                </span>
+              )}
             </legend>
             {product.product_variants.map((v) => (
-              <div key={v.id} className="option-row">
+              <label key={v.id} className="option-row">
                 <span>
                   <input type="radio" name="catalog-variant" value={v.id}
                     checked={variantId === v.id} onChange={() => setVariantId(v.id)}
@@ -550,7 +552,7 @@ function CatalogProductDialog({
                   {v.name}
                 </span>
                 <span>{money(v.price_cents, currency)}</span>
-              </div>
+              </label>
             ))}
           </fieldset>
         )}
@@ -566,7 +568,7 @@ function CatalogProductDialog({
             {g.options.map((opt) => {
               const isSel = (selected[g.id] ?? []).includes(opt.id);
               return (
-                <div key={opt.id} className="option-row">
+                <label key={opt.id} className="option-row">
                   <span>
                     <input type={g.max_selections === 1 ? "radio" : "checkbox"}
                       name={`catalog-group-${g.id}`} checked={isSel}
@@ -575,7 +577,7 @@ function CatalogProductDialog({
                     {opt.name}
                   </span>
                   {opt.price_delta_cents !== 0 && <span>+{money(opt.price_delta_cents, currency)}</span>}
-                </div>
+                </label>
               );
             })}
           </fieldset>
@@ -786,7 +788,7 @@ function ProductDialog({
               </span>
             </legend>
             {product.product_variants.map((v) => (
-              <div key={v.id} className="option-row">
+              <label key={v.id} className="option-row">
                 <span>
                   <input type="radio" name="variant" value={v.id}
                     checked={variantId === v.id} onChange={() => setVariantId(v.id)}
@@ -794,7 +796,7 @@ function ProductDialog({
                   {v.name}
                 </span>
                 <span>{money(v.price_cents, currency)}</span>
-              </div>
+              </label>
             ))}
           </fieldset>
         )}
@@ -817,7 +819,7 @@ function ProductDialog({
             {g.options.map((opt) => {
               const isSel = (selected[g.id] ?? []).includes(opt.id);
               return (
-                <div key={opt.id} className="option-row">
+                <label key={opt.id} className="option-row">
                   <span>
                     <input type={g.max_selections === 1 ? "radio" : "checkbox"}
                       name={`group-${g.id}`} checked={isSel}
@@ -826,7 +828,7 @@ function ProductDialog({
                     {opt.name}
                   </span>
                   {opt.price_delta_cents !== 0 && <span>+{money(opt.price_delta_cents, currency)}</span>}
-                </div>
+                </label>
               );
             })}
           </fieldset>
