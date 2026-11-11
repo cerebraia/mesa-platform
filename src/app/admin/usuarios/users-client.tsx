@@ -8,6 +8,9 @@ import {
   updateMembershipRole,
   revokeMembership,
   setOwnerPassword,
+  upsertUserProfile,
+  addMembershipById,
+  reactivateMembership,
 } from "../actions";
 
 // ── Types ─────────────────────────────────────────────────────
@@ -25,6 +28,8 @@ type UserRow = {
   userId: string;
   email: string;
   createdAt: string;
+  firstName: string | null;
+  lastName: string | null;
   memberships: Membership[];
 };
 
@@ -281,6 +286,458 @@ function MembershipChip({
         </>
       )}
     </span>
+  );
+}
+
+// ── Edit User Modal ───────────────────────────────────────────
+
+function EditUserModal({
+  user,
+  restaurants,
+  onClose,
+  onUpdated,
+}: {
+  user: UserRow;
+  restaurants: Restaurant[];
+  onClose: () => void;
+  onUpdated: (patch: Partial<UserRow> & { userId: string }) => void;
+}) {
+  // ── Profile section state ─────────────────────────────────
+  const [firstName, setFirstName] = useState(user.firstName ?? "");
+  const [lastName,  setLastName]  = useState(user.lastName  ?? "");
+  const [savingProfile, startSaveProfile] = useTransition();
+  const [profileError,  setProfileError]  = useState<string | null>(null);
+  const [profileSaved,  setProfileSaved]  = useState(false);
+
+  // ── Local memberships (mutated by inline actions) ─────────
+  const [memberships, setMemberships] = useState<Membership[]>(user.memberships);
+
+  // ── Add membership section state ──────────────────────────
+  const [addRestId, setAddRestId] = useState("");
+  const [addRole,   setAddRole]   = useState<MemberRole>("owner");
+  const [addPending, startAdd]    = useTransition();
+  const [addError,   setAddError] = useState<string | null>(null);
+  const [addSuccess, setAddSuccess] = useState<string | null>(null);
+
+  // ── Inline membership action errors ──────────────────────
+  const [memberErrors, setMemberErrors] = useState<Record<string, string>>({});
+
+  function setMemberError(id: string, msg: string) {
+    setMemberErrors((p) => ({ ...p, [id]: msg }));
+  }
+  function clearMemberError(id: string) {
+    setMemberErrors((p) => { const n = { ...p }; delete n[id]; return n; });
+  }
+
+  // Restaurants the user does NOT have an active/invited membership in
+  // (suspended counts as available to reactivate, shown separately)
+  const activeMemberRestIds = new Set(
+    memberships.filter((m) => m.status !== "suspended").map((m) => m.restaurantId),
+  );
+  const availableRestaurants = restaurants.filter((r) => !activeMemberRestIds.has(r.id));
+
+  // ── Save profile ──────────────────────────────────────────
+  function handleSaveProfile() {
+    setProfileError(null);
+    setProfileSaved(false);
+    startSaveProfile(async () => {
+      const res = await upsertUserProfile(
+        user.userId,
+        firstName || null,
+        lastName  || null,
+      );
+      if (res.error) {
+        setProfileError(res.error);
+      } else {
+        setProfileSaved(true);
+        onUpdated({ userId: user.userId, firstName: firstName || null, lastName: lastName || null });
+      }
+    });
+  }
+
+  // ── Add membership ────────────────────────────────────────
+  function handleAddMembership() {
+    if (!addRestId) { setAddError("Selecciona un negocio."); return; }
+    setAddError(null);
+    setAddSuccess(null);
+    startAdd(async () => {
+      const res = await addMembershipById(user.userId, addRestId, addRole);
+      if (res.error) { setAddError(res.error); return; }
+
+      const rest = restaurants.find((r) => r.id === addRestId);
+      if (res.alreadyActive) {
+        setAddError(
+          `Ya tiene acceso activo a "${rest?.name}" con rol ${ROLE_LABEL[res.existingRole ?? ""] ?? res.existingRole}.`,
+        );
+        return;
+      }
+
+      const newMem: Membership = {
+        membershipId: res.membershipId ?? crypto.randomUUID(),
+        restaurantId: addRestId,
+        restaurantName: rest?.name ?? addRestId,
+        restaurantSlug: rest?.slug ?? "",
+        role: addRole,
+        status: "active",
+      };
+
+      if (res.reactivated) {
+        // Replace the suspended entry
+        setMemberships((prev) =>
+          prev.map((m) => m.restaurantId === addRestId && m.status === "suspended" ? newMem : m),
+        );
+        setAddSuccess(`Acceso a "${rest?.name}" reactivado con rol ${ROLE_LABEL[addRole]}.`);
+      } else {
+        setMemberships((prev) => [...prev, newMem]);
+        setAddSuccess(`"${rest?.name}" asignado con rol ${ROLE_LABEL[addRole]}.`);
+      }
+
+      onUpdated({
+        userId: user.userId,
+        memberships: res.reactivated
+          ? memberships.map((m) => m.restaurantId === addRestId && m.status === "suspended" ? newMem : m)
+          : [...memberships, newMem],
+      });
+      setAddRestId("");
+      setAddRole("owner");
+    });
+  }
+
+  return (
+    <div className="usr-modal-bg" role="dialog" aria-modal="true" aria-labelledby="edit-user-title">
+      <div className="usr-modal" style={{ maxWidth: 560 }}>
+        {/* Header */}
+        <div className="usr-modal-header">
+          <h2 className="usr-modal-title" id="edit-user-title">Editar usuario</h2>
+          <button className="usr-modal-close" onClick={onClose} aria-label="Cerrar">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Account identifier */}
+        <div
+          style={{
+            marginBottom: 24, padding: "10px 14px",
+            background: "#F9FAFB", border: "1px solid #E8E9EF", borderRadius: 8,
+          }}
+        >
+          <span style={{ fontSize: 11, color: "#667085", display: "block", marginBottom: 2 }}>Cuenta</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "#202337", wordBreak: "break-all" }}>
+            {user.email}
+          </span>
+        </div>
+
+        {/* ── Profile section ── */}
+        <fieldset style={{ border: "none", padding: 0, margin: "0 0 24px" }}>
+          <legend style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 12, display: "block" }}>
+            Datos personales
+          </legend>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Nombre</label>
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => { setFirstName(e.target.value); setProfileSaved(false); setProfileError(null); }}
+                placeholder="Nombre"
+                maxLength={100}
+                autoComplete="given-name"
+              />
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label>Apellido</label>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => { setLastName(e.target.value); setProfileSaved(false); setProfileError(null); }}
+                placeholder="Apellido"
+                maxLength={100}
+                autoComplete="family-name"
+              />
+            </div>
+          </div>
+          {profileError && (
+            <div className="auth-error" role="alert" style={{ marginBottom: 8 }}>{profileError}</div>
+          )}
+          {profileSaved && (
+            <p style={{ fontSize: 12, color: "#16a34a", margin: "0 0 8px", display: "flex", alignItems: "center", gap: 4 }}>
+              <Check size={13} /> Datos guardados
+            </p>
+          )}
+          <button
+            type="button"
+            className="button secondary small"
+            onClick={handleSaveProfile}
+            disabled={savingProfile}
+          >
+            {savingProfile ? "Guardando…" : "Guardar datos"}
+          </button>
+        </fieldset>
+
+        {/* ── Memberships section ── */}
+        <div style={{ borderTop: "1px solid #E8E9EF", paddingTop: 20, marginBottom: 20 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: "#374151", margin: "0 0 12px" }}>
+            Negocios asignados
+          </p>
+
+          {memberships.length === 0 ? (
+            <p style={{ fontSize: 13, color: "#9CA3AF", fontStyle: "italic", marginBottom: 12 }}>
+              Sin membresías.
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+              {memberships.map((m) => (
+                <EditMembershipRow
+                  key={m.membershipId}
+                  membership={m}
+                  error={memberErrors[m.membershipId]}
+                  onRoleChanged={(newRole) => {
+                    clearMemberError(m.membershipId);
+                    setMemberships((prev) =>
+                      prev.map((x) => x.membershipId === m.membershipId ? { ...x, role: newRole } : x),
+                    );
+                    onUpdated({
+                      userId: user.userId,
+                      memberships: memberships.map((x) =>
+                        x.membershipId === m.membershipId ? { ...x, role: newRole } : x,
+                      ),
+                    });
+                  }}
+                  onRevoked={() => {
+                    clearMemberError(m.membershipId);
+                    setMemberships((prev) =>
+                      prev.map((x) => x.membershipId === m.membershipId ? { ...x, status: "suspended" } : x),
+                    );
+                    onUpdated({
+                      userId: user.userId,
+                      memberships: memberships.map((x) =>
+                        x.membershipId === m.membershipId ? { ...x, status: "suspended" } : x,
+                      ),
+                    });
+                  }}
+                  onReactivated={(newRole) => {
+                    clearMemberError(m.membershipId);
+                    setMemberships((prev) =>
+                      prev.map((x) => x.membershipId === m.membershipId ? { ...x, status: "active", role: newRole } : x),
+                    );
+                    onUpdated({
+                      userId: user.userId,
+                      memberships: memberships.map((x) =>
+                        x.membershipId === m.membershipId ? { ...x, status: "active", role: newRole } : x,
+                      ),
+                    });
+                  }}
+                  onError={(msg) => setMemberError(m.membershipId, msg)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* ── Add membership form ── */}
+          <div
+            style={{
+              background: "#F9FAFB", border: "1px solid #E8E9EF",
+              borderRadius: 10, padding: "14px 16px",
+            }}
+          >
+            <p style={{ fontSize: 12, fontWeight: 600, color: "#374151", margin: "0 0 10px" }}>
+              Asignar negocio
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginBottom: 8 }}>
+              <select
+                value={addRestId}
+                onChange={(e) => { setAddRestId(e.target.value); setAddError(null); setAddSuccess(null); }}
+                style={{ fontSize: 13, minHeight: 44 }}
+                aria-label="Seleccionar negocio"
+              >
+                <option value="">Seleccionar negocio…</option>
+                {availableRestaurants.map((r) => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+              <select
+                value={addRole}
+                onChange={(e) => setAddRole(e.target.value as MemberRole)}
+                style={{ fontSize: 13, minHeight: 44 }}
+                aria-label="Rol"
+              >
+                <option value="owner">Propietario</option>
+                <option value="attention">Atención</option>
+                <option value="kitchen">Cocina</option>
+              </select>
+            </div>
+            {availableRestaurants.length === 0 && (
+              <p style={{ fontSize: 12, color: "#9CA3AF", margin: "0 0 8px" }}>
+                Este usuario ya tiene acceso activo a todos los negocios.
+              </p>
+            )}
+            {addError && (
+              <div className="auth-error" role="alert" style={{ marginBottom: 8, fontSize: 12 }}>{addError}</div>
+            )}
+            {addSuccess && (
+              <p style={{ fontSize: 12, color: "#16a34a", margin: "0 0 8px", display: "flex", alignItems: "center", gap: 4 }}>
+                <Check size={13} /> {addSuccess}
+              </p>
+            )}
+            <button
+              type="button"
+              className="button secondary small"
+              style={{ minHeight: 44 }}
+              onClick={handleAddMembership}
+              disabled={addPending || availableRestaurants.length === 0}
+            >
+              {addPending ? "Asignando…" : "+ Asignar"}
+            </button>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button type="button" className="button secondary small" onClick={onClose}>
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── EditMembershipRow ─────────────────────────────────────────
+
+function EditMembershipRow({
+  membership,
+  error,
+  onRoleChanged,
+  onRevoked,
+  onReactivated,
+  onError,
+}: {
+  membership: Membership;
+  error?: string;
+  onRoleChanged: (newRole: string) => void;
+  onRevoked: () => void;
+  onReactivated: (newRole: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const [role, setRole]         = useState(membership.role as MemberRole);
+  const [reactivateRole, setReactivateRole] = useState(membership.role as MemberRole);
+  const [pending, startTransition] = useTransition();
+  const isSuspended = membership.status === "suspended";
+
+  function handleRoleChange(newRole: MemberRole) {
+    if (newRole === role) return;
+    if (!confirm(`¿Cambiar el rol a "${ROLE_LABEL[newRole]}"?`)) return;
+    setRole(newRole);
+    startTransition(async () => {
+      const res = await updateMembershipRole(membership.membershipId, newRole);
+      if (res.error) { setRole(membership.role as MemberRole); onError(res.error); }
+      else onRoleChanged(newRole);
+    });
+  }
+
+  function handleRevoke() {
+    if (!confirm("¿Revocar acceso a este negocio?")) return;
+    startTransition(async () => {
+      const res = await revokeMembership(membership.membershipId);
+      if (res.lastOwnerBlocked) {
+        onError("No se puede revocar: es el único propietario activo.");
+        return;
+      }
+      if (res.error) { onError(res.error); return; }
+      onRevoked();
+    });
+  }
+
+  function handleReactivate() {
+    startTransition(async () => {
+      const res = await reactivateMembership(membership.membershipId, reactivateRole);
+      if (res.error) { onError(res.error); return; }
+      onReactivated(reactivateRole);
+    });
+  }
+
+  return (
+    <div
+      style={{
+        display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+        padding: "10px 12px",
+        background: isSuspended ? "#FAFAFA" : "white",
+        border: "1px solid #E8E9EF", borderRadius: 8,
+        opacity: isSuspended ? 0.75 : 1,
+      }}
+    >
+      {/* Restaurant name */}
+      <span style={{
+        fontSize: 13, fontWeight: 500, flex: 1, minWidth: 100,
+        textDecoration: isSuspended ? "line-through" : "none",
+        color: isSuspended ? "#9CA3AF" : "#202337",
+      }}>
+        {membership.restaurantName}
+      </span>
+
+      {isSuspended ? (
+        // Suspended: show reactivate controls
+        <>
+          <select
+            value={reactivateRole}
+            onChange={(e) => setReactivateRole(e.target.value as MemberRole)}
+            style={{ fontSize: 11, minHeight: 36, padding: "4px 6px" }}
+            disabled={pending}
+            aria-label={`Rol para reactivar en ${membership.restaurantName}`}
+          >
+            <option value="owner">Propietario</option>
+            <option value="attention">Atención</option>
+            <option value="kitchen">Cocina</option>
+          </select>
+          <button
+            type="button"
+            className="button secondary small"
+            style={{ fontSize: 11, padding: "6px 12px", minHeight: 36 }}
+            onClick={handleReactivate}
+            disabled={pending}
+          >
+            {pending ? "…" : "Reactivar"}
+          </button>
+          <span style={{ fontSize: 10, color: "#9CA3AF", padding: "2px 6px", background: "#F3F4F6", borderRadius: 10 }}>
+            Suspendido
+          </span>
+        </>
+      ) : (
+        // Active: show role select + revoke
+        <>
+          <select
+            value={role}
+            onChange={(e) => handleRoleChange(e.target.value as MemberRole)}
+            style={{ fontSize: 11, minHeight: 36, padding: "4px 6px" }}
+            disabled={pending}
+            aria-label={`Rol en ${membership.restaurantName}`}
+          >
+            <option value="owner">Propietario</option>
+            <option value="attention">Atención</option>
+            <option value="kitchen">Cocina</option>
+          </select>
+          <button
+            type="button"
+            style={{
+              background: "none", border: "1px solid #E8E9EF", borderRadius: 6,
+              fontSize: 11, color: "#9CA3AF", cursor: "pointer",
+              padding: "6px 10px", minHeight: 36, minWidth: 44,
+              lineHeight: 1,
+            }}
+            onClick={handleRevoke}
+            disabled={pending}
+            title="Revocar acceso"
+            aria-label={`Revocar acceso a ${membership.restaurantName}`}
+          >
+            {pending ? "…" : "✕"}
+          </button>
+        </>
+      )}
+
+      {error && (
+        <span style={{ width: "100%", fontSize: 11, color: "#ef4444", marginTop: 2 }}>{error}</span>
+      )}
+    </div>
   );
 }
 
@@ -609,6 +1066,8 @@ function CreateUserModal({
         userId: res.userId ?? "",
         email: verifiedEmail,
         createdAt: new Date().toISOString(),
+        firstName: null,
+        lastName: null,
         memberships: [
           {
             membershipId: res.membershipId ?? "",
@@ -903,6 +1362,7 @@ export function UsersClient({
   const [users, setUsers] = useState<UserRow[]>(initialUsers);
   const [showModal, setShowModal] = useState(false);
   const [pwdTarget, setPwdTarget] = useState<{ userId: string; email: string } | null>(null);
+  const [editTarget, setEditTarget] = useState<UserRow | null>(null);
 
   // Filters
   const [filterQ, setFilterQ]           = useState("");
@@ -944,6 +1404,14 @@ export function UsersClient({
         ),
       })),
     );
+  }
+
+  function handleUserUpdated(patch: Partial<UserRow> & { userId: string }) {
+    setUsers((prev) =>
+      prev.map((u) => u.userId === patch.userId ? { ...u, ...patch } : u),
+    );
+    // Keep editTarget in sync so the modal sees latest memberships
+    setEditTarget((prev) => prev && prev.userId === patch.userId ? { ...prev, ...patch } : prev);
   }
 
   function handleUserCreated(newUser: UserRow) {
@@ -1079,6 +1547,11 @@ export function UsersClient({
                       <tr key={u.userId}>
                         <td>
                           <span className="user-email">{u.email}</span>
+                          {(u.firstName || u.lastName) && (
+                            <span style={{ display: "block", fontSize: 11, color: "#667085", marginTop: 2 }}>
+                              {[u.firstName, u.lastName].filter(Boolean).join(" ")}
+                            </span>
+                          )}
                         </td>
                         <td>
                           <span className="user-date">{formatDate(u.createdAt)}</span>
@@ -1102,13 +1575,22 @@ export function UsersClient({
                           )}
                         </td>
                         <td style={{ whiteSpace: "nowrap" }}>
-                          <button
-                            type="button"
-                            className="button secondary small"
-                            onClick={() => setPwdTarget({ userId: u.userId, email: u.email })}
-                          >
-                            Cambiar contraseña
-                          </button>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            <button
+                              type="button"
+                              className="button secondary small"
+                              onClick={() => setEditTarget(u)}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="button secondary small"
+                              onClick={() => setPwdTarget({ userId: u.userId, email: u.email })}
+                            >
+                              Cambiar contraseña
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1122,6 +1604,11 @@ export function UsersClient({
               {filtered.map((u) => (
                 <div key={u.userId} className="user-card">
                   <div className="user-card-email">{u.email}</div>
+                  {(u.firstName || u.lastName) && (
+                    <div style={{ fontSize: 12, color: "#667085", marginBottom: 4, marginTop: -4 }}>
+                      {[u.firstName, u.lastName].filter(Boolean).join(" ")}
+                    </div>
+                  )}
                   <div className="user-card-date">{formatDate(u.createdAt)}</div>
                   {u.memberships.length === 0 ? (
                     <span style={{ fontSize: 12, color: "#9CA3AF", fontStyle: "italic" }}>
@@ -1139,7 +1626,15 @@ export function UsersClient({
                       ))}
                     </div>
                   )}
-                  <div style={{ marginTop: 12, borderTop: "1px solid #F3F4F6", paddingTop: 10 }}>
+                  <div style={{ marginTop: 12, borderTop: "1px solid #F3F4F6", paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <button
+                      type="button"
+                      className="button secondary small"
+                      style={{ width: "100%", minHeight: 44 }}
+                      onClick={() => setEditTarget(u)}
+                    >
+                      Editar usuario
+                    </button>
                     <button
                       type="button"
                       className="button secondary small"
@@ -1165,6 +1660,16 @@ export function UsersClient({
             handleUserCreated(newUser);
             setShowModal(false);
           }}
+        />
+      )}
+
+      {/* Edit user modal */}
+      {editTarget && (
+        <EditUserModal
+          user={editTarget}
+          restaurants={restaurants}
+          onClose={() => setEditTarget(null)}
+          onUpdated={handleUserUpdated}
         />
       )}
 

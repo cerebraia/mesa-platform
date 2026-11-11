@@ -962,6 +962,8 @@ export async function listPlatformUsers(opts?: {
     userId: string;
     email: string;
     createdAt: string;
+    firstName: string | null;
+    lastName: string | null;
     memberships: Array<{
       membershipId: string;
       restaurantId: string;
@@ -998,6 +1000,15 @@ export async function listPlatformUsers(opts?: {
     .order("created_at");
   if (memErr) return { error: `Error al listar membresías: ${memErr.message}` };
 
+  // Fetch all user profiles (nullable name data)
+  const { data: profiles } = await svc
+    .from("user_profiles")
+    .select("user_id, first_name, last_name");
+  const profileMap = new Map<string, { firstName: string | null; lastName: string | null }>();
+  for (const p of profiles ?? []) {
+    profileMap.set(p.user_id, { firstName: p.first_name ?? null, lastName: p.last_name ?? null });
+  }
+
   // Build a map: userId → memberships
   const memberMap = new Map<
     string,
@@ -1023,17 +1034,26 @@ export async function listPlatformUsers(opts?: {
     });
   }
 
-  let users = allAuthUsers.map((u) => ({
-    userId: u.id,
-    email: u.email ?? "(sin correo)",
-    createdAt: u.created_at,
-    memberships: memberMap.get(u.id) ?? [],
-  }));
+  let users = allAuthUsers.map((u) => {
+    const profile = profileMap.get(u.id);
+    return {
+      userId:    u.id,
+      email:     u.email ?? "(sin correo)",
+      createdAt: u.created_at,
+      firstName: profile?.firstName ?? null,
+      lastName:  profile?.lastName  ?? null,
+      memberships: memberMap.get(u.id) ?? [],
+    };
+  });
 
   // Apply optional filters
   if (opts?.q) {
     const q = opts.q.toLowerCase();
-    users = users.filter((u) => u.email.toLowerCase().includes(q));
+    users = users.filter((u) =>
+      u.email.toLowerCase().includes(q) ||
+      (u.firstName ?? "").toLowerCase().includes(q) ||
+      (u.lastName  ?? "").toLowerCase().includes(q),
+    );
   }
   if (opts?.restaurantId) {
     users = users.filter((u) =>
@@ -1284,6 +1304,158 @@ export async function revokeMembership(
     restaurant_id: membership.restaurant_id, role: membership.role,
   });
 
+  revalidatePath("/admin/usuarios");
+  return { error: null };
+}
+
+// ── Upsert user profile ───────────────────────────────────────
+// Sets first_name / last_name in user_profiles.
+// NEVER stores permissions here — only display-name data.
+export async function upsertUserProfile(
+  userId: string,
+  firstName: string | null,
+  lastName: string | null,
+): Promise<AdminResult> {
+  if (!userId) return { error: "userId requerido." };
+
+  const trimFirst = firstName?.trim() || null;
+  const trimLast  = lastName?.trim()  || null;
+
+  if (trimFirst && trimFirst.length > 100)
+    return { error: "El nombre no puede superar los 100 caracteres." };
+  if (trimLast && trimLast.length > 100)
+    return { error: "El apellido no puede superar los 100 caracteres." };
+
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const svc = adminServiceClient();
+
+  const { data: authData, error: authErr } = await svc.auth.admin.getUserById(userId);
+  if (authErr || !authData.user) return { error: "Usuario no encontrado." };
+
+  const { error } = await svc.from("user_profiles").upsert(
+    { user_id: userId, first_name: trimFirst, last_name: trimLast, updated_at: new Date().toISOString() },
+    { onConflict: "user_id" },
+  );
+  if (error) return { error: `Error al guardar perfil: ${error.message}` };
+
+  await logAudit(adminUser.id, "upsert_user_profile", "member", userId, {
+    email: authData.user.email, first_name: trimFirst, last_name: trimLast,
+  });
+
+  revalidatePath("/admin/usuarios");
+  return { error: null };
+}
+
+// ── Add membership by user ID ─────────────────────────────────
+// Creates or reactivates a membership for an existing user.
+// 1. No membership → INSERT new.
+// 2. Suspended membership → UPDATE to active + new role (reactivation).
+// 3. Active/invited membership → returns alreadyActive without creating duplicate.
+// NEVER grants platform_admin.
+export async function addMembershipById(
+  userId: string,
+  restaurantId: string,
+  role: "owner" | "attention" | "kitchen",
+): Promise<AdminResult & { reactivated?: boolean; alreadyActive?: boolean; existingRole?: string; membershipId?: string }> {
+  if (!userId)       return { error: "userId requerido." };
+  if (!restaurantId) return { error: "restaurantId requerido." };
+  if (!["owner", "attention", "kitchen"].includes(role))
+    return { error: "Rol inválido." };
+
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const svc = adminServiceClient();
+
+  const { data: authData, error: authErr } = await svc.auth.admin.getUserById(userId);
+  if (authErr || !authData.user) return { error: "Usuario no encontrado." };
+
+  const { data: restaurant } = await svc
+    .from("restaurants").select("id, name").eq("id", restaurantId).is("deleted_at", null).maybeSingle();
+  if (!restaurant) return { error: "Negocio no encontrado o eliminado." };
+
+  const { data: existing } = await svc
+    .from("restaurant_members")
+    .select("id, role, status")
+    .eq("user_id", userId).eq("restaurant_id", restaurantId).maybeSingle();
+
+  if (existing) {
+    if (existing.status !== "suspended") {
+      return { error: null, alreadyActive: true, existingRole: existing.role, membershipId: existing.id };
+    }
+    const { error } = await svc.from("restaurant_members")
+      .update({ status: "active", role }).eq("id", existing.id);
+    if (error) return { error: `Error al reactivar: ${error.message}` };
+
+    await logAudit(adminUser.id, "reactivate_membership", "member", existing.id, {
+      user_id: userId, email: authData.user.email,
+      restaurant_id: restaurantId, restaurant_name: restaurant.name, new_role: role,
+    });
+    revalidatePath("/admin/usuarios");
+    return { error: null, reactivated: true, membershipId: existing.id };
+  }
+
+  const { data: newMem, error: insertErr } = await svc
+    .from("restaurant_members")
+    .insert({ restaurant_id: restaurantId, user_id: userId, role, status: "active" })
+    .select("id").single();
+  if (insertErr) return { error: insertErr.message };
+
+  await logAudit(adminUser.id, "add_membership_by_id", "member", newMem.id, {
+    user_id: userId, email: authData.user.email,
+    restaurant_id: restaurantId, restaurant_name: restaurant.name, role,
+  });
+  revalidatePath("/admin/usuarios");
+  return { error: null, reactivated: false, membershipId: newMem.id };
+}
+
+// ── Reactivate membership ─────────────────────────────────────
+// Restores a suspended membership to active, optionally changing the role.
+export async function reactivateMembership(
+  membershipId: string,
+  newRole?: "owner" | "attention" | "kitchen",
+): Promise<AdminResult> {
+  if (!membershipId) return { error: "membershipId requerido." };
+  if (newRole && !["owner", "attention", "kitchen"].includes(newRole))
+    return { error: "Rol inválido." };
+
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const svc = adminServiceClient();
+
+  const { data: membership } = await svc
+    .from("restaurant_members").select("id, role, status, restaurant_id")
+    .eq("id", membershipId).maybeSingle();
+  if (!membership) return { error: "Membresía no encontrada." };
+  if (membership.status !== "suspended")
+    return { error: "Solo se pueden reactivar membresías suspendidas." };
+
+  const role = newRole ?? membership.role;
+  const { error } = await svc.from("restaurant_members")
+    .update({ status: "active", role }).eq("id", membershipId);
+  if (error) return { error: error.message };
+
+  await logAudit(adminUser.id, "reactivate_membership", "member", membershipId, {
+    restaurant_id: membership.restaurant_id, role,
+  });
   revalidatePath("/admin/usuarios");
   return { error: null };
 }
