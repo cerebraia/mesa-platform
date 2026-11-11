@@ -233,14 +233,25 @@ details p{margin-top:14px;font-size:14px;line-height:1.7}
    pd-close-btn is position:absolute on the dialog (no pd-close-zone needed). */
 .pd-catalog .pd-close-btn{position:absolute;top:12px;right:12px;z-index:10;pointer-events:auto}
 .pd-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
-/* Gallery inside pd-scroll: compact on mobile */
+/* Gallery inside pd-scroll: proportional to available height.
+   --pd-gallery-ratio is set from React (0.4 with variants/options, 0.52 without).
+   pd-scroll ≈ dialog_height − footer ≈ (dvh − dialog_margin) − footer_approx.
+   clamp() ensures a minimum in landscape and a cap so the gallery never eats the viewport. */
 @media(max-width:460px){
-  .pd-catalog .pd-img-section{max-height:220px;aspect-ratio:unset;flex-shrink:0}
-  .pd-catalog .pd-img{height:220px;max-height:220px}
+  /* dialog = calc(100dvh - 32px), footer ≈ 76px → pd-scroll ≈ dvh - 108px */
+  .pd-catalog .pd-img-section{
+    aspect-ratio:unset;flex-shrink:0;max-height:none;
+    height:clamp(150px,calc((100vh  - 108px)*var(--pd-gallery-ratio,.4)),55vh);
+    height:clamp(150px,calc((100dvh - 108px)*var(--pd-gallery-ratio,.4)),55dvh)
+  }
+  .pd-catalog .pd-img{height:100%;max-height:none}
 }
 @media(max-width:360px){
-  .pd-catalog .pd-img-section{max-height:200px}
-  .pd-catalog .pd-img{height:200px;max-height:200px}
+  /* dialog = 96dvh, footer ≈ 76px → pd-scroll ≈ 96dvh - 76px */
+  .pd-catalog .pd-img-section{
+    height:clamp(140px,calc((96vh  - 76px)*var(--pd-gallery-ratio,.4)),50vh);
+    height:clamp(140px,calc((96dvh - 76px)*var(--pd-gallery-ratio,.4)),50dvh)
+  }
 }
 
 /* Content padding */

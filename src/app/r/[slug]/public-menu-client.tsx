@@ -392,6 +392,8 @@ function CatalogProductDialog({
   const dialogRef    = useRef<HTMLDialogElement>(null);
   const touchStartX  = useRef(0);
 
+  const hasOptions = product.product_variants.length > 0 || product.option_groups.length > 0;
+
   useEffect(() => {
     const trigger = document.activeElement as HTMLElement | null;
     const prev = document.body.style.overflow;
@@ -462,6 +464,7 @@ function CatalogProductDialog({
     <dialog
       ref={dialogRef}
       className="product-dialog pd-catalog"
+      style={{ '--pd-gallery-ratio': hasOptions ? '0.4' : '0.52' } as React.CSSProperties}
       onClick={(e) => { if (e.target === dialogRef.current) onClose(); }}
       onCancel={onClose}
       onKeyDown={handleKeyDown}
