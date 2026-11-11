@@ -7,6 +7,7 @@ import {
   createUserMembership,
   updateMembershipRole,
   revokeMembership,
+  setOwnerPassword,
 } from "../actions";
 
 // ── Types ─────────────────────────────────────────────────────
@@ -280,6 +281,195 @@ function MembershipChip({
         </>
       )}
     </span>
+  );
+}
+
+// ── Change Password Modal ─────────────────────────────────────
+
+function ChangePasswordModal({
+  userId,
+  email,
+  onClose,
+}: {
+  userId: string;
+  email: string;
+  onClose: () => void;
+}) {
+  const [pwd, setPwd]               = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [showPwd, setShowPwd]       = useState(false);
+  const [showConf, setShowConf]     = useState(false);
+  const [pending, startTransition]  = useTransition();
+  const [error, setError]           = useState<string | null>(null);
+  const [done, setDone]             = useState(false);
+
+  function handleClose() {
+    setPwd("");
+    setConfirmPwd("");
+    onClose();
+  }
+
+  function handleGenerate() {
+    const p = generateSecurePassword();
+    setPwd(p);
+    setConfirmPwd(p);
+    setShowPwd(true);
+    setError(null);
+  }
+
+  function handleSubmit() {
+    if (!pwd)               { setError("Ingresa una contraseña.");                         return; }
+    if (pwd.length < 8)     { setError("La contraseña debe tener al menos 8 caracteres."); return; }
+    if (pwd !== confirmPwd) { setError("Las contraseñas no coinciden.");                   return; }
+    setError(null);
+    startTransition(async () => {
+      const res = await setOwnerPassword(userId, pwd);
+      if (res.error) {
+        setError(res.error);
+      } else {
+        setPwd("");
+        setConfirmPwd("");
+        setDone(true);
+      }
+    });
+  }
+
+  if (done) {
+    return (
+      <div className="usr-modal-bg" role="dialog" aria-modal="true" aria-labelledby="cpwd-title">
+        <div className="usr-modal">
+          <div className="usr-modal-header">
+            <h2 className="usr-modal-title" id="cpwd-title">Contraseña actualizada</h2>
+            <button className="usr-modal-close" onClick={handleClose} aria-label="Cerrar">
+              <X size={18} />
+            </button>
+          </div>
+          <div className="wiz-success">
+            <div className="wiz-success-icon">✓</div>
+            <p style={{ fontSize: 14, color: "#374151", margin: "0 0 10px" }}>
+              La contraseña de <strong>{email}</strong> se actualizó correctamente.
+            </p>
+            <p style={{ fontSize: 12, color: "#9CA3AF", margin: "0 0 24px", lineHeight: 1.5 }}>
+              Las sesiones activas quedan invalidadas inmediatamente.
+              El usuario deberá iniciar sesión de nuevo con la nueva contraseña.
+            </p>
+            <button type="button" className="button small" onClick={handleClose}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="usr-modal-bg" role="dialog" aria-modal="true" aria-labelledby="cpwd-title">
+      <div className="usr-modal">
+        <div className="usr-modal-header">
+          <h2 className="usr-modal-title" id="cpwd-title">Cambiar contraseña</h2>
+          <button className="usr-modal-close" onClick={handleClose} aria-label="Cerrar">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Account identifier — always visible so the admin knows which account they're modifying */}
+        <div
+          style={{
+            marginBottom: 20, padding: "12px 14px",
+            background: "#F9FAFB", border: "1px solid #E8E9EF", borderRadius: 8,
+          }}
+        >
+          <span style={{ fontSize: 11, color: "#667085", display: "block", marginBottom: 4 }}>
+            Cuenta
+          </span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: "#202337", wordBreak: "break-all" }}>
+            {email}
+          </span>
+        </div>
+
+        {/* New password */}
+        <div className="field" style={{ marginBottom: 8 }}>
+          <label>
+            Nueva contraseña <span style={{ color: "#ef4444" }}>*</span>
+          </label>
+          <div className="pwd-field-wrap">
+            <input
+              type={showPwd ? "text" : "password"}
+              value={pwd}
+              onChange={(e) => { setPwd(e.target.value); setError(null); }}
+              placeholder="Mínimo 8 caracteres"
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              className="pwd-field-toggle"
+              aria-label={showPwd ? "Ocultar contraseña" : "Mostrar contraseña"}
+              onClick={() => setShowPwd((v) => !v)}
+            >
+              {showPwd ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Confirm */}
+        <div className="field" style={{ marginBottom: 8 }}>
+          <label>
+            Confirmar contraseña <span style={{ color: "#ef4444" }}>*</span>
+          </label>
+          <div className="pwd-field-wrap">
+            <input
+              type={showConf ? "text" : "password"}
+              value={confirmPwd}
+              onChange={(e) => { setConfirmPwd(e.target.value); setError(null); }}
+              placeholder="Repite la contraseña"
+              autoComplete="new-password"
+            />
+            <button
+              type="button"
+              className="pwd-field-toggle"
+              aria-label={showConf ? "Ocultar confirmación" : "Mostrar confirmación"}
+              onClick={() => setShowConf((v) => !v)}
+            >
+              {showConf ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+        </div>
+
+        {/* Generate + copy */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+          <button type="button" className="button secondary small" onClick={handleGenerate}>
+            Generar contraseña segura
+          </button>
+          {pwd && <CopyButton value={pwd} label="contraseña generada" />}
+        </div>
+
+        {error && (
+          <div className="auth-error" role="alert" style={{ marginBottom: 12 }}>
+            {error}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="button"
+            style={{ minWidth: 160 }}
+            onClick={handleSubmit}
+            disabled={pending || !pwd || !confirmPwd}
+          >
+            {pending ? "Guardando…" : "Guardar contraseña"}
+          </button>
+          <button
+            type="button"
+            className="button secondary small"
+            onClick={handleClose}
+            disabled={pending}
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -712,6 +902,7 @@ export function UsersClient({
 }) {
   const [users, setUsers] = useState<UserRow[]>(initialUsers);
   const [showModal, setShowModal] = useState(false);
+  const [pwdTarget, setPwdTarget] = useState<{ userId: string; email: string } | null>(null);
 
   // Filters
   const [filterQ, setFilterQ]           = useState("");
@@ -880,6 +1071,7 @@ export function UsersClient({
                       <th>Correo</th>
                       <th>Registrado</th>
                       <th>Membresías</th>
+                      <th style={{ width: "1%", whiteSpace: "nowrap" }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -908,6 +1100,15 @@ export function UsersClient({
                               ))}
                             </div>
                           )}
+                        </td>
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          <button
+                            type="button"
+                            className="button secondary small"
+                            onClick={() => setPwdTarget({ userId: u.userId, email: u.email })}
+                          >
+                            Cambiar contraseña
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -938,6 +1139,16 @@ export function UsersClient({
                       ))}
                     </div>
                   )}
+                  <div style={{ marginTop: 12, borderTop: "1px solid #F3F4F6", paddingTop: 10 }}>
+                    <button
+                      type="button"
+                      className="button secondary small"
+                      style={{ width: "100%", minHeight: 44 }}
+                      onClick={() => setPwdTarget({ userId: u.userId, email: u.email })}
+                    >
+                      Cambiar contraseña
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -954,6 +1165,15 @@ export function UsersClient({
             handleUserCreated(newUser);
             setShowModal(false);
           }}
+        />
+      )}
+
+      {/* Change password modal */}
+      {pwdTarget && (
+        <ChangePasswordModal
+          userId={pwdTarget.userId}
+          email={pwdTarget.email}
+          onClose={() => setPwdTarget(null)}
         />
       )}
     </>
