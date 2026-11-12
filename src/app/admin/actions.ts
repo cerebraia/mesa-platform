@@ -531,14 +531,16 @@ export async function softDeleteRestaurant(
   if (!trimmed) return { error: "Se requiere el nombre del negocio para confirmar." };
 
   let adminUser: { id: string } | null = null;
+  let supabase: Awaited<ReturnType<typeof createServerClient>> | null = null;
   try {
-    const { user } = await requireAdmin();
-    adminUser = user;
+    const result = await requireAdmin();
+    adminUser = result.user;
+    supabase = result.supabase;
   } catch (e) {
     return { error: (e as Error).message };
   }
 
-  // Verify name matches before deleting
+  // Verify name matches before deleting (service-role read is fine here)
   const svc = adminServiceClient();
   const { data: restaurant } = await svc
     .from("restaurants")
@@ -552,7 +554,10 @@ export async function softDeleteRestaurant(
     return { error: "El nombre no coincide. Escríbelo exactamente como aparece." };
   }
 
-  const { error } = await svc.rpc("soft_delete_restaurant", {
+  // Must use the session client so auth.uid() inside the RPC resolves to the
+  // admin's user_id — service_role sets auth.uid()=NULL which makes
+  // is_platform_admin() return false and throws "No autorizado".
+  const { error } = await supabase!.rpc("soft_delete_restaurant", {
     p_restaurant_id: restaurantId,
   });
 
@@ -570,15 +575,17 @@ export async function softDeleteRestaurant(
 
 export async function restoreRestaurant(restaurantId: string): Promise<AdminResult> {
   let adminUser: { id: string } | null = null;
+  let supabase: Awaited<ReturnType<typeof createServerClient>> | null = null;
   try {
-    const { user } = await requireAdmin();
-    adminUser = user;
+    const result = await requireAdmin();
+    adminUser = result.user;
+    supabase = result.supabase;
   } catch (e) {
     return { error: (e as Error).message };
   }
 
-  const svc = adminServiceClient();
-  const { error } = await svc.rpc("restore_restaurant", {
+  // Session client required: restore_restaurant calls is_platform_admin() → auth.uid()
+  const { error } = await supabase!.rpc("restore_restaurant", {
     p_restaurant_id: restaurantId,
   });
 
