@@ -9,6 +9,7 @@ import { NewSubscriptionForm } from "./new-subscription-form";
 import { SubscriptionRow } from "./subscription-row";
 import { DomainsAdmin } from "./domains-admin";
 import { DeleteRestaurantModal } from "./delete-modal";
+import { HardDeleteRestaurantModal } from "./hard-delete-modal";
 import { BUSINESS_TYPE_LABEL } from "@/lib/db-types";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -56,6 +57,9 @@ export default async function RestaurantDetailPage({
     { data: subscriptions },
     { data: plans },
     { data: domains },
+    { count: orderCount },
+    { count: productCount },
+    { count: paymentCount },
   ] = await Promise.all([
     supabase.from("restaurant_members").select("id, user_id, role, status").eq("restaurant_id", id),
     supabase.from("subscriptions")
@@ -65,6 +69,9 @@ export default async function RestaurantDetailPage({
     supabase.from("restaurant_domains")
       .select("id, host, kind, status, requested_by, updated_at")
       .eq("restaurant_id", id).order("updated_at", { ascending: false }),
+    supabase.from("orders").select("*", { count: "exact", head: true }).eq("restaurant_id", id),
+    supabase.from("products").select("*", { count: "exact", head: true }).eq("restaurant_id", id).is("deleted_at", null),
+    supabase.from("subscription_payments").select("*", { count: "exact", head: true }).eq("restaurant_id", id),
   ]);
 
   type Member  = { id: string; user_id: string; role: string; status: string };
@@ -151,6 +158,15 @@ export default async function RestaurantDetailPage({
               <DeleteRestaurantModal
                 restaurantId={id}
                 restaurantName={restaurant.name}
+              />
+              <HardDeleteRestaurantModal
+                restaurantId={id}
+                restaurantSlug={restaurant.slug}
+                restaurantName={restaurant.name}
+                subCount={subscriptions?.length ?? 0}
+                orderCount={orderCount ?? 0}
+                productCount={productCount ?? 0}
+                memberCount={members?.length ?? 0}
               />
             </>
           )}

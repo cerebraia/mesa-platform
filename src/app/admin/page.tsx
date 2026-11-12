@@ -4,6 +4,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { Plus, Search, Download, Trash2 } from "lucide-react";
 import { BUSINESS_TYPE_LABEL } from "@/lib/db-types";
 import type { BusinessType } from "@/lib/db-types";
+import { DeleteRestaurantModal } from "./restaurants/[id]/delete-modal";
 
 const STATUS_LABEL: Record<string, string> = {
   onboarding: "En configuración",
@@ -293,7 +294,7 @@ export default async function AdminPage({
                           </td>
                         )}
                         <td>
-                          <div style={{ display: "flex", gap: 6 }}>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                             <Link
                               href={`/admin/restaurants/${r.id}`}
                               className="button secondary small"
@@ -301,6 +302,12 @@ export default async function AdminPage({
                             >
                               Ver
                             </Link>
+                            {!isDeleted && !r.deleted_at && (
+                              <DeleteRestaurantModal
+                                restaurantId={r.id}
+                                restaurantName={r.name}
+                              />
+                            )}
                           </div>
                         </td>
                       </tr>

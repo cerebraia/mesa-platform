@@ -1459,3 +1459,234 @@ export async function reactivateMembership(
   revalidatePath("/admin/usuarios");
   return { error: null };
 }
+
+// ── Delete user ───────────────────────────────────────────────
+// Removes the Auth user (cascades restaurant_members, platform_admins,
+// user_profiles). Guards:
+//   · Cannot delete own account.
+//   · Cannot delete the last platform_admin.
+//   · Cannot delete while user is sole active owner of a live restaurant.
+// Never deletes the user's businesses; only their account and memberships.
+export async function deleteUser(
+  userId: string,
+): Promise<AdminResult & { soleOwnerOf?: string[]; isLastAdmin?: boolean }> {
+  if (!userId) return { error: "userId requerido." };
+
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  if (userId === adminUser.id)
+    return { error: "No puedes eliminar tu propia cuenta." };
+
+  const svc = adminServiceClient();
+
+  // Check if target is a platform_admin
+  const { data: targetAdminRow } = await svc
+    .from("platform_admins").select("user_id").eq("user_id", userId).maybeSingle();
+
+  if (targetAdminRow) {
+    const { count: adminCount } = await svc
+      .from("platform_admins").select("*", { count: "exact", head: true });
+    if ((adminCount ?? 0) <= 1) {
+      return {
+        error: "No es posible eliminar al único administrador activo de la plataforma.",
+        isLastAdmin: true,
+      };
+    }
+  }
+
+  // Check sole active ownership of non-deleted restaurants
+  const { data: ownerships } = await svc
+    .from("restaurant_members")
+    .select("restaurant_id, restaurants!inner(id, name, deleted_at)")
+    .eq("user_id", userId)
+    .eq("role", "owner")
+    .eq("status", "active");
+
+  const soleOwnerOf: string[] = [];
+  for (const o of ownerships ?? []) {
+    const rest = o.restaurants as unknown as { id: string; name: string; deleted_at: string | null } | null;
+    if (!rest || rest.deleted_at) continue;
+    const { count: ownerCount } = await svc
+      .from("restaurant_members")
+      .select("*", { count: "exact", head: true })
+      .eq("restaurant_id", o.restaurant_id)
+      .eq("role", "owner")
+      .eq("status", "active");
+    if ((ownerCount ?? 0) <= 1) soleOwnerOf.push(rest.name);
+  }
+
+  if (soleOwnerOf.length > 0) {
+    return { error: null, soleOwnerOf };
+  }
+
+  // Get info for audit before deletion
+  const { data: authData } = await svc.auth.admin.getUserById(userId);
+  const userEmail = authData?.user?.email ?? "(desconocido)";
+
+  const { error: delErr } = await svc.auth.admin.deleteUser(userId);
+  if (delErr) return { error: `Error al eliminar: ${delErr.message}` };
+
+  await logAudit(adminUser.id, "delete_user", "member", userId, {
+    email: userEmail,
+    was_platform_admin: !!targetAdminRow,
+    note: "Cuenta eliminada. Membresías y perfil eliminados por cascade.",
+  });
+
+  revalidatePath("/admin/usuarios");
+  return { error: null };
+}
+
+// ── Archive plan ──────────────────────────────────────────────
+// Sets is_active = false. The plan stays in the DB for subscription history.
+export async function archivePlan(planId: string): Promise<AdminResult> {
+  if (!planId) return { error: "planId requerido." };
+
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const svc = adminServiceClient();
+  const { data: plan } = await svc.from("plans").select("id, name, is_active").eq("id", planId).maybeSingle();
+  if (!plan) return { error: "Plan no encontrado." };
+  if (!plan.is_active) return { error: "El plan ya está archivado." };
+
+  const { error } = await svc.from("plans").update({ is_active: false }).eq("id", planId);
+  if (error) return { error: error.message };
+
+  await logAudit(adminUser.id, "archive_plan", "plan", planId, { name: plan.name });
+  revalidatePath("/admin/planes");
+  return { error: null };
+}
+
+// ── Delete plan ───────────────────────────────────────────────
+// Hard-deletes a plan ONLY when no subscriptions reference it.
+// If subscriptions exist, the caller should use archivePlan instead.
+export async function deletePlan(planId: string): Promise<AdminResult> {
+  if (!planId) return { error: "planId requerido." };
+
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const svc = adminServiceClient();
+  const { data: plan } = await svc.from("plans").select("id, name").eq("id", planId).maybeSingle();
+  if (!plan) return { error: "Plan no encontrado." };
+
+  const { count: subCount } = await svc
+    .from("subscriptions").select("*", { count: "exact", head: true }).eq("plan_id", planId);
+  if ((subCount ?? 0) > 0) {
+    return {
+      error: `Este plan tiene ${subCount} suscripción(es) asociada(s). Archívalo para conservar el historial.`,
+    };
+  }
+
+  const { error } = await svc.from("plans").delete().eq("id", planId);
+  if (error) return { error: error.message };
+
+  await logAudit(adminUser.id, "delete_plan", "plan", planId, { name: plan.name });
+  revalidatePath("/admin/planes");
+  return { error: null };
+}
+
+// ── Hard delete restaurant ────────────────────────────────────
+// Permanently removes a restaurant and ALL its data (cascade).
+// Only allowed when: no subscriptions, no orders, no subscription_payments.
+// Cleans Storage files for the restaurant.
+// If financial data exists, callers should use softDeleteRestaurant instead.
+export async function hardDeleteRestaurant(
+  restaurantId: string,
+  confirmedSlug: string,
+): Promise<AdminResult> {
+  if (!restaurantId) return { error: "restaurantId requerido." };
+  if (!confirmedSlug?.trim()) return { error: "Se requiere el slug para confirmar." };
+
+  let adminUser: { id: string } | null = null;
+  try {
+    const { user } = await requireAdmin();
+    adminUser = user;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const svc = adminServiceClient();
+
+  const { data: restaurant } = await svc
+    .from("restaurants").select("id, name, slug").eq("id", restaurantId).maybeSingle();
+  if (!restaurant) return { error: "Negocio no encontrado." };
+  if (restaurant.slug !== confirmedSlug.trim())
+    return { error: "El slug no coincide. Escríbelo exactamente." };
+
+  // Guard: financial or order history → cannot hard-delete
+  const [
+    { count: subCount },
+    { count: orderCount },
+    { count: paymentCount },
+  ] = await Promise.all([
+    svc.from("subscriptions").select("*", { count: "exact", head: true }).eq("restaurant_id", restaurantId),
+    svc.from("orders").select("*", { count: "exact", head: true }).eq("restaurant_id", restaurantId),
+    svc.from("subscription_payments").select("*", { count: "exact", head: true }).eq("restaurant_id", restaurantId),
+  ]);
+
+  if ((subCount ?? 0) > 0 || (orderCount ?? 0) > 0 || (paymentCount ?? 0) > 0) {
+    return {
+      error: `Este negocio tiene datos financieros o historial de pedidos (${subCount} suscripciones, ${orderCount} pedidos, ${paymentCount} pagos). Usa el archivo en lugar de la eliminación definitiva.`,
+    };
+  }
+
+  // Collect Storage paths before deletion
+  const { data: images } = await svc
+    .from("product_images")
+    .select("storage_path, thumbnail_path, original_path")
+    .eq("restaurant_id", restaurantId);
+
+  // Delete catalog images from product-images bucket
+  const imagePaths = (images ?? []).flatMap((img) => [
+    img.storage_path,
+    img.thumbnail_path,
+    img.original_path,
+  ].filter(Boolean) as string[]);
+
+  if (imagePaths.length > 0) {
+    await svc.storage.from("product-images").remove(imagePaths);
+  }
+
+  // Delete restaurant assets (logo, cover) from restaurant-assets bucket
+  // Assets follow pattern: {restaurantId}/filename
+  const { data: assetFiles } = await svc.storage
+    .from("restaurant-assets")
+    .list(restaurantId, { limit: 100 });
+
+  if (assetFiles && assetFiles.length > 0) {
+    const assetPaths = assetFiles.map((f) => `${restaurantId}/${f.name}`);
+    await svc.storage.from("restaurant-assets").remove(assetPaths);
+  }
+
+  // Hard delete — CASCADE removes all related rows
+  const { error } = await svc.from("restaurants").delete().eq("id", restaurantId);
+  if (error) return { error: `Error al eliminar: ${error.message}` };
+
+  await logAudit(adminUser.id, "hard_delete_restaurant", "restaurant", restaurantId, {
+    name: restaurant.name,
+    slug: restaurant.slug,
+    images_deleted: imagePaths.length,
+    note: "Eliminación definitiva. No tenía datos financieros ni pedidos.",
+  });
+
+  revalidatePath("/admin");
+  revalidatePath(`/admin/restaurants/${restaurantId}`);
+  return { error: null };
+}

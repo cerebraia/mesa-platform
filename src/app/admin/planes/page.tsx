@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 import { Package } from "lucide-react";
 import { NewPlanForm } from "./new-plan-form";
+import { PlanActionsClient } from "./plan-actions-client";
 
 export default async function PlanesPage() {
   const supabase = await createServerClient();
@@ -14,10 +15,22 @@ export default async function PlanesPage() {
     .from("platform_admins").select("user_id").maybeSingle();
   if (!adminRow) redirect("/panel");
 
-  const { data: plans, error } = await supabase
-    .from("plans")
-    .select("id, name, description, price_cents, currency, max_products, max_members, is_active, is_test, created_at")
-    .order("created_at");
+  const [
+    { data: plans, error },
+    { data: subs },
+  ] = await Promise.all([
+    supabase
+      .from("plans")
+      .select("id, name, description, price_cents, currency, max_products, max_members, is_active, is_test, created_at")
+      .order("created_at"),
+    supabase.from("subscriptions").select("plan_id"),
+  ]);
+
+  // Build subscription count per plan
+  const subCountMap = new Map<string, number>();
+  for (const s of subs ?? []) {
+    subCountMap.set(s.plan_id, (subCountMap.get(s.plan_id) ?? 0) + 1);
+  }
 
   type Plan = {
     id: string; name: string; description: string | null;
@@ -60,12 +73,16 @@ export default async function PlanesPage() {
                     <th>Precio</th>
                     <th>Límites</th>
                     <th>Estado</th>
+                    <th>Suscrip.</th>
                     <th>Tipo</th>
+                    <th style={{ width: "1%" }} />
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((p) => (
-                    <tr key={p.id}>
+                  {rows.map((p) => {
+                    const sc = subCountMap.get(p.id) ?? 0;
+                    return (
+                    <tr key={p.id} style={{ opacity: p.is_active ? 1 : 0.6 }}>
                       <td>
                         <div style={{ fontWeight: 600, color: "#202337" }}>{p.name}</div>
                         {p.description && (
@@ -81,16 +98,23 @@ export default async function PlanesPage() {
                       </td>
                       <td>
                         <span className={`order-status-badge ${p.is_active ? "badge-ready" : "badge-cancelled"}`}>
-                          {p.is_active ? "Activo" : "Inactivo"}
+                          {p.is_active ? "Activo" : "Archivado"}
                         </span>
+                      </td>
+                      <td style={{ fontSize: 12, color: sc > 0 ? "#202337" : "#9CA3AF", fontWeight: sc > 0 ? 600 : 400 }}>
+                        {sc}
                       </td>
                       <td>
                         {p.is_test && (
                           <span className="order-status-badge badge-accepted">TEST</span>
                         )}
                       </td>
+                      <td style={{ whiteSpace: "nowrap" }}>
+                        <PlanActionsClient plan={{ id: p.id, name: p.name, is_active: p.is_active }} subCount={sc} />
+                      </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

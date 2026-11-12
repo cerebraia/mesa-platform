@@ -11,6 +11,7 @@ import {
   upsertUserProfile,
   addMembershipById,
   reactivateMembership,
+  deleteUser,
 } from "../actions";
 
 // ── Types ─────────────────────────────────────────────────────
@@ -286,6 +287,194 @@ function MembershipChip({
         </>
       )}
     </span>
+  );
+}
+
+// ── Delete User Modal ─────────────────────────────────────────
+
+function DeleteUserModal({
+  user,
+  onClose,
+  onDeleted,
+}: {
+  user: UserRow;
+  onClose: () => void;
+  onDeleted: (userId: string) => void;
+}) {
+  const [confirmEmail, setConfirmEmail] = useState("");
+  const [pending, startTransition]      = useTransition();
+  const [error, setError]               = useState<string | null>(null);
+  const [soleOwnerOf, setSoleOwnerOf]   = useState<string[] | null>(null);
+  const [done, setDone]                 = useState(false);
+
+  const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ");
+  const activeMems  = user.memberships.filter((m) => m.status !== "suspended");
+
+  function handleDelete() {
+    if (confirmEmail !== user.email) {
+      setError("El correo no coincide. Escríbelo exactamente.");
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      const res = await deleteUser(user.userId);
+      if (res.soleOwnerOf && res.soleOwnerOf.length > 0) {
+        setSoleOwnerOf(res.soleOwnerOf);
+        return;
+      }
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      setDone(true);
+      onDeleted(user.userId);
+    });
+  }
+
+  if (done) {
+    return (
+      <div className="usr-modal-bg" role="dialog" aria-modal="true" aria-labelledby="del-user-title">
+        <div className="usr-modal">
+          <div className="usr-modal-header">
+            <h2 className="usr-modal-title" id="del-user-title">Cuenta eliminada</h2>
+            <button className="usr-modal-close" onClick={onClose} aria-label="Cerrar"><X size={18}/></button>
+          </div>
+          <div className="wiz-success">
+            <div className="wiz-success-icon">✓</div>
+            <p style={{ fontSize: 14, color: "#374151", margin: "0 0 24px" }}>
+              La cuenta <strong>{user.email}</strong> ha sido eliminada permanentemente.
+            </p>
+            <button type="button" className="button small" onClick={onClose}>Cerrar</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (soleOwnerOf) {
+    return (
+      <div className="usr-modal-bg" role="dialog" aria-modal="true" aria-labelledby="del-user-title">
+        <div className="usr-modal">
+          <div className="usr-modal-header">
+            <h2 className="usr-modal-title" id="del-user-title" style={{ color: "#b45309" }}>
+              Acción bloqueada
+            </h2>
+            <button className="usr-modal-close" onClick={onClose} aria-label="Cerrar"><X size={18}/></button>
+          </div>
+          <div
+            style={{
+              background: "#fffbeb", border: "1px solid #fde68a",
+              borderRadius: 10, padding: "16px 18px", marginBottom: 20,
+            }}
+          >
+            <p style={{ fontSize: 14, fontWeight: 600, color: "#92400e", marginBottom: 8 }}>
+              Este usuario es el único propietario activo de:
+            </p>
+            <ul style={{ margin: 0, padding: "0 0 0 20px", fontSize: 13, color: "#78350f" }}>
+              {soleOwnerOf.map((name) => <li key={name}>{name}</li>)}
+            </ul>
+          </div>
+          <p style={{ fontSize: 13, color: "#667085", marginBottom: 20 }}>
+            Asigna otro propietario a {soleOwnerOf.length === 1 ? "ese negocio" : "esos negocios"} antes
+            de eliminar esta cuenta. Usa la opción «Editar usuario» → «Asignar negocio» en otro usuario.
+          </p>
+          <button type="button" className="button secondary small" onClick={onClose}>Cerrar</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="usr-modal-bg" role="dialog" aria-modal="true" aria-labelledby="del-user-title">
+      <div className="usr-modal">
+        <div className="usr-modal-header">
+          <h2 className="usr-modal-title" id="del-user-title" style={{ color: "#DC2626" }}>
+            Eliminar usuario
+          </h2>
+          <button className="usr-modal-close" onClick={onClose} aria-label="Cerrar"><X size={18}/></button>
+        </div>
+
+        {/* Summary */}
+        <div
+          style={{
+            marginBottom: 20, padding: "12px 14px",
+            background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8,
+          }}
+        >
+          <p style={{ fontSize: 11, color: "#9CA3AF", margin: "0 0 6px" }}>
+            Esta acción elimina la cuenta de Auth y todas sus membresías de forma permanente.
+            Los negocios asignados no se eliminan.
+          </p>
+          <div style={{ fontSize: 13, color: "#202337" }}>
+            <strong>{user.email}</strong>
+            {displayName && <span style={{ color: "#667085" }}> · {displayName}</span>}
+          </div>
+          {activeMems.length > 0 && (
+            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {activeMems.map((m) => (
+                <span key={m.membershipId}
+                  style={{
+                    fontSize: 10, padding: "2px 8px", borderRadius: 20,
+                    background: "#F3F4F6", color: "#374151",
+                  }}>
+                  {m.restaurantName} · {ROLE_LABEL[m.role] ?? m.role}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="field" style={{ marginBottom: 16 }}>
+          <label style={{ fontWeight: 600, fontSize: 13, color: "#202337" }}>
+            Escribe el correo para confirmar:
+          </label>
+          <code
+            style={{
+              display: "block", padding: "5px 10px", background: "#F6F7FB",
+              borderRadius: 6, fontSize: 12, fontFamily: "monospace",
+              margin: "6px 0 8px", color: "#202337", wordBreak: "break-all",
+            }}
+          >
+            {user.email}
+          </code>
+          <input
+            type="email"
+            value={confirmEmail}
+            onChange={(e) => { setConfirmEmail(e.target.value); setError(null); }}
+            placeholder={user.email}
+            autoComplete="off"
+          />
+        </div>
+
+        {error && (
+          <div className="auth-error" role="alert" style={{ marginBottom: 12 }}>{error}</div>
+        )}
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            type="button"
+            className="button"
+            style={{
+              background: confirmEmail === user.email ? "#DC2626" : "#9CA3AF",
+              borderColor: "transparent", flex: 1, justifyContent: "center", minHeight: 44,
+            }}
+            onClick={handleDelete}
+            disabled={pending || confirmEmail !== user.email}
+          >
+            {pending ? "Eliminando…" : "Eliminar cuenta"}
+          </button>
+          <button
+            type="button"
+            className="button secondary small"
+            style={{ flex: 1, justifyContent: "center", minHeight: 44 }}
+            onClick={onClose}
+            disabled={pending}
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1363,6 +1552,7 @@ export function UsersClient({
   const [showModal, setShowModal] = useState(false);
   const [pwdTarget, setPwdTarget] = useState<{ userId: string; email: string } | null>(null);
   const [editTarget, setEditTarget] = useState<UserRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<UserRow | null>(null);
 
   // Filters
   const [filterQ, setFilterQ]           = useState("");
@@ -1404,6 +1594,11 @@ export function UsersClient({
         ),
       })),
     );
+  }
+
+  function handleUserDeleted(userId: string) {
+    setUsers((prev) => prev.filter((u) => u.userId !== userId));
+    setDeleteTarget(null);
   }
 
   function handleUserUpdated(patch: Partial<UserRow> & { userId: string }) {
@@ -1590,6 +1785,14 @@ export function UsersClient({
                             >
                               Cambiar contraseña
                             </button>
+                            <button
+                              type="button"
+                              className="button secondary small"
+                              style={{ color: "#DC2626", borderColor: "#fecaca" }}
+                              onClick={() => setDeleteTarget(u)}
+                            >
+                              Eliminar
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1643,6 +1846,14 @@ export function UsersClient({
                     >
                       Cambiar contraseña
                     </button>
+                    <button
+                      type="button"
+                      className="button secondary small"
+                      style={{ width: "100%", minHeight: 44, color: "#DC2626", borderColor: "#fecaca" }}
+                      onClick={() => setDeleteTarget(u)}
+                    >
+                      Eliminar usuario
+                    </button>
                   </div>
                 </div>
               ))}
@@ -1670,6 +1881,15 @@ export function UsersClient({
           restaurants={restaurants}
           onClose={() => setEditTarget(null)}
           onUpdated={handleUserUpdated}
+        />
+      )}
+
+      {/* Delete user modal */}
+      {deleteTarget && (
+        <DeleteUserModal
+          user={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={handleUserDeleted}
         />
       )}
 
