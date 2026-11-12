@@ -90,7 +90,9 @@ export default async function PlanesPage() {
                         )}
                       </td>
                       <td style={{ fontSize: 13, fontWeight: 500 }}>
-                        {p.currency} {(p.price_cents / 100).toFixed(2)} / mes
+                        {p.price_cents === 0
+                          ? "Gratis"
+                          : `${p.currency} ${(p.price_cents / 100).toFixed(2)} / mes`}
                       </td>
                       <td style={{ fontSize: 12, color: "#667085" }}>
                         {p.max_products != null ? `${p.max_products} productos` : "Ilimitado"}

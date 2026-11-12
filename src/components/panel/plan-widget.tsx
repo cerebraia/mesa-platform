@@ -102,7 +102,9 @@ export async function PlanWidget({ restaurantId }: { restaurantId: string }) {
           </h2>
           {planDef && (
             <p style={{ fontSize: 13, color: "#667085" }}>
-              {(planDef.price_cents / 100).toFixed(0)} {planDef.currency}/mes · por restaurante
+              {planDef.price_cents === 0
+                ? "Gratis · US$0/mes"
+                : `${(planDef.price_cents / 100).toFixed(2)} ${planDef.currency}/mes · por restaurante`}
             </p>
           )}
           {!planDef && (

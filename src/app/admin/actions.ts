@@ -812,11 +812,23 @@ export async function createRestaurantFull(
     }
   }
 
-  // 4. Optionally create subscription — partial failure is non-fatal
-  if (planId) {
+  // 4. Create subscription — default to "inicio" (US$0) if no plan selected.
+  //    New businesses always get a plan to avoid accidental onboarding-libre access.
+  let resolvedPlanId = planId;
+  if (!resolvedPlanId) {
+    const { data: inicioPlan } = await svc
+      .from("plans")
+      .select("id")
+      .eq("plan_code", "inicio")
+      .eq("is_active", true)
+      .maybeSingle();
+    resolvedPlanId = inicioPlan?.id ?? null;
+  }
+
+  if (resolvedPlanId) {
     const { error: subErr } = await supabase.from("subscriptions").insert({
       restaurant_id: restaurantId,
-      plan_id: planId,
+      plan_id: resolvedPlanId,
       status: "active",
       starts_at: new Date().toISOString(),
       created_by: adminUser.id,
@@ -933,15 +945,26 @@ export async function createRestaurantWithConfig(
     }
   }
 
-  // 4. Optionally create subscription
-  if (planId) {
+  // 4. Create subscription — default to "inicio" (US$0) if no plan selected
+  let resolvedPlanIdCfg = planId;
+  if (!resolvedPlanIdCfg) {
+    const { data: inicioPlan } = await svc
+      .from("plans")
+      .select("id")
+      .eq("plan_code", "inicio")
+      .eq("is_active", true)
+      .maybeSingle();
+    resolvedPlanIdCfg = inicioPlan?.id ?? null;
+  }
+
+  if (resolvedPlanIdCfg) {
     await supabase.from("subscriptions").insert({
       restaurant_id: restaurant.id,
-      plan_id: planId,
+      plan_id: resolvedPlanIdCfg,
       status: "active",
       starts_at: new Date().toISOString(),
     });
-    details.plan_id = planId;
+    details.plan_id = resolvedPlanIdCfg;
   }
 
   await logAudit(adminUser.id, "create_restaurant", "restaurant", restaurant.id, details);

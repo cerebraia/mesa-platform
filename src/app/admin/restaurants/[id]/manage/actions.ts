@@ -136,10 +136,11 @@ export async function adminRestoreProduct(
   try { await requireAdminForRestaurant(restaurantId); }
   catch (e) { return { error: (e as Error).message }; }
 
-  const { error } = await svc().from("products")
-    .update({ deleted_at: null, deleted_by: null, is_published: false,
-              updated_at: new Date().toISOString() })
-    .eq("id", productId).eq("restaurant_id", restaurantId).not("deleted_at", "is", null);
+  // Uses restore_product_admin RPC: same advisory lock + limit check as the owner path
+  const { error } = await svc().rpc("restore_product_admin", {
+    p_restaurant_id: restaurantId,
+    p_product_id:    productId,
+  });
   if (error) return { error: error.message };
   revalidateManage(restaurantId);
   return { error: null };

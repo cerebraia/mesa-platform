@@ -414,10 +414,16 @@ export default function Home() {
                     <p className="lp-plan-desc">{plan.description_short}</p>
                   </div>
                   <div className="lp-plan-price-row">
-                    <span className="lp-plan-price">{(plan.price_cents / 100).toFixed(0)}</span>
-                    <span className="lp-plan-currency">USD/mes</span>
+                    <span className="lp-plan-price">
+                      {plan.price_cents === 0 ? "Gratis" : (plan.price_cents / 100).toFixed(2)}
+                    </span>
+                    {plan.price_cents > 0 && <span className="lp-plan-currency">USD/mes</span>}
                   </div>
-                  <p className="lp-plan-billing">por negocio · facturación mensual</p>
+                  <p className="lp-plan-billing">
+                    {plan.price_cents === 0
+                      ? "US$0/mes · sin cargo mensual"
+                      : "por negocio · facturación mensual"}
+                  </p>
                   <div className="lp-plan-limits">
                     <span><strong>{plan.max_products}</strong> productos</span>
                     <span>·</span>
@@ -445,9 +451,15 @@ export default function Home() {
                     rel="noopener noreferrer"
                     className={`lp-plan-cta${featured ? " lp-plan-cta--featured" : ""}`}
                   >
-                    Solicitar {plan.name.replace("Wacatalog ", "")}
+                    {plan.price_cents === 0
+                      ? "Solicitar Inicio"
+                      : `Solicitar ${plan.name.replace("Wacatalog ", "")}`}
                   </a>
-                  <p className="lp-plan-cta-note">Consulta por WhatsApp · sin cargo inmediato</p>
+                  <p className="lp-plan-cta-note">
+                    {plan.price_cents === 0
+                      ? "Consulta por WhatsApp · sin costo mensual"
+                      : "Consulta por WhatsApp · sin cargo inmediato"}
+                  </p>
                 </article>
               );
             })}

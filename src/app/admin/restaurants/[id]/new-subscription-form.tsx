@@ -62,7 +62,7 @@ export function NewSubscriptionForm({
           {plans.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}{p.is_test ? " [TEST]" : ""}
-              {" — "}{p.currency} {(p.price_cents / 100).toFixed(2)}/mes
+              {" — "}{p.price_cents === 0 ? "Gratis" : `${p.currency} ${(p.price_cents / 100).toFixed(2)}/mes`}
             </option>
           ))}
         </select>
@@ -91,8 +91,14 @@ export function NewSubscriptionForm({
                   <span style={{ color: "#667085" }}>usuario{planDef.max_members !== 1 ? "s" : ""} máx.</span>
                 </span>
                 <span>
-                  <strong>{planDef.currency} {(planDef.price_cents / 100).toFixed(2)}</strong>{" "}
-                  <span style={{ color: "#667085" }}>/mes</span>
+                  {planDef.price_cents === 0 ? (
+                    <strong>Gratis</strong>
+                  ) : (
+                    <>
+                      <strong>{planDef.currency} {(planDef.price_cents / 100).toFixed(2)}</strong>{" "}
+                      <span style={{ color: "#667085" }}>/mes</span>
+                    </>
+                  )}
                 </span>
               </div>
               <div style={{ color: "#667085", fontSize: 12 }}>

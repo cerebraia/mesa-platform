@@ -14,11 +14,11 @@ export default async function NewRestaurantPage() {
 
   const { data: plans } = await supabase
     .from("plans")
-    .select("id, name, price_cents, currency, is_active")
+    .select("id, name, price_cents, currency, is_active, plan_code")
     .eq("is_active", true)
     .order("price_cents");
 
-  type Plan = { id: string; name: string; price_cents: number; currency: string; is_active: boolean };
+  type Plan = { id: string; name: string; price_cents: number; currency: string; is_active: boolean; plan_code: string | null };
   const activePlans = (plans ?? []) as Plan[];
 
   return <NewRestaurantWizard plans={activePlans} />;

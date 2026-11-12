@@ -10,7 +10,7 @@ import {
   type RestaurantCreationResult,
 } from "../../actions";
 
-type Plan = { id: string; name: string; price_cents: number; currency: string; is_active: boolean };
+type Plan = { id: string; name: string; price_cents: number; currency: string; is_active: boolean; plan_code: string | null };
 
 const TIMEZONES = [
   "America/Caracas",
@@ -144,8 +144,9 @@ export function NewRestaurantWizard({ plans }: { plans: Plan[] }) {
   const [showPwd, setShowPwd]                   = useState(false);
   const [linkConfirmed, setLinkConfirmed]       = useState(false);
 
-  // Step 3 state
-  const [planId, setPlanId] = useState<string>("");
+  // Step 3 state — default to "inicio" (free plan) if available
+  const defaultPlanId = plans.find((p) => p.plan_code === "inicio")?.id ?? plans[0]?.id ?? "";
+  const [planId, setPlanId] = useState<string>(defaultPlanId);
 
   // Step 4 (success) state
   const [successResult, setSuccessResult]       = useState<RestaurantCreationResult | null>(null);
@@ -554,33 +555,24 @@ export function NewRestaurantWizard({ plans }: { plans: Plan[] }) {
             {step === 3 && (
               <>
                 <h2 style={{ fontSize: 14, fontWeight: 600, color: "#667085", textTransform: "uppercase", letterSpacing: ".6px", marginBottom: 20 }}>
-                  Plan de suscripción (opcional)
+                  Plan de suscripción
                 </h2>
 
                 <div className="field" style={{ marginBottom: 24 }}>
                   <label>Plan</label>
                   <select value={planId} onChange={(e) => setPlanId(e.target.value)}>
-                    <option value="">Sin plan — modo onboarding libre</option>
                     {plans.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name} — {formatPrice(p.price_cents, p.currency)}/mes
+                        {p.name}
+                        {p.price_cents === 0 ? " — Gratis" : ` — ${formatPrice(p.price_cents, p.currency)}/mes`}
+                        {p.plan_code === "inicio" ? " (predeterminado)" : ""}
                       </option>
                     ))}
                   </select>
+                  <span className="caption" style={{ marginTop: 4 }}>
+                    Se asigna el plan Inicio (US$0) por defecto. Puedes cambiarlo después.
+                  </span>
                 </div>
-
-                {!planId && (
-                  <div
-                    style={{
-                      padding: "10px 14px", background: "#fffbeb",
-                      border: "1px solid #fde68a", borderRadius: 8,
-                      fontSize: 12, marginBottom: 20,
-                    }}
-                  >
-                    El negocio se creará en modo onboarding sin suscripción activa.
-                    Podrás asignar un plan después desde el detalle del negocio.
-                  </div>
-                )}
 
                 {/* Summary */}
                 <div

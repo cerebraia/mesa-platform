@@ -1,5 +1,5 @@
 // Single source of truth for Wacatalog commercial plan data.
-// These values are seeded into the database by migration 023.
+// These values are seeded into the database by migration 023 and updated by 042.
 // Any UI that displays plan information MUST use this file — never hardcode
 // prices or limits elsewhere to avoid contradictions.
 
@@ -24,14 +24,14 @@ export const PLAN_CATALOG: readonly PlanDefinition[] = [
   {
     code:         "inicio",
     name:         "Wacatalog Inicio",
-    price_cents:  1900,
+    price_cents:  0,
     currency:     "USD",
-    max_products: 50,
+    max_products: 20,
     max_members:  1,
     allowed_roles: ["owner"],
     description_short: "Vitrina digital con tu marca y tu enlace propio.",
     features: [
-      "Catálogo con hasta 50 productos",
+      "Catálogo con hasta 20 productos",
       "Fotos, variantes y opciones por producto",
       "Logo, portada y colores de tu marca",
       "Enlace para compartir en redes y WhatsApp",
@@ -41,12 +41,12 @@ export const PLAN_CATALOG: readonly PlanDefinition[] = [
       "Soporte estándar",
     ],
     contact_subject: "Solicitud de catálogo: Wacatalog Inicio",
-    wa_message: "Hola, me interesa el plan Wacatalog Inicio. ¿Podrían darme más información?",
+    wa_message: "Hola, me interesa el plan gratuito Wacatalog Inicio. ¿Podrían darme más información?",
   },
   {
     code:         "negocio",
     name:         "Wacatalog Negocio",
-    price_cents:  3900,
+    price_cents:  2999,
     currency:     "USD",
     max_products: 200,
     max_members:  5,
@@ -71,7 +71,7 @@ export const PLAN_CATALOG: readonly PlanDefinition[] = [
   {
     code:         "acompanado",
     name:         "Wacatalog Acompañado",
-    price_cents:  6900,
+    price_cents:  5999,
     currency:     "USD",
     max_products: 400,
     max_members:  10,
@@ -98,6 +98,8 @@ export function getPlanByCode(code: string | null | undefined): PlanDefinition |
   return PLAN_CATALOG.find((p) => p.code === code) ?? null;
 }
 
+/** Returns a human-readable price string. Free plans return "Gratis". */
 export function formatPlanPrice(plan: PlanDefinition): string {
-  return `${(plan.price_cents / 100).toFixed(0)} USD`;
+  if (plan.price_cents === 0) return "Gratis";
+  return `${(plan.price_cents / 100).toFixed(2)} ${plan.currency}`;
 }

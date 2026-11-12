@@ -174,6 +174,36 @@ export default async function RestaurantDetailPage({
       </div>
 
       <div className="panel-content">
+
+        {/* Onboarding-libre exception — only for restaurants created before auto-assign */}
+        {!activeSub && !restaurant.deleted_at && (
+          <div
+            role="alert"
+            style={{
+              background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: 10,
+              padding: "12px 16px", marginBottom: 20,
+              display: "flex", alignItems: "flex-start", gap: 10,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C2410C"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ flexShrink: 0, marginTop: 1 }} aria-hidden="true">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <div>
+              <span style={{ fontWeight: 600, fontSize: 13, color: "#C2410C" }}>
+                Excepción de onboarding
+              </span>
+              <p style={{ fontSize: 12, color: "#C2410C", margin: "3px 0 0" }}>
+                Este negocio no tiene suscripción activa. Opera sin límites de productos ni de miembros.
+                Este estado solo debe persistir en negocios anteriores al plan gratuito automático.
+                Asigna el plan Inicio u otro plan desde la sección de suscripciones.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="admin-detail-grid" style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20, alignItems: "start" }}>
 
           {/* ── Left column ── */}
