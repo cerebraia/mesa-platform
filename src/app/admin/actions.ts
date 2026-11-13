@@ -793,13 +793,18 @@ export async function createRestaurantFull(
   const pendingItems: string[] = [];
 
   // 2. Create initial config
-  await supabase.from("restaurant_config").upsert({
+  const { error: configErr } = await supabase.from("restaurant_config").upsert({
     restaurant_id: restaurantId,
     orders_enabled: ordersEnabled,
     whatsapp: whatsapp ?? undefined,
     instagram_url: instagram ?? undefined,
     description: description ?? undefined,
   }, { onConflict: "restaurant_id" });
+  if (configErr) {
+    pendingItems.push(
+      `No se pudo crear la configuración inicial: ${configErr.message}. Ve al detalle del negocio → Configuración para completarla.`,
+    );
+  }
 
   // 3. Optionally handle owner — partial failure is non-fatal
   let ownerResult: RestaurantCreationResult["owner"] | undefined;

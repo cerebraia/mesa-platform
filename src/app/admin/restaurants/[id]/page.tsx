@@ -1,4 +1,8 @@
-import { redirect, notFound } from "next/navigation";
+// Auth and platform_admin authorization are handled exclusively in
+// src/app/admin/layout.tsx — this page trusts that the layout already ran.
+// Duplicating the check here caused a redirect loop:
+//   /admin/restaurants/[id] → /panel (maybeSingle fails with 2+ admins) → /admin
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 import { ArrowLeft, ExternalLink, Settings, Trash2 } from "lucide-react";
@@ -37,13 +41,6 @@ export default async function RestaurantDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createServerClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: adminRow } = await supabase
-    .from("platform_admins").select("user_id").maybeSingle();
-  if (!adminRow) redirect("/panel");
 
   const { data: restaurant } = await supabase
     .from("restaurants")

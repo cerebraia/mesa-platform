@@ -1,4 +1,7 @@
-import { redirect } from "next/navigation";
+// Auth and platform_admin authorization are handled exclusively in
+// src/app/admin/layout.tsx — this page trusts that the layout already ran.
+// Duplicating the check here caused a redirect loop:
+//   /admin/planes → /panel (maybeSingle fails) → /admin (panel layout detects platform_admin)
 import Link from "next/link";
 import { createServerClient } from "@/lib/supabase/server";
 import { Package } from "lucide-react";
@@ -7,13 +10,6 @@ import { PlanActionsClient } from "./plan-actions-client";
 
 export default async function PlanesPage() {
   const supabase = await createServerClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: adminRow } = await supabase
-    .from("platform_admins").select("user_id").maybeSingle();
-  if (!adminRow) redirect("/panel");
 
   const [
     { data: plans, error },

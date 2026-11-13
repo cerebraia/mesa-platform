@@ -605,8 +605,17 @@ export function NewRestaurantWizard({ plans }: { plans: Plan[] }) {
             {/* ── Step 4: Success screen ── */}
             {step === 4 && successResult && (
               <div className="wiz-success">
-                <div className="wiz-success-icon">✓</div>
-                <h2 className="wiz-success-title">¡{successResult.restaurantName} creado!</h2>
+                <div
+                  className="wiz-success-icon"
+                  style={successResult.pendingItems?.length ? { background: "#fef9c3", color: "#a16207" } : undefined}
+                >
+                  {successResult.pendingItems?.length ? "⚠" : "✓"}
+                </div>
+                <h2 className="wiz-success-title">
+                  {successResult.pendingItems?.length
+                    ? `${successResult.restaurantName} creado con advertencias`
+                    : `¡${successResult.restaurantName} creado!`}
+                </h2>
 
                 {successResult.owner && (
                   <div style={{ marginBottom: 8 }}>

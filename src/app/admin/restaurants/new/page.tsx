@@ -1,16 +1,12 @@
-import { redirect } from "next/navigation";
+// Auth and platform_admin authorization are handled exclusively in
+// src/app/admin/layout.tsx — this page trusts that the layout already ran.
+// Duplicating the check here caused a redirect loop:
+//   /admin/restaurants/new → /panel (maybeSingle fails with 2+ admins) → /admin
 import { createServerClient } from "@/lib/supabase/server";
 import { NewRestaurantWizard } from "./new-restaurant-wizard";
 
 export default async function NewRestaurantPage() {
   const supabase = await createServerClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: adminRow } = await supabase
-    .from("platform_admins").select("user_id").maybeSingle();
-  if (!adminRow) redirect("/panel");
 
   const { data: plans } = await supabase
     .from("plans")

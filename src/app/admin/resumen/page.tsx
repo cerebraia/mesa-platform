@@ -1,8 +1,11 @@
-import { redirect } from "next/navigation";
+// Auth and platform_admin authorization are handled exclusively in
+// src/app/admin/layout.tsx — this page trusts that the layout already ran.
+// Duplicating the check here caused a redirect loop:
+//   /admin/resumen → /panel (maybeSingle fails) → /admin (panel layout detects platform_admin)
 import { createServerClient } from "@/lib/supabase/server";
 import {
-  Store, Package, CreditCard, ShoppingBag,
-  TrendingUp, Users, Clock, Trash2,
+  Store, Package, CreditCard,
+  Users, Clock, Trash2,
 } from "lucide-react";
 
 type Metrics = {
@@ -59,13 +62,6 @@ function formatMoney(cents: number, currency: string): string {
 
 export default async function AdminResumenPage() {
   const supabase = await createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: adminRow } = await supabase
-    .from("platform_admins").select("user_id").maybeSingle();
-  if (!adminRow) redirect("/panel");
-
   const { data: rawMetrics, error } = await supabase.rpc("get_admin_platform_metrics");
   const metrics = rawMetrics as Metrics | null;
 
