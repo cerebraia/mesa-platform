@@ -893,6 +893,8 @@ summary{font-size:15px}
   .rm-footer-social .rm-social-btn:hover{opacity:1;color:var(--menu-primary,var(--purple));background:rgba(0,0,0,.05)}
 }
 .rm-footer-social .rm-social-btn:focus-visible{outline-color:var(--menu-primary,var(--purple))}
+.rm-footer-brand{color:var(--menu-primary,var(--purple));font-weight:600;text-decoration:none}
+.rm-footer-brand:focus-visible{outline:2px solid var(--menu-primary,var(--purple));outline-offset:2px;border-radius:2px}
 
 /* ── Responsive ─────────────────────────────────────────────── */
 @media(min-width:1024px){

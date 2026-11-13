@@ -1704,7 +1704,12 @@ export function PublicMenuClient({
             <SocialBar links={socialLinks} />
           </div>
         )}
-        <span>Creado con <strong style={{ color: "var(--menu-primary,var(--purple))", fontWeight: 600 }}>Wacatalog</strong></span>
+        <span>Creado con <a
+          href="https://wacatalogo.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rm-footer-brand"
+        >Wacatalog</a></span>
       </footer>
 
       {/* FAB carrito — escritorio (opens side panel) */}
