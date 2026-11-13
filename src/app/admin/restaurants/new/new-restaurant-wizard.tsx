@@ -617,6 +617,28 @@ export function NewRestaurantWizard({ plans }: { plans: Plan[] }) {
                     : `¡${successResult.restaurantName} creado!`}
                 </h2>
 
+                {/* Catalog URL — always shown when activated */}
+                {successResult.catalogUrl && (
+                  <div className="wiz-cred-row" style={{ marginBottom: 8 }}>
+                    <span className="wiz-cred-label">Catálogo</span>
+                    <span className="wiz-cred-value" title={successResult.catalogUrl}>
+                      {successResult.catalogUrl}
+                    </span>
+                    <a
+                      href={successResult.catalogUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="wiz-cred-copy"
+                      aria-label="Abrir catálogo"
+                      style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}
+                    >
+                      <ExternalLink size={11} />
+                      Abrir
+                    </a>
+                    <CopyButton value={successResult.catalogUrl} label="URL del catálogo" />
+                  </div>
+                )}
+
                 {successResult.owner && (
                   <div style={{ marginBottom: 8 }}>
                     {/* Email row */}
@@ -639,10 +661,7 @@ export function NewRestaurantWizard({ plans }: { plans: Plan[] }) {
                           rel="noreferrer"
                           className="wiz-cred-copy"
                           aria-label="Abrir enlace de acceso"
-                          style={{
-                            display: "inline-flex", alignItems: "center", gap: 4,
-                            textDecoration: "none",
-                          }}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}
                         >
                           <ExternalLink size={11} />
                           Abrir

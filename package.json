@@ -21,7 +21,8 @@
     "test:plans": "node --experimental-strip-types --env-file=.env.local --env-file=.env.test --test tests/plans.test.ts",
     "test:sections": "node --experimental-strip-types --env-file=.env.local --env-file=.env.test --test tests/config-sections.test.ts",
     "test:finance": "node --experimental-strip-types --env-file=.env.local --env-file=.env.test --test tests/finance-isolation.test.ts",
-    "test:multi-admin": "node --experimental-strip-types --env-file=.env.local --env-file=.env.test --test tests/admin-multi-admin.test.ts"
+    "test:multi-admin": "node --experimental-strip-types --env-file=.env.local --env-file=.env.test --test tests/admin-multi-admin.test.ts",
+    "test:catalog-creation": "node --experimental-strip-types --env-file=.env.local --env-file=.env.test --test tests/catalog-creation.test.ts"
   },
   "engines": {
     "node": ">=22.0.0"

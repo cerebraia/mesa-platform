@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
 import { createServerClient as createSsrClient } from "@supabase/ssr";
+import {
+  restaurantCreationCore,
+  type RestaurantCreationParams,
+} from "@/lib/create-restaurant";
 
 // Service-role client for Auth Admin operations (invite user, list users).
 // Secret key never reaches the browser.
@@ -55,6 +59,10 @@ export type AdminResult = { error: string | null; data?: Record<string, unknown>
 
 // ── Create restaurant ─────────────────────────────────────────
 
+// Legacy: creates only the restaurant row in onboarding status.
+// Does not create config, subscription, or owner — the catalog will NOT be publicly
+// accessible until an admin activates it via the Status panel.
+// Prefer createRestaurantFull for the full wizard flow.
 export async function createRestaurant(formData: FormData): Promise<AdminResult> {
   const name         = String(formData.get("name") ?? "").trim();
   const slug         = String(formData.get("slug") ?? "").trim().toLowerCase();
@@ -148,24 +156,25 @@ export async function setRestaurantStatus(
   }
 
   let adminUser: { id: string } | null = null;
+  let supabase: Awaited<ReturnType<typeof createServerClient>> | null = null;
   try {
-    const { user } = await requireAdmin();
-    adminUser = user;
+    const result = await requireAdmin();
+    adminUser = result.user;
+    supabase = result.supabase;
   } catch (e) {
     return { error: (e as Error).message };
   }
 
-  // Use service role: restaurants.status is protected by guard_restaurant_status trigger
-  // which checks is_platform_admin(). The authenticated client call works since the session
-  // IS a platform admin. But service role avoids any edge-case with trigger context.
-  const svc = adminServiceClient();
-  const { error } = await svc.from("restaurants")
+  // Must use the authenticated session client: guard_restaurant_status (BEFORE UPDATE)
+  // calls is_platform_admin() → auth.uid(). Service-role sets auth.uid()=NULL and the
+  // trigger would raise "Solo los administradores de plataforma pueden cambiar el estado".
+  const { error } = await supabase!.from("restaurants")
     .update({ status: newStatus, updated_at: new Date().toISOString() })
     .eq("id", restaurantId);
 
   if (error) return { error: error.message };
 
-  await logAudit(adminUser.id, "set_status", "restaurant", restaurantId, {
+  await logAudit(adminUser!.id, "set_status", "restaurant", restaurantId, {
     new_status: newStatus, note,
   });
 
@@ -726,13 +735,18 @@ export async function checkOwnerEmail(
 
 // ── Create restaurant (full) ──────────────────────────────────
 // Creates restaurant + config + optional owner + optional plan.
-// Never fails because of partial owner/plan errors — those go to pendingItems.
+// Activation (onboarding → active) only happens after config AND subscription
+// succeed. If either fails, the restaurant stays in onboarding and pendingItems
+// explains what to complete before it becomes publicly accessible.
+// Owner failure is non-fatal for activation.
 export type RestaurantCreationResult = {
   error: string | null;
   restaurantId?: string;
   restaurantName?: string;
   slug?: string;
   loginUrl?: string;
+  catalogUrl?: string;
+  activated?: boolean;
   owner?: {
     email: string;
     method: "created" | "linked";
@@ -744,69 +758,49 @@ export type RestaurantCreationResult = {
 export async function createRestaurantFull(
   formData: FormData,
 ): Promise<RestaurantCreationResult> {
-  const name         = String(formData.get("name") ?? "").trim();
-  const slug         = String(formData.get("slug") ?? "").trim().toLowerCase();
-  const currency     = String(formData.get("currency") ?? "USD").trim().toUpperCase();
-  const timezone     = String(formData.get("timezone") ?? "America/Caracas").trim();
-  const businessType = String(formData.get("business_type") ?? "restaurant").trim();
+  const name          = String(formData.get("name") ?? "").trim();
+  const slug          = String(formData.get("slug") ?? "").trim().toLowerCase();
+  const currency      = String(formData.get("currency") ?? "USD").trim().toUpperCase();
+  const timezone      = String(formData.get("timezone") ?? "America/Caracas").trim();
+  const businessType  = String(formData.get("business_type") ?? "restaurant").trim();
   const ordersEnabled = formData.get("orders_enabled") !== "false";
-  const whatsapp     = String(formData.get("whatsapp") ?? "").trim() || null;
-  const instagram    = String(formData.get("instagram_url") ?? "").trim() || null;
-  const description  = String(formData.get("description") ?? "").trim() || null;
-  const ownerEmail   = String(formData.get("owner_email") ?? "").trim() || null;
+  const whatsapp      = String(formData.get("whatsapp") ?? "").trim() || null;
+  const instagram     = String(formData.get("instagram_url") ?? "").trim() || null;
+  const description   = String(formData.get("description") ?? "").trim() || null;
+  const ownerEmail    = String(formData.get("owner_email") ?? "").trim() || null;
   const ownerPassword = String(formData.get("owner_password") ?? "").trim() || null;
-  const planId       = String(formData.get("plan_id") ?? "").trim() || null;
+  const planId        = String(formData.get("plan_id") ?? "").trim() || null;
 
   if (!name || name.length < 2)
     return { error: "El nombre debe tener al menos 2 caracteres." };
-  if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(slug))
-    return { error: "El slug solo puede tener minúsculas, dígitos y guiones (3–63 chars)." };
   if (currency.length !== 3)
     return { error: "La moneda debe tener exactamente 3 letras." };
 
   let adminUser: { id: string } | null = null;
+  let supabase: Awaited<ReturnType<typeof createServerClient>> | null = null;
   try {
-    const { user } = await requireAdmin();
-    adminUser = user;
+    const result = await requireAdmin();
+    adminUser = result.user;
+    supabase = result.supabase;
   } catch (e) {
     return { error: (e as Error).message };
   }
 
-  const supabase = await createServerClient();
   const svc = adminServiceClient();
 
-  // Check slug uniqueness before creating
-  const { data: slugCheck } = await svc
-    .from("restaurants").select("id").eq("slug", slug).is("deleted_at", null).maybeSingle();
-  if (slugCheck) return { error: "Este slug ya está en uso." };
+  // ── Delegate core creation (slug → config → plan → activate) to shared module.
+  // supabase carries the admin JWT so guard_restaurant_status (BEFORE UPDATE) passes.
+  const params: RestaurantCreationParams = {
+    name, slug, currency, timezone, businessType, ordersEnabled,
+    whatsapp, instagramUrl: instagram, description, planId,
+  };
+  const core = await restaurantCreationCore(supabase!, svc, params, adminUser!.id);
+  if (core.error) return core;
 
-  // 1. Create restaurant
-  const { data: restaurant, error: rErr } = await supabase.from("restaurants").insert({
-    name, slug, currency, timezone, status: "onboarding", business_type: businessType,
-  }).select("id, name, slug").single();
-  if (rErr) {
-    if (rErr.code === "23505") return { error: "Este slug ya está en uso." };
-    return { error: rErr.message };
-  }
+  const restaurantId = core.restaurantId!;
+  const pendingItems: string[] = [...(core.pendingItems ?? [])];
 
-  const restaurantId = restaurant.id;
-  const pendingItems: string[] = [];
-
-  // 2. Create initial config
-  const { error: configErr } = await supabase.from("restaurant_config").upsert({
-    restaurant_id: restaurantId,
-    orders_enabled: ordersEnabled,
-    whatsapp: whatsapp ?? undefined,
-    instagram_url: instagram ?? undefined,
-    description: description ?? undefined,
-  }, { onConflict: "restaurant_id" });
-  if (configErr) {
-    pendingItems.push(
-      `No se pudo crear la configuración inicial: ${configErr.message}. Ve al detalle del negocio → Configuración para completarla.`,
-    );
-  }
-
-  // 3. Optionally handle owner — partial failure is non-fatal
+  // ── Owner — non-fatal for activation (Auth Admin orchestration) ──────────────
   let ownerResult: RestaurantCreationResult["owner"] | undefined;
   if (ownerEmail) {
     const ownerRes = await assignOwner(restaurantId, ownerEmail, ownerPassword ?? undefined);
@@ -824,54 +818,9 @@ export async function createRestaurantFull(
     }
   }
 
-  // 4. Create subscription — default to "inicio" (US$0) if no plan selected.
-  //    New businesses always get a plan to avoid accidental onboarding-libre access.
-  let resolvedPlanId = planId;
-  if (!resolvedPlanId) {
-    const { data: inicioPlan } = await svc
-      .from("plans")
-      .select("id")
-      .eq("plan_code", "inicio")
-      .eq("is_active", true)
-      .maybeSingle();
-    resolvedPlanId = inicioPlan?.id ?? null;
-  }
-
-  if (resolvedPlanId) {
-    const { error: subErr } = await supabase.from("subscriptions").insert({
-      restaurant_id: restaurantId,
-      plan_id: resolvedPlanId,
-      status: "active",
-      starts_at: new Date().toISOString(),
-      created_by: adminUser.id,
-    });
-    if (subErr) {
-      pendingItems.push(
-        `No se pudo asignar el plan: ${subErr.message}. Ve al detalle del negocio para asignarlo manualmente.`,
-      );
-    }
-  }
-
-  // 5. Build loginUrl server-side
-  const subdomainBase = process.env.PLATFORM_SUBDOMAIN_BASE;
-  const rawSiteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    (process.env.NEXT_PUBLIC_PLATFORM_HOST
-      ? `https://${process.env.NEXT_PUBLIC_PLATFORM_HOST}`
-      : null);
-
-  let loginUrl: string;
-  if (subdomainBase) {
-    loginUrl = `https://${slug}.${subdomainBase}/panel/login`;
-  } else if (rawSiteUrl) {
-    loginUrl = `${rawSiteUrl}/login?negocio=${slug}`;
-  } else {
-    loginUrl = `/login?negocio=${slug}`;
-  }
-
-  // 6. Audit log
-  await logAudit(adminUser.id, "create_restaurant_full", "restaurant", restaurantId, {
+  await logAudit(adminUser!.id, "create_restaurant_full", "restaurant", restaurantId, {
     name, slug, currency, timezone,
+    activated: core.activated,
     owner_email: ownerEmail ?? null,
     plan_id: planId ?? null,
     pending_items: pendingItems,
@@ -882,73 +831,67 @@ export async function createRestaurantFull(
   return {
     error: null,
     restaurantId,
-    restaurantName: name,
+    restaurantName: core.restaurantName,
     slug,
-    loginUrl,
-    owner: ownerResult,
+    loginUrl:   core.loginUrl,
+    catalogUrl: core.catalogUrl,
+    activated:  core.activated,
+    owner:      ownerResult,
     pendingItems: pendingItems.length > 0 ? pendingItems : undefined,
   };
 }
 
 // ── Create restaurant with config ────────────────────────────
-// Extended version of createRestaurant that also saves initial config.
+// Delegates to restaurantCreationCore. Kept for backward compatibility
+// with callers that pass FormData and expect AdminResult.
 export async function createRestaurantWithConfig(
   formData: FormData,
 ): Promise<AdminResult> {
-  const name         = String(formData.get("name") ?? "").trim();
-  const slug         = String(formData.get("slug") ?? "").trim().toLowerCase();
-  const currency     = String(formData.get("currency") ?? "USD").trim().toUpperCase();
-  const timezone     = String(formData.get("timezone") ?? "America/Caracas").trim();
-  const businessType = String(formData.get("business_type") ?? "restaurant").trim();
+  const name          = String(formData.get("name") ?? "").trim();
+  const slug          = String(formData.get("slug") ?? "").trim().toLowerCase();
+  const currency      = String(formData.get("currency") ?? "USD").trim().toUpperCase();
+  const timezone      = String(formData.get("timezone") ?? "America/Caracas").trim();
+  const businessType  = String(formData.get("business_type") ?? "restaurant").trim();
   const ordersEnabled = formData.get("orders_enabled") !== "false";
-  const whatsapp     = String(formData.get("whatsapp") ?? "").trim() || null;
-  const instagram    = String(formData.get("instagram_url") ?? "").trim() || null;
-  const description  = String(formData.get("description") ?? "").trim() || null;
-  const ownerEmail   = String(formData.get("owner_email") ?? "").trim() || null;
+  const whatsapp      = String(formData.get("whatsapp") ?? "").trim() || null;
+  const instagram     = String(formData.get("instagram_url") ?? "").trim() || null;
+  const description   = String(formData.get("description") ?? "").trim() || null;
+  const ownerEmail    = String(formData.get("owner_email") ?? "").trim() || null;
   const ownerPassword = String(formData.get("owner_password") ?? "").trim() || null;
-  const planId       = String(formData.get("plan_id") ?? "").trim() || null;
+  const planId        = String(formData.get("plan_id") ?? "").trim() || null;
 
   if (!name || name.length < 2) return { error: "El nombre debe tener al menos 2 caracteres." };
-  if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(slug)) {
-    return { error: "El slug solo puede tener minúsculas, dígitos y guiones (3–63 chars)." };
-  }
   if (currency.length !== 3) return { error: "La moneda debe tener exactamente 3 letras." };
 
   let adminUser: { id: string } | null = null;
+  let supabase: Awaited<ReturnType<typeof createServerClient>> | null = null;
   try {
-    const { user } = await requireAdmin();
-    adminUser = user;
+    const result = await requireAdmin();
+    adminUser = result.user;
+    supabase = result.supabase;
   } catch (e) {
     return { error: (e as Error).message };
   }
 
-  const supabase = await createServerClient();
   const svc = adminServiceClient();
 
-  // 1. Create restaurant
-  const { data: restaurant, error: rErr } = await supabase.from("restaurants").insert({
-    name, slug, currency, timezone, status: "onboarding", business_type: businessType,
-  }).select("id, name, slug").single();
-  if (rErr) {
-    if (rErr.code === "23505") return { error: "Este slug ya está en uso." };
-    return { error: rErr.message };
-  }
+  const params: RestaurantCreationParams = {
+    name, slug, currency, timezone, businessType, ordersEnabled,
+    whatsapp, instagramUrl: instagram, description, planId,
+  };
+  const core = await restaurantCreationCore(supabase!, svc, params, adminUser!.id);
+  if (core.error) return core;
 
-  // 2. Create initial config
-  await supabase.from("restaurant_config").upsert({
-    restaurant_id: restaurant.id,
-    orders_enabled: ordersEnabled,
-    whatsapp: whatsapp ?? undefined,
-    instagram_url: instagram ?? undefined,
-    description: description ?? undefined,
-  }, { onConflict: "restaurant_id" });
-
-  const details: Record<string, unknown> = { name, slug, currency, timezone };
-
-  // 3. Optionally handle owner
+  const restaurantId = core.restaurantId!;
   let ownerId: string | null = null;
+  const details: Record<string, unknown> = {
+    name, slug, currency, timezone,
+    activated: core.activated,
+    pending_items: core.pendingItems ?? [],
+  };
+
   if (ownerEmail) {
-    const ownerRes = await assignOwner(restaurant.id, ownerEmail, ownerPassword ?? undefined);
+    const ownerRes = await assignOwner(restaurantId, ownerEmail, ownerPassword ?? undefined);
     if (ownerRes.error) {
       details.owner_warning = ownerRes.error;
     } else {
@@ -957,31 +900,18 @@ export async function createRestaurantWithConfig(
     }
   }
 
-  // 4. Create subscription — default to "inicio" (US$0) if no plan selected
-  let resolvedPlanIdCfg = planId;
-  if (!resolvedPlanIdCfg) {
-    const { data: inicioPlan } = await svc
-      .from("plans")
-      .select("id")
-      .eq("plan_code", "inicio")
-      .eq("is_active", true)
-      .maybeSingle();
-    resolvedPlanIdCfg = inicioPlan?.id ?? null;
-  }
-
-  if (resolvedPlanIdCfg) {
-    await supabase.from("subscriptions").insert({
-      restaurant_id: restaurant.id,
-      plan_id: resolvedPlanIdCfg,
-      status: "active",
-      starts_at: new Date().toISOString(),
-    });
-    details.plan_id = resolvedPlanIdCfg;
-  }
-
-  await logAudit(adminUser.id, "create_restaurant", "restaurant", restaurant.id, details);
+  await logAudit(adminUser!.id, "create_restaurant", "restaurant", restaurantId, details);
   revalidatePath("/admin");
-  return { error: null, data: { ...restaurant, ownerId, warning: details.owner_warning ?? null } };
+  return {
+    error: null,
+    data: {
+      id: restaurantId, name: core.restaurantName, slug,
+      ownerId,
+      activated: core.activated,
+      catalogUrl: core.catalogUrl,
+      warning: (details.owner_warning as string | undefined) ?? null,
+    },
+  };
 }
 // ── List platform users ───────────────────────────────────────
 // Returns all auth users joined with their memberships.
