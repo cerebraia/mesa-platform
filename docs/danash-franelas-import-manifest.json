@@ -1,0 +1,233 @@
+{
+  "negocio": "Danash Shop",
+  "slug": "danash-shop",
+  "restaurantId": "dd7a67a1-f027-4b00-8f0b-3943af88c872",
+  "lote": "franelas-1",
+  "importado": "2026-11-21",
+  "imagenesDir": "/Users/fernandao2307/Documents/Catalogos/2.danashshop_ve/Imagenes/danash-franelas-parte-1",
+  "precioCents": 2500,
+  "moneda": "POR_CONFIRMAR",
+  "tallas": "POR_CONFIRMAR",
+  "productosTotales": 19,
+  "nuevos": 0,
+  "actualizados": 19,
+  "publicados": 0,
+  "borradores": 19,
+  "validacion": {
+    "registrosUnicos": true,
+    "rango16a34": true,
+    "imagenesEncontradas": 19,
+    "imagenesFaltantes": []
+  },
+  "fichas": [
+    {
+      "extId": 16,
+      "stableKey": "ds-f16",
+      "nombre": "Franela Love Is a Temple",
+      "imagenFile": "16-franela-love-is-a-temple.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "2eaecdd7-4440-4eb7-b94d-eb90ab06da4a",
+      "isNew": false
+    },
+    {
+      "extId": 17,
+      "stableKey": "ds-f17",
+      "nombre": "Franela Runway Botas Leopardo",
+      "imagenFile": "17-franela-runway-botas-leopardo.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "2a0624ea-0be3-482c-851f-248a216c67c3",
+      "isNew": false
+    },
+    {
+      "extId": 18,
+      "stableKey": "ds-f18",
+      "nombre": "Franela I See You Ojos",
+      "imagenFile": "18-franela-i-see-you-ojos.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "c20aaded-8a22-4623-873d-db07d3c6c145",
+      "isNew": false
+    },
+    {
+      "extId": 19,
+      "stableKey": "ds-f19",
+      "nombre": "Franela Gris Flores Blancas",
+      "imagenFile": "19-franela-gris-flores-blancas.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "95c96f0b-b265-40f3-b0cc-f42f5622edbc",
+      "isNew": false
+    },
+    {
+      "extId": 20,
+      "stableKey": "ds-f20",
+      "nombre": "Franela Amor Cuello V",
+      "imagenFile": "20-franela-amor-cuello-v.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "b5f643ab-b5a7-4b68-b2b8-e5027320b592",
+      "isNew": false
+    },
+    {
+      "extId": 21,
+      "stableKey": "ds-f21",
+      "nombre": "Franela Roja Corazón",
+      "imagenFile": "21-franela-roja-corazon.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "a2ab5255-7772-4f81-b184-bbd3aabf41a9",
+      "isNew": false
+    },
+    {
+      "extId": 22,
+      "stableKey": "ds-f22",
+      "nombre": "Franela La Dolce Vita",
+      "imagenFile": "22-franela-la-dolce-vita.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "c4d17e80-5bcf-43ab-a93b-519da2b9935a",
+      "isNew": false
+    },
+    {
+      "extId": 23,
+      "stableKey": "ds-f23",
+      "nombre": "Franela Tigre Rojo",
+      "imagenFile": "23-franela-tigre-rojo.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "003f30a6-ac29-4bf5-80f5-b96a37cb8ac4",
+      "isNew": false
+    },
+    {
+      "extId": 24,
+      "stableKey": "ds-f24",
+      "nombre": "Franela Hongos con Perlas",
+      "imagenFile": "24-franela-hongos-perlas.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "d9c382f1-e39b-46a1-9402-5fe20fa49ec5",
+      "isNew": false
+    },
+    {
+      "extId": 25,
+      "stableKey": "ds-f25",
+      "nombre": "Franela Azul Tigre Rosa",
+      "imagenFile": "25-franela-azul-tigre-rosa.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "186607f7-cb4b-4383-a94f-7315ba8de730",
+      "isNew": false
+    },
+    {
+      "extId": 26,
+      "stableKey": "ds-f26",
+      "nombre": "Franela I Dog You",
+      "imagenFile": "26-franela-i-dog-you.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "9f5130e2-d391-4f2e-9f58-ba79413e3115",
+      "isNew": false
+    },
+    {
+      "extId": 27,
+      "stableKey": "ds-f27",
+      "nombre": "Franela Jaguar Multicolor",
+      "imagenFile": "27-franela-jaguar-multicolor.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "9c8f2592-f474-4eef-84db-1dba8c6ccee4",
+      "isNew": false
+    },
+    {
+      "extId": 28,
+      "stableKey": "ds-f28",
+      "nombre": "Franela Flores Amore Passione",
+      "imagenFile": "28-franela-flores-amore-passione.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "4da2db51-d446-4f95-9b96-5bbaac09ddf7",
+      "isNew": false
+    },
+    {
+      "extId": 29,
+      "stableKey": "ds-f29",
+      "nombre": "Franela Leopardo Sombrilla",
+      "imagenFile": "29-franela-leopardo-sombrilla.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "91bad0c0-8416-424e-9e0a-5065402d5ae0",
+      "isNew": false
+    },
+    {
+      "extId": 30,
+      "stableKey": "ds-f30",
+      "nombre": "Franela Wishes Come True",
+      "imagenFile": "30-franela-wishes-come-true.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "e89f22c8-9dec-4750-babf-e7a2b49b0cab",
+      "isNew": false
+    },
+    {
+      "extId": 31,
+      "stableKey": "ds-f31",
+      "nombre": "Franela East Coast",
+      "imagenFile": "31-franela-east-coast.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "786e7b0b-a9ed-47fe-acb2-04c6f8da654d",
+      "isNew": false
+    },
+    {
+      "extId": 32,
+      "stableKey": "ds-f32",
+      "nombre": "Franela Apliques Dorados",
+      "imagenFile": "32-franela-apliques-dorados.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "1b3ca3f6-4540-4376-b270-3ee0e01a56c7",
+      "isNew": false
+    },
+    {
+      "extId": 33,
+      "stableKey": "ds-f33",
+      "nombre": "Franela Negra Ojo Dorado",
+      "imagenFile": "33-franela-negra-ojo-dorado.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "6d274b79-853b-41eb-8e26-46aaea980fff",
+      "isNew": false
+    },
+    {
+      "extId": 34,
+      "stableKey": "ds-f34",
+      "nombre": "Franela Gris Gato Naranja",
+      "imagenFile": "34-franela-gris-gato-naranja.jpg",
+      "imagenSubida": true,
+      "publicado": false,
+      "basePrice": 2500,
+      "productId": "e9c18924-be32-48ad-b01b-25fe5e680b51",
+      "isNew": false
+    }
+  ]
+}
