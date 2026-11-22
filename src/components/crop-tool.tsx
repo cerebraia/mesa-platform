@@ -1,6 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import {
+  detectBorders,
+  hasDetectedBars,
+  frameConfidence,
+  type StoredFrame,
+} from "@/lib/auto-frame";
 
 // ── Constants ─────────────────────────────────────────────────
 
@@ -19,7 +25,8 @@ export interface CropToolProps {
   // file is for new uploads; url is for existing images in Storage
   file?: File;
   url?: string;
-  onConfirm: (thumb: File) => void;
+  // cleanedOriginal is set when auto-frame removed bars and a new storage file must replace the original
+  onConfirm: (thumb: File, cleanedOriginal?: File) => void;
   onSkip?: () => void;  // "use without crop" (only available for new file uploads)
   onCancel: () => void;
 }
@@ -27,17 +34,23 @@ export interface CropToolProps {
 // ── Component ─────────────────────────────────────────────────
 
 export function CropTool({ file, url, onConfirm, onSkip, onCancel }: CropToolProps) {
-  const imgRef    = useRef<HTMLImageElement>(null);
+  const imgRef     = useRef<HTMLImageElement>(null);
   const previewRef = useRef<HTMLCanvasElement>(null);
-  const stageRef  = useRef<HTMLDivElement>(null);
+  const stageRef   = useRef<HTMLDivElement>(null);
 
-  const [src, setSrc]         = useState<string>("");
-  const [crop, setCrop]       = useState<Crop | null>(null);
-  const [dragging, setDragging] = useState<DragState | null>(null);
+  const [src, setSrc]               = useState<string>("");
+  const [crop, setCrop]             = useState<Crop | null>(null);
+  const [dragging, setDragging]     = useState<DragState | null>(null);
   const [generating, setGenerating] = useState(false);
 
-  // Load source from file or url
+  // Auto-frame detection state
+  const [detectedFrame, setDetectedFrame]   = useState<StoredFrame | null>(null);
+  const [autoFrameActive, setAutoFrameActive] = useState(false);
+
+  // Reset detection state when image changes
   useEffect(() => {
+    setDetectedFrame(null);
+    setAutoFrameActive(false);
     if (file) {
       const objUrl = URL.createObjectURL(file);
       setSrc(objUrl);
@@ -47,14 +60,82 @@ export function CropTool({ file, url, onConfirm, onSkip, onCancel }: CropToolPro
     }
   }, [file, url]);
 
-  // Initialise crop when image loads
+  // ── Frame detection helper ─────────────────────────────────
+
+  function snapToFrame(frame: StoredFrame, dispW: number, dispH: number) {
+    const cleanLeft = frame.displayLeft;
+    const cleanTop  = frame.displayTop;
+    const cleanW    = dispW - frame.displayLeft - frame.displayRight;
+    const cleanH    = dispH - frame.displayTop  - frame.displayBottom;
+    const size      = Math.max(MIN_CROP, Math.min(cleanW, cleanH));
+    setCrop({
+      x: cleanLeft + (cleanW - size) / 2,
+      y: cleanTop  + (cleanH - size) / 2,
+      size,
+    });
+  }
+
+  async function runFrameDetection(): Promise<void> {
+    const img = imgRef.current;
+    if (!img || !img.naturalWidth || !img.clientWidth) return;
+
+    // Analyze at max 1200 px to reliably detect phone status bars (~90 natural px)
+    // while avoiding false positives on small decorative borders.
+    const ANALYSIS_MAX = 1200;
+    const scale = Math.min(1, ANALYSIS_MAX / Math.max(img.naturalWidth, img.naturalHeight));
+    const aw = Math.max(1, Math.round(img.naturalWidth  * scale));
+    const ah = Math.max(1, Math.round(img.naturalHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width  = aw;
+    canvas.height = ah;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    try {
+      ctx.drawImage(img, 0, 0, aw, ah);
+    } catch {
+      return; // Cross-origin canvas taint — skip detection silently
+    }
+
+    const frame = detectBorders(ctx, aw, ah);
+    if (!hasDetectedBars(frame)) return;
+
+    const conf = frameConfidence(frame);
+    if (conf === "none") return;
+
+    const displayW = img.clientWidth;
+    const displayH = img.clientHeight;
+
+    const stored: StoredFrame = {
+      displayTop:    (frame.top    / ah) * displayH,
+      displayBottom: (frame.bottom / ah) * displayH,
+      displayLeft:   (frame.left   / aw) * displayW,
+      displayRight:  (frame.right  / aw) * displayW,
+      topRatio:    frame.top    / ah,
+      bottomRatio: frame.bottom / ah,
+      leftRatio:   frame.left   / aw,
+      rightRatio:  frame.right  / aw,
+      confidence:  conf,
+    };
+
+    setDetectedFrame(stored);
+    if (conf === "high") {
+      snapToFrame(stored, displayW, displayH);
+      setAutoFrameActive(true);
+    }
+  }
+
+  // ── Image load ────────────────────────────────────────────────
+
   function handleLoad() {
     const img = imgRef.current;
     if (!img) return;
-    const w = img.clientWidth;
-    const h = img.clientHeight;
+    const w    = img.clientWidth;
+    const h    = img.clientHeight;
     const size = Math.min(w, h) * 0.85;
     setCrop({ x: (w - size) / 2, y: (h - size) / 2, size });
+    runFrameDetection().catch(() => { /* ignore detection errors */ });
   }
 
   // Draw preview canvas whenever crop changes
@@ -107,7 +188,6 @@ export function CropTool({ file, url, onConfirm, onSkip, onCancel }: CropToolPro
         y: Math.max(0, Math.min(dragging.origY + dy, maxH - c.size)),
       } : c);
     } else {
-      // Resize: keep top-left fixed, expand/contract via bottom-right drag
       const delta   = Math.max(dx, dy);
       const newSize = Math.max(
         MIN_CROP,
@@ -121,7 +201,16 @@ export function CropTool({ file, url, onConfirm, onSkip, onCancel }: CropToolPro
 
   function onPointerUp() { setDragging(null); }
 
-  // ── Generate thumbnail ─────────────────────────────────────────
+  // ── Auto-frame button ──────────────────────────────────────────
+
+  function handleAutoFrame() {
+    const img = imgRef.current;
+    if (!img || !detectedFrame) return;
+    snapToFrame(detectedFrame, img.clientWidth, img.clientHeight);
+    setAutoFrameActive(true);
+  }
+
+  // ── Generate thumbnail (and optional cleaned original) ──────────
 
   async function handleConfirm() {
     if (!crop || !imgRef.current) return;
@@ -133,38 +222,77 @@ export function CropTool({ file, url, onConfirm, onSkip, onCancel }: CropToolPro
     const sx     = Math.round(crop.x * scaleX);
     const sy     = Math.round(crop.y * scaleY);
     const sSize  = Math.round(crop.size * Math.max(scaleX, scaleY));
-
-    // Don't upscale artificially: output at native crop size or THUMB_MAX
     const outSize = Math.min(THUMB_MAX, sSize);
 
-    // Draw using the full-resolution source
+    // Load full-resolution source (may already be cached)
     const fullImg = new Image();
     fullImg.crossOrigin = "anonymous";
     fullImg.src = src;
     await new Promise<void>(resolve => {
       if (fullImg.complete && fullImg.naturalWidth) { resolve(); return; }
-      fullImg.onload = () => resolve();
+      fullImg.onload  = () => resolve();
       fullImg.onerror = () => resolve();
     });
 
-    const canvas = document.createElement("canvas");
-    canvas.width  = outSize;
-    canvas.height = outSize;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) { setGenerating(false); return; }
+    // 1:1 thumbnail
+    const thumbCanvas = document.createElement("canvas");
+    thumbCanvas.width  = outSize;
+    thumbCanvas.height = outSize;
+    const thumbCtx = thumbCanvas.getContext("2d");
+    if (!thumbCtx) { setGenerating(false); return; }
+    thumbCtx.imageSmoothingEnabled  = true;
+    thumbCtx.imageSmoothingQuality  = "high";
+    thumbCtx.drawImage(fullImg, sx, sy, sSize, sSize, 0, 0, outSize, outSize);
 
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(fullImg, sx, sy, sSize, sSize, 0, 0, outSize, outSize);
+    const thumbBlob = await new Promise<Blob | null>(r =>
+      thumbCanvas.toBlob(r, "image/webp", 0.92),
+    );
+    if (!thumbBlob) { setGenerating(false); return; }
+    const thumb = new File([thumbBlob], "thumb.webp", { type: "image/webp" });
 
-    canvas.toBlob(blob => {
-      setGenerating(false);
-      if (!blob) return;
-      onConfirm(new File([blob], "thumb.webp", { type: "image/webp" }));
-    }, "image/webp", 0.92);
+    // Cleaned original (non-square) when auto-frame was applied
+    if (autoFrameActive && detectedFrame && fullImg.naturalWidth) {
+      const natTop    = Math.round(detectedFrame.topRatio    * fullImg.naturalHeight);
+      const natBottom = Math.round(detectedFrame.bottomRatio * fullImg.naturalHeight);
+      const natLeft   = Math.round(detectedFrame.leftRatio   * fullImg.naturalWidth);
+      const natRight  = Math.round(detectedFrame.rightRatio  * fullImg.naturalWidth);
+      const cleanW    = fullImg.naturalWidth  - natLeft - natRight;
+      const cleanH    = fullImg.naturalHeight - natTop  - natBottom;
+
+      if (cleanW > 0 && cleanH > 0) {
+        const MAX_ORIG = 1920;
+        const sc   = Math.min(1, MAX_ORIG / Math.max(cleanW, cleanH));
+        const outW = Math.round(cleanW * sc);
+        const outH = Math.round(cleanH * sc);
+        const cleanCanvas = document.createElement("canvas");
+        cleanCanvas.width  = outW;
+        cleanCanvas.height = outH;
+        const cleanCtx = cleanCanvas.getContext("2d");
+        if (cleanCtx) {
+          cleanCtx.imageSmoothingEnabled = true;
+          cleanCtx.imageSmoothingQuality = "high";
+          cleanCtx.drawImage(fullImg, natLeft, natTop, cleanW, cleanH, 0, 0, outW, outH);
+          const cleanBlob = await new Promise<Blob | null>(r =>
+            cleanCanvas.toBlob(r, "image/webp", 0.92),
+          );
+          if (cleanBlob) {
+            const cleanedOriginal = new File([cleanBlob], "original.webp", { type: "image/webp" });
+            setGenerating(false);
+            onConfirm(thumb, cleanedOriginal);
+            return;
+          }
+        }
+      }
+    }
+
+    setGenerating(false);
+    onConfirm(thumb);
   }
 
   // ── Render ────────────────────────────────────────────────────
+
+  const showBanner = detectedFrame !== null;
+  const showBars   = detectedFrame !== null;
 
   return (
     <div className="cropt-bg" role="dialog" aria-modal="true" aria-label="Recortar imagen">
@@ -175,6 +303,20 @@ export function CropTool({ file, url, onConfirm, onSkip, onCancel }: CropToolPro
             ✕
           </button>
         </div>
+
+        {/* Auto-frame detection banner */}
+        {showBanner && (
+          <div className="cropt-frame-banner">
+            {autoFrameActive ? (
+              <><span className="cropt-frame-badge cropt-frame-badge--on">✓</span> Encuadre sin franjas aplicado</>
+            ) : detectedFrame.confidence === "high" ? (
+              <><span className="cropt-frame-badge">!</span> Franjas detectadas — ajustando encuadre automáticamente</>
+            ) : (
+              <><span className="cropt-frame-badge">!</span> Se detectaron franjas en los bordes</>
+            )}
+          </div>
+        )}
+
         <p className="cropt-hint">
           Arrastra el cuadro para elegir el área. Arrastra la esquina para cambiar el tamaño.
         </p>
@@ -203,6 +345,26 @@ export function CropTool({ file, url, onConfirm, onSkip, onCancel }: CropToolPro
             <div className="cropt-mask" style={{ top: crop.y + crop.size, left: 0, right: 0, bottom: 0 }} />
             <div className="cropt-mask" style={{ top: crop.y, left: 0, width: crop.x, height: crop.size }} />
             <div className="cropt-mask" style={{ top: crop.y, left: crop.x + crop.size, right: 0, height: crop.size }} />
+          </>)}
+
+          {/* Detected-bar overlays (striped) */}
+          {showBars && (<>
+            {detectedFrame.displayTop > 0 && (
+              <div className="cropt-frame-bar cropt-frame-bar--top"
+                   style={{ height: detectedFrame.displayTop }} />
+            )}
+            {detectedFrame.displayBottom > 0 && (
+              <div className="cropt-frame-bar cropt-frame-bar--bot"
+                   style={{ height: detectedFrame.displayBottom }} />
+            )}
+            {detectedFrame.displayLeft > 0 && (
+              <div className="cropt-frame-bar cropt-frame-bar--left"
+                   style={{ width: detectedFrame.displayLeft }} />
+            )}
+            {detectedFrame.displayRight > 0 && (
+              <div className="cropt-frame-bar cropt-frame-bar--right"
+                   style={{ width: detectedFrame.displayRight }} />
+            )}
           </>)}
 
           {/* Crop overlay */}
@@ -239,6 +401,15 @@ export function CropTool({ file, url, onConfirm, onSkip, onCancel }: CropToolPro
             {onSkip && (
               <button type="button" className="button secondary small" onClick={onSkip}>
                 Usar original
+              </button>
+            )}
+            {detectedFrame && !autoFrameActive && (
+              <button
+                type="button"
+                className="button secondary small cropt-autoframe-btn"
+                onClick={handleAutoFrame}
+              >
+                Encuadre automático
               </button>
             )}
             <button

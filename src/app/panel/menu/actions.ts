@@ -115,6 +115,106 @@ export async function setCategoryActive(
   return { error: null };
 }
 
+export async function deleteCategory(
+  categoryId: string,
+): Promise<{ error: string | null }> {
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerRestaurant());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  // Check if the category has products (including soft-deleted) to give a clear error
+  const { count } = await supabase
+    .from("products")
+    .select("*", { count: "exact", head: true })
+    .eq("category_id", categoryId)
+    .eq("restaurant_id", restaurantId);
+
+  if ((count ?? 0) > 0) {
+    return {
+      error: `Esta categoría tiene ${count} producto${count === 1 ? "" : "s"} (incluidos eliminados). Usa "Trasladar y eliminar" para moverlos a otra categoría primero.`,
+    };
+  }
+
+  const { error } = await supabase
+    .from("categories")
+    .delete()
+    .eq("id", categoryId)
+    .eq("restaurant_id", restaurantId);
+
+  if (error) return { error: `No se pudo eliminar: ${error.message}` };
+
+  revalidatePath("/panel/menu");
+  revalidatePath("/r/[slug]", "page");
+  return { error: null };
+}
+
+// Moves all products (active and in trash) from sourceCategoryId to targetCategoryId,
+// then deletes sourceCategoryId. Never deletes any product silently.
+// Both categories must belong to the same restaurant.
+export async function transferAndDeleteCategory(
+  sourceCategoryId: string,
+  targetCategoryId: string,
+): Promise<{ error: string | null }> {
+  if (!targetCategoryId) return { error: "Debes elegir una categoría destino." };
+  if (sourceCategoryId === targetCategoryId) return { error: "La categoría destino debe ser diferente a la de origen." };
+
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerRestaurant());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  // Verify source category belongs to this restaurant
+  const { data: srcCat } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("id", sourceCategoryId)
+    .eq("restaurant_id", restaurantId)
+    .maybeSingle();
+  if (!srcCat) return { error: "Categoría de origen no encontrada." };
+
+  // Verify target category belongs to this restaurant
+  const { data: tgtCat } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("id", targetCategoryId)
+    .eq("restaurant_id", restaurantId)
+    .maybeSingle();
+  if (!tgtCat) return { error: "Categoría destino no encontrada o no pertenece a este negocio." };
+
+  // Move all products (including soft-deleted) from source to target
+  const { error: moveErr } = await supabase
+    .from("products")
+    .update({ category_id: targetCategoryId })
+    .eq("category_id", sourceCategoryId)
+    .eq("restaurant_id", restaurantId);
+
+  if (moveErr) return { error: `Error al trasladar productos: ${moveErr.message}` };
+
+  // Source category is now empty; delete it
+  const { error: delErr } = await supabase
+    .from("categories")
+    .delete()
+    .eq("id", sourceCategoryId)
+    .eq("restaurant_id", restaurantId);
+
+  if (delErr) {
+    // Products were already moved — the category is empty but delete failed.
+    // Return specific error so user can retry the delete.
+    return { error: `Productos trasladados, pero no se pudo eliminar la categoría vacía: ${delErr.message}` };
+  }
+
+  revalidatePath("/panel/menu");
+  revalidatePath("/r/[slug]", "page");
+  return { error: null };
+}
+
 // ── Product actions ──────────────────────────────────────────
 
 export type ProductState = { error: string | null; productId?: string };
@@ -272,6 +372,63 @@ export async function restoreProduct(
   return { error: null };
 }
 
+// Permanently deletes a soft-deleted product and its Storage files.
+// Only works on products with deleted_at IS NOT NULL.
+// Variants, option_groups, options and product_images cascade-delete from the DB.
+export async function hardDeleteProduct(
+  productId: string,
+): Promise<{ error: string | null }> {
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerRestaurant());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  // Verify product is soft-deleted and belongs to this restaurant
+  const { data: product } = await supabase
+    .from("products")
+    .select("id, deleted_at")
+    .eq("id", productId)
+    .eq("restaurant_id", restaurantId)
+    .not("deleted_at", "is", null)
+    .maybeSingle();
+
+  if (!product) {
+    return { error: "Producto no encontrado o no está en la papelera." };
+  }
+
+  // Collect Storage paths before deleting
+  const { data: images } = await supabase
+    .from("product_images")
+    .select("storage_path, thumbnail_path, original_path")
+    .eq("product_id", productId)
+    .eq("restaurant_id", restaurantId);
+
+  // Delete Storage files first (failure is non-fatal — orphan files are harmless)
+  const paths = (images ?? []).flatMap((img) =>
+    [img.storage_path, img.thumbnail_path, img.original_path].filter(Boolean) as string[],
+  );
+  if (paths.length > 0) {
+    await supabase.storage.from("product-images").remove(paths);
+  }
+
+  // Hard delete — CASCADE removes variants, option_groups, options, product_images
+  const { error } = await supabase
+    .from("products")
+    .delete()
+    .eq("id", productId)
+    .eq("restaurant_id", restaurantId)
+    .not("deleted_at", "is", null);
+
+  if (error) return { error: `No se pudo eliminar: ${error.message}` };
+
+  revalidatePath("/panel/menu");
+  revalidatePath("/r/[slug]", "page");
+  return { error: null };
+}
+
 export async function setProductPublished(
   productId: string,
   published: boolean,
@@ -390,6 +547,110 @@ export async function reorderProductImages(
         .eq("id", id).eq("product_id", productId).eq("restaurant_id", restaurantId),
     ),
   );
+
+  revalidatePath("/panel/menu"); revalidatePath("/r/[slug]", "page");
+  return { error: null };
+}
+
+// Updates storage_path and/or thumbnail_path for an existing product image.
+//
+// Reversibility: when preserveAsOriginal is provided (the path of the first
+// original upload), it is written to original_path and NEVER deleted by this
+// action — even if it was previously stored in storage_path.  Subsequent calls
+// keep the first original because we only write to original_path when it is NULL.
+//
+// Deletion policy:
+//   • Old storage_path is deleted ONLY when it differs from the original path.
+//   • Old thumbnail_path is always deleted (it is always a derived file).
+export async function updateProductImagePaths(
+  imageId: string,
+  newStoragePath: string | null,
+  newThumbnailPath: string | null,
+  preserveAsOriginal?: string | null,
+): Promise<{ error: string | null }> {
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerRestaurant());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const { data: img } = await supabase
+    .from("product_images")
+    .select("storage_path, thumbnail_path, original_path")
+    .eq("id", imageId).eq("restaurant_id", restaurantId).maybeSingle();
+  if (!img) return { error: "Imagen no encontrada." };
+
+  // Determine the path to protect.  We only snapshot it on the FIRST frame;
+  // subsequent re-frames keep whatever was recorded first.
+  const protectedPath: string | null =
+    img.original_path ?? preserveAsOriginal ?? null;
+
+  const updates: {
+    storage_path?: string;
+    thumbnail_path?: string;
+    original_path?: string;
+  } = {};
+  if (newStoragePath)   updates.storage_path   = newStoragePath;
+  if (newThumbnailPath) updates.thumbnail_path = newThumbnailPath;
+  // Write original_path only when this is the first frame operation.
+  if (!img.original_path && preserveAsOriginal) {
+    updates.original_path = preserveAsOriginal;
+  }
+  if (Object.keys(updates).length === 0) return { error: null };
+
+  const { error } = await supabase
+    .from("product_images").update(updates)
+    .eq("id", imageId).eq("restaurant_id", restaurantId);
+  if (error) return { error: error.message };
+
+  // Delete old files — but NEVER delete the original.
+  const toDelete: string[] = [];
+  if (newStoragePath && img.storage_path && img.storage_path !== protectedPath) {
+    toDelete.push(img.storage_path);
+  }
+  if (newThumbnailPath && img.thumbnail_path) {
+    toDelete.push(img.thumbnail_path);
+  }
+  if (toDelete.length) await supabase.storage.from("product-images").remove(toDelete);
+
+  revalidatePath("/panel/menu"); revalidatePath("/r/[slug]", "page");
+  return { error: null };
+}
+
+// Restores a product image to its first original upload.
+// Deletes the current display version and thumbnail, then clears original_path.
+export async function restoreOriginalImage(
+  imageId: string,
+): Promise<{ error: string | null }> {
+  let supabase: Awaited<ReturnType<typeof createServerClient>>;
+  let restaurantId: string;
+  try {
+    ({ supabase, restaurantId } = await getOwnerRestaurant());
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+
+  const { data: img } = await supabase
+    .from("product_images")
+    .select("storage_path, thumbnail_path, original_path")
+    .eq("id", imageId).eq("restaurant_id", restaurantId).maybeSingle();
+  if (!img) return { error: "Imagen no encontrada." };
+  if (!img.original_path) return { error: "Esta imagen no tiene encuadre activo." };
+
+  // Restore: storage_path ← original_path, clear thumbnail and original_path.
+  const { error } = await supabase
+    .from("product_images")
+    .update({ storage_path: img.original_path, thumbnail_path: null, original_path: null })
+    .eq("id", imageId).eq("restaurant_id", restaurantId);
+  if (error) return { error: error.message };
+
+  // Delete the cleaned display version and thumbnail (originals are now storage_path).
+  const toDelete: string[] = [];
+  if (img.storage_path !== img.original_path) toDelete.push(img.storage_path);
+  if (img.thumbnail_path)                     toDelete.push(img.thumbnail_path);
+  if (toDelete.length) await supabase.storage.from("product-images").remove(toDelete);
 
   revalidatePath("/panel/menu"); revalidatePath("/r/[slug]", "page");
   return { error: null };

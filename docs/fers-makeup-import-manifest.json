@@ -1,0 +1,43 @@
+{
+  "negocio": "Fers Makeup",
+  "slug": "fers-makeup",
+  "restaurantId": "906be8e3-5d8f-4d32-940a-e912e98fa655",
+  "importado": "2026-11-10",
+  "estado": "active",
+  "moneda": "USD",
+  "modoInicial": "solo_catalogo",
+  "whatsapp": "584126034866",
+  "colores": {
+    "primary_color":    "#5A2D18",
+    "background_color": "#FFF8F3",
+    "secondary_color":  "#F4D0BA"
+  },
+  "logo": "906be8e3-5d8f-4d32-940a-e912e98fa655/logo.jpg",
+  "propietario": "PENDIENTE — no se proporcionó correo",
+  "url_local":   "http://localhost:3000/r/fers-makeup",
+  "url_prevista": "https://fers-makeup.wacatalogo.com/",
+  "categorias": 4,
+  "productos":  8,
+  "variantes":  32,
+  "imagenes":   8,
+  "script_importacion": "scripts/fers-import.mjs",
+  "laminas_originales": "/tmp/fers-makeup/originals/",
+  "productos": [
+    { "nombre": "Base de Alta Cobertura",        "categoria": "Rostro",           "precio_usd": 10, "variantes": 6,  "tonos": "01-06", "id": "71ad9f7c-08b7-4648-8eab-d76b6e44bdfe" },
+    { "nombre": "Corrector Matte",               "categoria": "Rostro",           "precio_usd": 5,  "variantes": 7,  "tonos": "01-07", "id": "012ee764-e4ed-47be-8bb8-415fa5fb89d9" },
+    { "nombre": "Polvo Compacto Mineralizado",   "categoria": "Rostro",           "precio_usd": 8,  "variantes": 5,  "tonos": "02-06", "id": "b2ed83d4-e409-4878-bd0c-c9772d356a7e" },
+    { "nombre": "Blush Premium Luminoso",        "categoria": "Rostro",           "precio_usd": 9,  "variantes": 5,  "tonos": "01-05", "id": "fed7731c-e457-4adf-ace0-74f806d7cdd7" },
+    { "nombre": "Delineador Líquido para Cejas", "categoria": "Ojos y cejas",     "precio_usd": 8,  "variantes": 3,  "tonos": "01-03", "id": "d9a262c2-c037-4f61-9f60-f5e64a75383f" },
+    { "nombre": "Rímel Resistente al Agua",      "categoria": "Ojos y cejas",     "precio_usd": 6,  "variantes": 0,  "tonos": "sin variantes", "id": "ab81d7f5-a2d8-4e52-803b-456d7d0da99e" },
+    { "nombre": "Labial Velvet",                 "categoria": "Labios",           "precio_usd": 7,  "variantes": 6,  "tonos": "01-06", "id": "7a3cb1df-43d4-468b-ad22-162cae447129" },
+    { "nombre": "Kit Viajero",                   "categoria": "Cuidado corporal", "precio_usd": 11, "variantes": 0,  "tonos": "sin variantes", "id": "809c28b4-fcca-4d6f-812d-0a4c536cea89" }
+  ],
+  "notas": [
+    "El monograma 'fs' del PDF se usa como logo de la tienda — no el logo de Salomé del empaque.",
+    "Las láminas originales (retrato completo) se conservan en /tmp/fers-makeup/originals/ para correcciones.",
+    "El campo storage_path de cada product_image usa el recorte cuadrado limpio (sin título ni precio impreso).",
+    "El campo thumbnail_path usa el mismo recorte cuadrado.",
+    "La imagen del Corrector Matte muestra '5$' en la esquina inferior — el recorte incluye el borde del badge; se puede mejorar en un pase posterior desde el panel con 'Encuadrar'.",
+    "No se creó cuenta de propietario — asignar desde /admin/restaurants/906be8e3-5d8f-4d32-940a-e912e98fa655."
+  ]
+}

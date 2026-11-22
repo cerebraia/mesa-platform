@@ -5,6 +5,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { getActiveMembership } from "@/lib/panel-context";
 import { PageHeader } from "@/components/panel/page-header";
 import { FinanciasSummaryClient } from "./summary-client";
+import { VoidMovementButton } from "./void-movement-button";
 import type { FinancialMovement, FinancialSummary } from "@/lib/catalog-types";
 
 export const dynamic = "force-dynamic";
@@ -50,10 +51,11 @@ export default async function FinanzasPage({
 }: {
   searchParams: Promise<Record<string, string>>;
 }) {
-  const sp      = await searchParams;
-  const periodo = (["today", "yesterday", "7days", "month"].includes(sp.periodo ?? "")
+  const sp          = await searchParams;
+  const periodo     = (["today", "yesterday", "7days", "month"].includes(sp.periodo ?? "")
     ? sp.periodo
     : "month") as Period;
+  const showVoided  = sp.anulados === "1";
 
   const supabase = await createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -94,13 +96,19 @@ export default async function FinanzasPage({
   let movFailed = false;
 
   if (!moduleUnavailable) {
-    const { data, error } = await supabase
+    let movQuery = supabase
       .from("financial_movements")
       .select("id, type, amount_cents, currency, concept, category, movement_date, is_voided, created_at")
       .eq("restaurant_id", restaurantId)
       .order("movement_date", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(20)
+      .limit(20);
+
+    if (!showVoided) {
+      movQuery = movQuery.eq("is_voided", false);
+    }
+
+    const { data, error } = await movQuery
       .returns<Pick<FinancialMovement, "id"|"type"|"amount_cents"|"currency"|"concept"|"category"|"movement_date"|"is_voided"|"created_at">[]>();
     if (error) {
       console.error("[finanzas] movements fetch error:", error.message);
@@ -171,18 +179,27 @@ export default async function FinanzasPage({
         description="Registra ingresos, gastos y compras de inventario."
         actions={
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            {/* Period tabs */}
+            {/* Period tabs — preserve showVoided */}
             <div className="period-tabs" role="group" aria-label="Filtro de período">
               {(["today", "yesterday", "7days", "month"] as Period[]).map((p) => (
                 <Link
                   key={p}
-                  href={`/panel/finanzas?periodo=${p}`}
+                  href={`/panel/finanzas?periodo=${p}${showVoided ? "&anulados=1" : ""}`}
                   className={`period-tab${periodo === p ? " period-tab--on" : ""}`}
                 >
                   {PERIOD_LABEL[p]}
                 </Link>
               ))}
             </div>
+            {/* Toggle anulados */}
+            <Link
+              href={`/panel/finanzas?periodo=${periodo}${showVoided ? "" : "&anulados=1"}`}
+              className="button secondary small"
+              style={{ fontSize: 11, color: showVoided ? "#703BE6" : "#667085" }}
+              aria-pressed={showVoided}
+            >
+              {showVoided ? "Ocultar anulados" : "Mostrar anulados"}
+            </Link>
           </div>
         }
       />
@@ -324,8 +341,10 @@ export default async function FinanzasPage({
                   >
                     {TYPE_LABEL[m.type] ?? m.type}
                   </span>
-                  {m.is_voided && (
+                  {m.is_voided ? (
                     <span className="order-status-badge badge-cancelled">Anulado</span>
+                  ) : (
+                    <VoidMovementButton movementId={m.id} concept={m.concept} />
                   )}
                 </li>
               ))}

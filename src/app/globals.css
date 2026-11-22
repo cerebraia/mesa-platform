@@ -896,6 +896,35 @@ summary{font-size:15px}
 .rm-footer-brand{color:var(--menu-primary,var(--purple));font-weight:600;text-decoration:none}
 .rm-footer-brand:focus-visible{outline:2px solid var(--menu-primary,var(--purple));outline-offset:2px;border-radius:2px}
 
+/* ── Precio por confirmar — precio 0 sin variantes ─────────── */
+.mc-card-price-tbc{font-size:11px;color:var(--muted);font-style:italic;margin-top:4px}
+.pd-price-tbc{font-size:13px;color:var(--muted);font-style:italic;margin:0 0 8px}
+
+/* ── Imagen contain en popup ───────────────────────────────── */
+.pd-img--contain{object-fit:contain!important;background:var(--menu-bg,#fafafa)}
+
+/* ── BizHeader CTA "Ver colección" ─────────────────────────── */
+.rm-bh-cta{
+  display:inline-flex;align-items:center;gap:5px;
+  margin-top:14px;padding:9px 18px;border-radius:999px;
+  font-size:13px;font-weight:600;letter-spacing:.03em;
+  background:rgba(255,255,255,.18);backdrop-filter:blur(6px);
+  color:#fff;border:1.5px solid rgba(255,255,255,.45);
+  text-decoration:none;cursor:pointer;transition:background .15s;
+}
+@media(hover:hover){.rm-bh-cta:hover{background:rgba(255,255,255,.28)}}
+.rm-bh-cta:focus-visible{outline:2px solid #fff;outline-offset:3px}
+
+/* ── Playfair Display — títulos serif para catálogos elegantes */
+.rm-font-playfair .rm-bh-name,
+.rm-font-playfair .mc-section-title,
+.rm-font-playfair .mc-card-name,
+.rm-font-playfair .pd-name{font-family:'Playfair Display',Georgia,serif}
+/* Keep body / description text as sans-serif for readability */
+.rm-font-playfair .rm-bh-desc,
+.rm-font-playfair .mc-card-desc,
+.rm-font-playfair .pd-desc{font-family:inherit}
+
 /* ── Responsive ─────────────────────────────────────────────── */
 @media(min-width:1024px){
   .rm-bh-logo-box{width:96px;height:96px}

@@ -1,34 +1,59 @@
 "use client";
 
 // Gallery editor for the product form (edit mode only).
-// Each image operation (add / remove / reorder) is immediate — it hits the
-// server without re-submitting the whole product form, so saving name, price
+// Each image operation (add / remove / reorder / reframe) is immediate — it hits
+// the server without re-submitting the whole product form, so saving name, price
 // or variants never touches the gallery.
 
 import { useState, useCallback, useRef } from "react";
 import { CropTool } from "@/components/crop-tool";
-import { addProductImage, removeProductImage, reorderProductImages } from "./actions";
+import {
+  addProductImage,
+  removeProductImage,
+  reorderProductImages,
+  updateProductImagePaths,
+  restoreOriginalImage,
+} from "./actions";
 import type { ProductImage } from "@/lib/catalog-types";
+
+interface GalleryActions {
+  add: (productId: string, storagePath: string, thumbPath: string | null) => Promise<{ error: string | null; image?: unknown }>
+  remove: (imageId: string) => Promise<{ error: string | null }>
+  reorder: (productId: string, orderedIds: string[]) => Promise<{ error: string | null }>
+  updatePaths: (imageId: string, newStoragePath: string | null, newThumbnailPath: string | null, preserveAsOriginal?: string | null) => Promise<{ error: string | null }>
+  restoreOriginal: (imageId: string) => Promise<{ error: string | null }>
+}
 
 interface Props {
   productId:    string;
   restaurantId: string;
   initialImages: ProductImage[];
   supabaseUrl:   string;
+  /** Override image actions. Defaults to owner panel actions when not provided. */
+  galleryActions?: GalleryActions;
 }
 
 const IMG_BASE = (url: string) => `${url}/storage/v1/object/public/product-images`;
 
-export function ProductImageGallery({ productId, restaurantId, initialImages, supabaseUrl }: Props) {
+export function ProductImageGallery({ productId, restaurantId, initialImages, supabaseUrl, galleryActions }: Props) {
   const imgBase = IMG_BASE(supabaseUrl);
 
-  const [images,      setImages]      = useState<ProductImage[]>(initialImages);
-  const [cropFile,    setCropFile]    = useState<File | null>(null);
-  const [adding,      setAdding]      = useState(false);
-  const [addErr,      setAddErr]      = useState<string | null>(null);
-  const [removingId,  setRemovingId]  = useState<string | null>(null);
+  const [images,       setImages]       = useState<ProductImage[]>(initialImages);
+  const [cropFile,     setCropFile]     = useState<File | null>(null);
+  const [adding,       setAdding]       = useState(false);
+  const [addErr,       setAddErr]       = useState<string | null>(null);
+  const [removingId,   setRemovingId]   = useState<string | null>(null);
   const [removeErrors, setRemoveErrors] = useState<Record<string, string>>({});
-  const [reorderErr,  setReorderErr]  = useState<string | null>(null);
+  const [reorderErr,   setReorderErr]   = useState<string | null>(null);
+
+  // "Mejorar encuadre" state
+  const [reframeTarget,   setReframeTarget]   = useState<{ id: string; url: string; originalPath: string } | null>(null);
+  const [reframeUpdating, setReframeUpdating] = useState<string | null>(null);
+  const [reframeErrors,   setReframeErrors]   = useState<Record<string, string>>({});
+
+  // "Restaurar original" state
+  const [restoringId,    setRestoringId]    = useState<string | null>(null);
+  const [restoreErrors,  setRestoreErrors]  = useState<Record<string, string>>({});
 
   // Pending files from the file picker → crop tool flow
   const pendingOriginal = useRef<File | null>(null);
@@ -42,12 +67,13 @@ export function ProductImageGallery({ productId, restaurantId, initialImages, su
     setCropFile(file);
   }
 
-  async function handleCropConfirm(thumb: File) {
+  async function handleCropConfirm(thumb: File, cleanedOriginal?: File) {
     const original = pendingOriginal.current;
     setCropFile(null);
     pendingOriginal.current = null;
     if (!original) return;
-    await doUploadAndAdd(original, thumb);
+    // If auto-frame produced a cleaned original, upload that instead of the raw file
+    await doUploadAndAdd(cleanedOriginal ?? original, thumb);
   }
 
   async function handleCropSkip() {
@@ -85,9 +111,9 @@ export function ProductImageGallery({ productId, restaurantId, initialImages, su
         // Thumb failure is non-fatal — original still usable
       }
 
-      const result = await addProductImage(productId, j1.path, thumbPath);
+      const result = await (galleryActions?.add ?? addProductImage)(productId, j1.path, thumbPath);
       if (result.error) { setAddErr(result.error); return; }
-      if (result.image) setImages((imgs) => [...imgs, result.image!]);
+      if (result.image) setImages((imgs) => [...imgs, result.image as ProductImage]);
     } catch {
       setAddErr("Error de red. Inténtalo de nuevo.");
     } finally {
@@ -99,7 +125,7 @@ export function ProductImageGallery({ productId, restaurantId, initialImages, su
     if (removingId) return;
     setRemovingId(imageId);
     setRemoveErrors((e) => { const n = { ...e }; delete n[imageId]; return n; });
-    const result = await removeProductImage(imageId);
+    const result = await (galleryActions?.remove ?? removeProductImage)(imageId);
     setRemovingId(null);
     if (result.error) {
       setRemoveErrors((e) => ({ ...e, [imageId]: result.error! }));
@@ -115,12 +141,101 @@ export function ProductImageGallery({ productId, restaurantId, initialImages, su
     [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
     setImages(reordered); // optimistic
     setReorderErr(null);
-    const result = await reorderProductImages(productId, reordered.map((img) => img.id));
+    const result = await (galleryActions?.reorder ?? reorderProductImages)(productId, reordered.map((img) => img.id));
     if (result.error) {
       setImages(images); // revert
       setReorderErr(result.error);
     }
   }
+
+  // ── Reframe (Mejorar encuadre) ────────────────────────────────
+
+  async function handleReframeConfirm(thumb: File, cleanedOriginal?: File) {
+    if (!reframeTarget) return;
+    const { id: imageId, originalPath: preserveAsOriginal } = reframeTarget;
+    setReframeTarget(null);
+    setReframeUpdating(imageId);
+    setReframeErrors((e) => { const n = { ...e }; delete n[imageId]; return n; });
+
+    try {
+      // Upload new thumbnail
+      const fd1 = new FormData();
+      fd1.append("file", thumb);
+      fd1.append("restaurant_id", restaurantId);
+      fd1.append("product_id", productId);
+      fd1.append("type", "product_thumb");
+      const r1 = await fetch("/api/menu/upload", { method: "POST", body: fd1 });
+      const j1 = await r1.json() as { path?: string; error?: string };
+      if (!r1.ok || !j1.path) {
+        setReframeErrors((e) => ({ ...e, [imageId]: j1.error ?? "Error al subir miniatura." }));
+        return;
+      }
+
+      // Upload cleaned original if auto-frame was applied
+      let newStoragePath: string | null = null;
+      if (cleanedOriginal) {
+        const fd2 = new FormData();
+        fd2.append("file", cleanedOriginal);
+        fd2.append("restaurant_id", restaurantId);
+        fd2.append("product_id", productId);
+        const r2 = await fetch("/api/menu/upload", { method: "POST", body: fd2 });
+        const j2 = await r2.json() as { path?: string; error?: string };
+        if (r2.ok && j2.path) newStoragePath = j2.path;
+      }
+
+      // preserveAsOriginal ensures the first original is never deleted.
+      const result = await (galleryActions?.updatePaths ?? updateProductImagePaths)(
+        imageId,
+        newStoragePath,
+        j1.path,
+        preserveAsOriginal,
+      );
+      if (result.error) {
+        setReframeErrors((e) => ({ ...e, [imageId]: result.error! }));
+      } else {
+        setImages((imgs) => imgs.map((img) =>
+          img.id !== imageId ? img : {
+            ...img,
+            thumbnail_path: j1.path!,
+            ...(newStoragePath ? { storage_path: newStoragePath } : {}),
+            // Record original_path locally so "Restaurar" button appears immediately.
+            original_path: img.original_path ?? preserveAsOriginal,
+          },
+        ));
+      }
+    } catch {
+      setReframeErrors((e) => ({ ...e, [imageId]: "Error de red." }));
+    } finally {
+      setReframeUpdating(null);
+    }
+  }
+
+  // ── Restore original ──────────────────────────────────────────
+
+  async function handleRestore(imageId: string) {
+    if (restoringId) return;
+    setRestoringId(imageId);
+    setRestoreErrors((e) => { const n = { ...e }; delete n[imageId]; return n; });
+    const result = await (galleryActions?.restoreOriginal ?? restoreOriginalImage)(imageId);
+    setRestoringId(null);
+    if (result.error) {
+      setRestoreErrors((e) => ({ ...e, [imageId]: result.error! }));
+    } else {
+      setImages((imgs) => imgs.map((img) =>
+        img.id !== imageId ? img : {
+          ...img,
+          storage_path:   img.original_path ?? img.storage_path,
+          thumbnail_path: null,
+          original_path:  null,
+        },
+      ));
+    }
+  }
+
+  const isBusy = useCallback(
+    (imageId: string) => !!removingId || reframeUpdating === imageId || restoringId === imageId,
+    [removingId, reframeUpdating, restoringId],
+  );
 
   return (
     <>
@@ -138,7 +253,9 @@ export function ProductImageGallery({ productId, restaurantId, initialImages, su
               const src = img.thumbnail_path
                 ? `${imgBase}/${img.thumbnail_path}`
                 : `${imgBase}/${img.storage_path}`;
-              const err = removeErrors[img.id];
+              const removeErr = removeErrors[img.id];
+              const reframeErr = reframeErrors[img.id];
+              const updating = reframeUpdating === img.id;
               return (
                 <div key={img.id} style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                   {/* Image thumbnail */}
@@ -153,13 +270,14 @@ export function ProductImageGallery({ productId, restaurantId, initialImages, su
                         borderRadius: 8,
                         border: idx === 0 ? "2px solid var(--purple, #703BE6)" : "1px solid var(--border)",
                         display: "block",
+                        opacity: updating ? 0.5 : 1,
                       }}
                     />
                     {/* Remove button */}
                     <button
                       type="button"
                       onClick={() => handleRemove(img.id)}
-                      disabled={!!removingId}
+                      disabled={isBusy(img.id)}
                       aria-label={`Quitar foto ${idx + 1}`}
                       style={{
                         position: "absolute", top: -6, right: -6,
@@ -173,9 +291,19 @@ export function ProductImageGallery({ productId, restaurantId, initialImages, su
                     >
                       ×
                     </button>
+                    {/* Updating spinner */}
+                    {updating && (
+                      <div style={{
+                        position: "absolute", inset: 0, borderRadius: 8,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        background: "rgba(255,255,255,.5)", fontSize: 10, color: "#703BE6",
+                      }}>
+                        ⟳
+                      </div>
+                    )}
                   </div>
 
-                  {/* Primary badge / reorder */}
+                  {/* Primary badge / reorder / reframe */}
                   <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
                     {idx === 0 ? (
                       <span style={{ fontSize: 9, fontWeight: 700, color: "var(--purple, #703BE6)", textTransform: "uppercase", letterSpacing: 0.3 }}>
@@ -186,7 +314,7 @@ export function ProductImageGallery({ productId, restaurantId, initialImages, su
                         <button
                           type="button"
                           onClick={() => moveImage(idx, -1)}
-                          disabled={!!removingId}
+                          disabled={isBusy(img.id)}
                           aria-label={`Mover foto ${idx + 1} hacia la izquierda`}
                           style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 3px", fontSize: 11, color: "#667085" }}
                         >
@@ -196,7 +324,7 @@ export function ProductImageGallery({ productId, restaurantId, initialImages, su
                         <button
                           type="button"
                           onClick={() => moveImage(idx, 1)}
-                          disabled={!!removingId || idx === images.length - 1}
+                          disabled={isBusy(img.id) || idx === images.length - 1}
                           aria-label={`Mover foto ${idx + 1} hacia la derecha`}
                           style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 3px", fontSize: 11, color: "#667085" }}
                         >
@@ -206,9 +334,63 @@ export function ProductImageGallery({ productId, restaurantId, initialImages, su
                     )}
                   </div>
 
-                  {err && (
+                  {/* Encuadrar / Restaurar original */}
+                  <button
+                    type="button"
+                    onClick={() => setReframeTarget({
+                      id:           img.id,
+                      // Always crop from the CURRENT display version.
+                      url:          `${imgBase}/${img.storage_path}`,
+                      // The path to protect as the original.
+                      // If already framed, use the saved original; otherwise the
+                      // current storage_path is still the original.
+                      originalPath: img.original_path ?? img.storage_path,
+                    })}
+                    disabled={isBusy(img.id)}
+                    aria-label={`Encuadrar foto ${idx + 1}`}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      fontSize: 10, color: "var(--purple, #703BE6)",
+                      padding: "1px 2px", lineHeight: 1.3,
+                      opacity: isBusy(img.id) ? 0.4 : 1,
+                      textDecoration: "underline",
+                    }}
+                  >
+                    Encuadrar
+                  </button>
+
+                  {/* Restore original — only shown when image has been framed */}
+                  {img.original_path && (
+                    <button
+                      type="button"
+                      onClick={() => handleRestore(img.id)}
+                      disabled={isBusy(img.id)}
+                      aria-label={`Restaurar foto original ${idx + 1}`}
+                      style={{
+                        background: "none", border: "none", cursor: "pointer",
+                        fontSize: 10, color: "#667085",
+                        padding: "1px 2px", lineHeight: 1.3,
+                        opacity: isBusy(img.id) ? 0.4 : 1,
+                        textDecoration: "underline",
+                      }}
+                    >
+                      {restoringId === img.id ? "Restaurando…" : "Restaurar"}
+                    </button>
+                  )}
+
+                  {removeErr && (
                     <p role="alert" style={{ fontSize: 10, color: "#a72b38", maxWidth: 90, textAlign: "center", margin: 0 }}>
-                      {err}
+                      {removeErr}
+                    </p>
+                  )}
+                  {reframeErr && (
+                    <p role="alert" style={{ fontSize: 10, color: "#a72b38", maxWidth: 90, textAlign: "center", margin: 0 }}>
+                      {reframeErr}
+                    </p>
+                  )}
+                  {restoreErrors[img.id] && (
+                    <p role="alert" style={{ fontSize: 10, color: "#a72b38", maxWidth: 90, textAlign: "center", margin: 0 }}>
+                      {restoreErrors[img.id]}
                     </p>
                   )}
                 </div>
@@ -240,17 +422,26 @@ export function ProductImageGallery({ productId, restaurantId, initialImages, su
           </span>
         </div>
 
-        {addErr && <p role="alert" className="auth-error" style={{ marginTop: 8 }}>{addErr}</p>}
+        {addErr    && <p role="alert" className="auth-error" style={{ marginTop: 8 }}>{addErr}</p>}
         {reorderErr && <p role="alert" className="auth-error" style={{ marginTop: 8 }}>{reorderErr}</p>}
       </div>
 
-      {/* Crop tool */}
+      {/* New-upload crop tool */}
       {cropFile && (
         <CropTool
           file={cropFile}
           onConfirm={handleCropConfirm}
           onSkip={handleCropSkip}
           onCancel={() => { setCropFile(null); pendingOriginal.current = null; }}
+        />
+      )}
+
+      {/* Reframe crop tool for existing images */}
+      {reframeTarget && (
+        <CropTool
+          url={reframeTarget.url}
+          onConfirm={handleReframeConfirm}
+          onCancel={() => setReframeTarget(null)}
         />
       )}
     </>

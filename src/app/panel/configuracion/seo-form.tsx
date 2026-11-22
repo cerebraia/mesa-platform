@@ -20,6 +20,7 @@ const ASSET_BASE = (url: string) => `${url}/storage/v1/object/public/restaurant-
 
 function charCount(len: number, lo: number, hi: number) {
   let color = "#9CA3AF";
+  
   if (len > 0 && len < lo) color = "#92400E";
   else if (len >= lo && len <= hi) color = "#065F46";
   else if (len > hi) color = "#a72b38";

@@ -37,6 +37,8 @@ export interface ProductImage {
   storage_path: string;
   // Added in migration 027. If set, used as the card thumbnail.
   thumbnail_path: string | null;
+  // Added in migration 040. When set: image has been framed; "Restaurar" can recover it.
+  original_path: string | null;
   alt_text: string | null;
   position: number;
   created_at: string;
@@ -186,6 +188,8 @@ export interface RestaurantConfig {
   seo_description?: string | null;
   seo_image_path?: string | null;
   allow_indexing?: boolean;
+  // Added in migration 046. Full CSS gradient string; null = auto from primary_color.
+  header_gradient?: string | null;
   logo_path: string | null;
   cover_path: string | null;
   primary_color: string | null;
@@ -248,7 +252,7 @@ export interface PaymentMethod {
   updated_at: string;
 }
 
-// Public-facing config: anon can read these fields (migrations 012 + 024 + 025 + 035 grants).
+// Public-facing config: anon can read these fields (migrations 012 + 024 + 025 + 035 + 046 grants).
 // payment_methods.instructions, stock_tracking_enabled NOT included — private.
 export interface PublicRestaurantConfig {
   restaurant_id: string;
@@ -258,6 +262,8 @@ export interface PublicRestaurantConfig {
   seo_description?: string | null;
   seo_image_path?: string | null;
   allow_indexing?: boolean;
+  // Added in migration 046. Full CSS gradient string; null = auto from primary_color.
+  header_gradient?: string | null;
   logo_path: string | null;
   cover_path: string | null;
   primary_color: string | null;

@@ -15,7 +15,7 @@ import {
 import { CategoryActions } from "./category-actions";
 import { ProductRowActions } from "./product-row-actions";
 import { productState } from "@/lib/product-state";
-import { restoreProduct } from "./actions";
+import { restoreProduct, hardDeleteProduct } from "./actions";
 import { formatMoney } from "@/lib/money";
 import type { Category, Product, ProductImage } from "@/lib/catalog-types";
 import type { DeletedProduct } from "./page";
@@ -90,36 +90,50 @@ function TrashTab({
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [restoring, setRestoring] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [restoredIds, setRestoredIds] = useState<Set<string>>(new Set());
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
 
-  const visible = deleted.filter((p) => !restoredIds.has(p.id));
+  const visible = deleted.filter((p) => !removedIds.has(p.id));
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return visible.filter((p) => !q || p.name.toLowerCase().includes(q));
   }, [visible, search]);
 
-  async function handleRestore(productId: string, productName: string) {
-    if (restoring) return;
-    setRestoring(productId);
+  async function handleRestore(productId: string) {
+    if (busy) return;
+    setBusy(productId);
     setErrors((e) => { const n = { ...e }; delete n[productId]; return n; });
     const result = await restoreProduct(productId);
-    setRestoring(null);
+    setBusy(null);
     if (result.error) {
       setErrors((e) => ({ ...e, [productId]: result.error! }));
     } else {
-      setRestoredIds((s) => new Set([...s, productId]));
-      // Refresh server data so the Products tab shows the restored draft.
+      setRemovedIds((s) => new Set([...s, productId]));
       router.refresh();
+    }
+  }
+
+  async function handleHardDelete(productId: string, productName: string) {
+    if (busy) return;
+    if (!confirm(`¿Eliminar definitivamente "${productName}"? Se borrarán sus imágenes y no se podrá recuperar.`)) return;
+    setBusy(productId);
+    setErrors((e) => { const n = { ...e }; delete n[productId]; return n; });
+    const result = await hardDeleteProduct(productId);
+    setBusy(null);
+    if (result.error) {
+      setErrors((e) => ({ ...e, [productId]: result.error! }));
+    } else {
+      setRemovedIds((s) => new Set([...s, productId]));
     }
   }
 
   return (
     <>
       <p style={{ fontSize: 12, color: "#667085", marginBottom: 12 }}>
-        Los productos eliminados siguen contando para el límite del plan.
+        Los productos en papelera <strong>no</strong> ocupan cupo del plan.
         Restaurarlos los devuelve como <strong>borrador</strong>, sin publicarlos automáticamente.
+        Eliminar definitivamente borra las imágenes y no se puede deshacer.
       </p>
 
       <div className="panel-filter-bar" style={{ marginBottom: 16 }}>
@@ -170,7 +184,7 @@ function TrashTab({
                   <tbody>
                     {filtered.map((p) => {
                       const imgSrc = p.storage_path ? `${imageBase}/${p.storage_path}` : null;
-                      const isRestoring = restoring === p.id;
+                      const isBusy = busy === p.id;
                       const rowError = errors[p.id];
                       return (
                         <tr key={p.id} style={{ opacity: 0.7 }}>
@@ -196,17 +210,29 @@ function TrashTab({
                             })}
                           </td>
                           <td style={{ paddingRight: 20 }}>
-                            <button
-                              type="button"
-                              className="button secondary small"
-                              disabled={!!restoring}
-                              onClick={() => handleRestore(p.id, p.name)}
-                              aria-label={`Restaurar ${p.name}`}
-                              style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 5 }}
-                            >
-                              <RotateCcw size={11} />
-                              {isRestoring ? "Restaurando…" : "Restaurar"}
-                            </button>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <button
+                                type="button"
+                                className="button secondary small"
+                                disabled={!!busy}
+                                onClick={() => handleRestore(p.id)}
+                                aria-label={`Restaurar ${p.name}`}
+                                style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 5 }}
+                              >
+                                <RotateCcw size={11} />
+                                {isBusy ? "…" : "Restaurar"}
+                              </button>
+                              <button
+                                type="button"
+                                className="button secondary small"
+                                disabled={!!busy}
+                                onClick={() => handleHardDelete(p.id, p.name)}
+                                aria-label={`Eliminar definitivamente ${p.name}`}
+                                style={{ fontSize: 11, color: "#a72b38" }}
+                              >
+                                Eliminar
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -221,7 +247,7 @@ function TrashTab({
           <div className="product-list-mobile">
             {filtered.map((p) => {
               const imgSrc = p.storage_path ? `${imageBase}/${p.storage_path}` : null;
-              const isRestoring = restoring === p.id;
+              const isBusy = busy === p.id;
               const rowError = errors[p.id];
               return (
                 <div key={p.id} className="product-mobile-card" style={{ opacity: 0.75 }}>
@@ -250,13 +276,23 @@ function TrashTab({
                     <button
                       type="button"
                       className="button secondary small"
-                      disabled={!!restoring}
-                      onClick={() => handleRestore(p.id, p.name)}
+                      disabled={!!busy}
+                      onClick={() => handleRestore(p.id)}
                       aria-label={`Restaurar ${p.name}`}
                       style={{ fontSize: 13, display: "flex", alignItems: "center", gap: 6, minHeight: 44, padding: "0 16px" }}
                     >
                       <RotateCcw size={13} />
-                      {isRestoring ? "Restaurando…" : "Restaurar"}
+                      {isBusy ? "…" : "Restaurar"}
+                    </button>
+                    <button
+                      type="button"
+                      className="button secondary small"
+                      disabled={!!busy}
+                      onClick={() => handleHardDelete(p.id, p.name)}
+                      aria-label={`Eliminar definitivamente ${p.name}`}
+                      style={{ fontSize: 13, color: "#a72b38", minHeight: 44, padding: "0 16px" }}
+                    >
+                      Eliminar
                     </button>
                   </div>
                 </div>
@@ -628,7 +664,15 @@ function CategoriesTab({ cats }: { cats: CategoryWithProducts[] }) {
                   >
                     <Pencil size={12} /> Editar
                   </Link>
-                  <CategoryActions categoryId={cat.id} isActive={cat.is_active} />
+                  <CategoryActions
+                    categoryId={cat.id}
+                    categoryName={cat.name}
+                    isActive={cat.is_active}
+                    productCount={productCount}
+                    otherCategories={cats
+                      .filter((c) => c.id !== cat.id)
+                      .map((c) => ({ id: c.id, name: c.name }))}
+                  />
                   <Link
                     href={`/panel/menu/products/new?category=${cat.id}`}
                     className="panel-quick-action"

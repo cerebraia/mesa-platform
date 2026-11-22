@@ -57,6 +57,18 @@ interface ProductFormProps {
   restaurantId: string;
   stockEnabled?: boolean;
   existingControl?: { cost_cents: number | null; stock_quantity: number | null; stock_alert: number | null };
+  /** Override the save action. Defaults to panel's saveProduct. */
+  saveAction?: (data: Parameters<typeof saveProduct>[0]) => Promise<{ error: string | null; productId?: string }>
+  /** Override the cancel/return URL. Defaults to "/panel/menu". */
+  returnPath?: string
+  /** Override gallery image actions. Defaults to owner panel actions. */
+  imageGalleryActions?: {
+    add: (productId: string, storagePath: string, thumbPath: string | null) => Promise<{ error: string | null; image?: unknown }>
+    remove: (imageId: string) => Promise<{ error: string | null }>
+    reorder: (productId: string, orderedIds: string[]) => Promise<{ error: string | null }>
+    updatePaths: (imageId: string, newStoragePath: string | null, newThumbnailPath: string | null, preserveAsOriginal?: string | null) => Promise<{ error: string | null }>
+    restoreOriginal: (imageId: string) => Promise<{ error: string | null }>
+  }
 }
 
 // ── Main component ─────────────────────────────────────────────
@@ -73,6 +85,9 @@ export function ProductFormPage({
   restaurantId,
   stockEnabled = false,
   existingControl,
+  saveAction,
+  returnPath = "/panel/menu",
+  imageGalleryActions,
 }: ProductFormProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError]   = useState<string | null>(null);
@@ -144,10 +159,10 @@ export function ProductFormPage({
     e.target.value = "";
   }
 
-  function handleCropConfirm(thumb: File) {
-    // thumb = cropped 1:1 WebP; imageFile = original (already set via cropTarget.file)
+  function handleCropConfirm(thumb: File, cleanedOriginal?: File) {
     setThumbFile(thumb);
-    if (cropTarget?.file) setImageFile(cropTarget.file);
+    // If auto-frame produced a cleaned original, upload that instead of the raw file
+    setImageFile(cleanedOriginal ?? (cropTarget?.file ?? null));
     setImagePreview(URL.createObjectURL(thumb));
     setCropTarget(null);
     setDirty(true);
@@ -169,10 +184,10 @@ export function ProductFormPage({
     setCropTarget({ url: existingImgUrl });
   }
 
-  function handleCropExistingConfirm(thumb: File) {
+  function handleCropExistingConfirm(thumb: File, cleanedOriginal?: File) {
     setThumbFile(thumb);
-    // No new original; only the thumbnail changes
-    setImageFile(null);
+    // If auto-frame removed bars, upload the cleaned version as the new original
+    setImageFile(cleanedOriginal ?? null);
     setImagePreview(URL.createObjectURL(thumb));
     setCropTarget(null);
     setDirty(true);
@@ -335,7 +350,8 @@ export function ProductFormPage({
         thumbPath = json.path;
       }
 
-      const result = await saveProduct({
+      const save = saveAction ?? saveProduct;
+      const result = await save({
         id: product?.id,
         category_id: categoryId,
         name: name.trim(),
@@ -360,7 +376,7 @@ export function ProductFormPage({
       } else {
         setSuccess(true);
         setDirty(false); // clear guard before navigating away
-        router.push("/panel/menu");
+        router.push(returnPath);
       }
     });
   }
@@ -478,6 +494,7 @@ export function ProductFormPage({
               restaurantId={restaurantId}
               initialImages={existingImages ?? (existingImage ? [existingImage] : [])}
               supabaseUrl={process.env.NEXT_PUBLIC_SUPABASE_URL!}
+              galleryActions={imageGalleryActions}
             />
           )}
 
@@ -864,7 +881,7 @@ export function ProductFormPage({
             <button type="submit" disabled={isPending} className="button">
               {isPending ? "Guardando…" : mode === "new" ? "Crear producto" : "Guardar cambios"}
             </button>
-            <UnsavedAwareLink href="/panel/menu" className="button secondary">
+            <UnsavedAwareLink href={returnPath} className="button secondary">
               Cancelar
             </UnsavedAwareLink>
           </div>

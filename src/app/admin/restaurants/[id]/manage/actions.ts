@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createServerClient } from "@/lib/supabase/server";
 import { createServerClient as createSsrClient } from "@supabase/ssr";
+import type {
+  ProductInput,
+  VariantInput,
+  OptionGroupInput,
+  ProductImage,
+} from "@/lib/catalog-types";
 
 // ── Auth helpers ──────────────────────────────────────────────
 
@@ -46,12 +52,13 @@ function revalidateManage(restaurantId: string) {
 
 export async function adminCreateCategory(
   restaurantId: string,
-  formData: FormData,
+  data: { name: string },
 ): Promise<ManageResult> {
-  const name = String(formData.get("name") ?? "").trim();
-  if (!name) return { error: "El nombre es obligatorio." };
   try { await requireAdminForRestaurant(restaurantId); }
   catch (e) { return { error: (e as Error).message }; }
+
+  const name = String(data.name ?? "").trim();
+  if (!name) return { error: "El nombre es obligatorio." };
 
   const db = svc();
   const { data: maxRow } = await db.from("categories")
@@ -68,13 +75,14 @@ export async function adminCreateCategory(
 export async function adminUpdateCategory(
   restaurantId: string,
   categoryId: string,
-  formData: FormData,
+  data: { name: string; is_active?: boolean },
 ): Promise<ManageResult> {
-  const name     = String(formData.get("name") ?? "").trim();
-  const isActive = formData.get("is_active") !== "false";
-  if (!name) return { error: "El nombre es obligatorio." };
   try { await requireAdminForRestaurant(restaurantId); }
   catch (e) { return { error: (e as Error).message }; }
+
+  const name     = String(data.name ?? "").trim();
+  const isActive = data.is_active !== false;
+  if (!name) return { error: "El nombre es obligatorio." };
 
   const { error } = await svc().from("categories")
     .update({ name, is_active: isActive, updated_at: new Date().toISOString() })
@@ -336,5 +344,305 @@ export async function adminRemoveMember(
     .delete().eq("id", memberId).eq("restaurant_id", restaurantId);
   if (error) return { error: error.message };
   revalidatePath(`/admin/restaurants/${restaurantId}/manage/miembros`);
+  return { error: null };
+}
+
+// ── Admin product save ────────────────────────────────────────
+
+export type AdminProductState = { error: string | null; productId?: string };
+
+export async function adminSaveProduct(
+  restaurantId: string,
+  data: ProductInput & {
+    variants: VariantInput[];
+    option_groups: OptionGroupInput[];
+    image_path?: string;
+    thumb_path?: string;
+    old_image_path?: string;
+    old_image_id?: string;
+    old_thumb_path?: string;
+  },
+): Promise<AdminProductState> {
+  try { await requireAdminForRestaurant(restaurantId); }
+  catch (e) { return { error: (e as Error).message }; }
+
+  if (data.id) {
+    const { data: p } = await svc().from("products")
+      .select("deleted_at").eq("id", data.id).eq("restaurant_id", restaurantId).maybeSingle();
+    if (!p) return { error: "Producto no encontrado." };
+    if (p.deleted_at) return { error: "No se puede editar un producto eliminado." };
+  }
+
+  const { data: productId, error: rpcError } = await svc().rpc("upsert_product_admin", {
+    p_restaurant_id: restaurantId,
+    p_product: {
+      id: data.id ?? null,
+      category_id: data.category_id,
+      name: data.name,
+      description: data.description ?? "",
+      base_price_cents: data.base_price_cents,
+      promo_price_cents: data.promo_price_cents ?? null,
+      is_available: data.is_available ?? true,
+      is_published: data.is_published ?? false,
+      position: 0,
+      image_fit: data.image_fit ?? "cover",
+    },
+    p_variants: data.variants,
+    p_option_groups: data.option_groups,
+  });
+
+  if (rpcError) return { error: rpcError.message };
+  const pid = productId as string;
+
+  if (data.image_path) {
+    if (data.old_image_id) {
+      await svc().from("product_images").delete()
+        .eq("id", data.old_image_id).eq("restaurant_id", restaurantId);
+    }
+    const { error: imgErr } = await svc().from("product_images").insert({
+      product_id: pid, restaurant_id: restaurantId,
+      storage_path: data.image_path, thumbnail_path: data.thumb_path ?? null, position: 0,
+    });
+    if (imgErr) {
+      await svc().storage.from("product-images").remove([data.image_path]);
+      if (data.thumb_path) await svc().storage.from("product-images").remove([data.thumb_path]);
+      return { error: `Producto guardado pero error al asociar imagen: ${imgErr.message}`, productId: pid };
+    }
+    const toDelete: string[] = [];
+    if (data.old_image_path) toDelete.push(data.old_image_path);
+    if (data.old_thumb_path) toDelete.push(data.old_thumb_path);
+    if (toDelete.length) await svc().storage.from("product-images").remove(toDelete);
+  } else if (data.thumb_path) {
+    await svc().from("product_images").update({ thumbnail_path: data.thumb_path })
+      .eq("product_id", pid).eq("restaurant_id", restaurantId);
+    if (data.old_thumb_path) await svc().storage.from("product-images").remove([data.old_thumb_path]);
+  }
+
+  revalidateManage(restaurantId);
+  revalidatePath(`/r/[slug]`, "page");
+  return { error: null, productId: pid };
+}
+
+export async function adminHardDeleteProduct(
+  restaurantId: string,
+  productId: string,
+): Promise<ManageResult> {
+  try { await requireAdminForRestaurant(restaurantId); }
+  catch (e) { return { error: (e as Error).message }; }
+
+  const { data: p } = await svc().from("products").select("id")
+    .eq("id", productId).eq("restaurant_id", restaurantId).not("deleted_at", "is", null).maybeSingle();
+  if (!p) return { error: "Producto no encontrado en papelera." };
+
+  const { data: images } = await svc().from("product_images")
+    .select("storage_path, thumbnail_path, original_path")
+    .eq("product_id", productId).eq("restaurant_id", restaurantId);
+  const paths = (images ?? []).flatMap((img) =>
+    [img.storage_path, img.thumbnail_path, img.original_path].filter(Boolean) as string[],
+  );
+  if (paths.length) await svc().storage.from("product-images").remove(paths);
+
+  const { error } = await svc().from("products").delete()
+    .eq("id", productId).eq("restaurant_id", restaurantId).not("deleted_at", "is", null);
+  if (error) return { error: error.message };
+  revalidateManage(restaurantId);
+  return { error: null };
+}
+
+// ── Category management ───────────────────────────────────────
+
+export async function adminDeleteCategory(
+  restaurantId: string,
+  categoryId: string,
+): Promise<ManageResult> {
+  try { await requireAdminForRestaurant(restaurantId); }
+  catch (e) { return { error: (e as Error).message }; }
+
+  const { count } = await svc().from("products")
+    .select("*", { count: "exact", head: true })
+    .eq("category_id", categoryId).eq("restaurant_id", restaurantId);
+  if ((count ?? 0) > 0) {
+    return { error: `Esta categoría tiene ${count} producto${count === 1 ? "" : "s"} (incluidos eliminados). Usa "Trasladar y eliminar".` };
+  }
+  const { error } = await svc().from("categories").delete().eq("id", categoryId).eq("restaurant_id", restaurantId);
+  if (error) return { error: error.message };
+  revalidateManage(restaurantId);
+  return { error: null };
+}
+
+export async function adminSetCategoryActive(
+  restaurantId: string,
+  categoryId: string,
+  active: boolean,
+): Promise<ManageResult> {
+  try { await requireAdminForRestaurant(restaurantId); }
+  catch (e) { return { error: (e as Error).message }; }
+
+  // Use direct UPDATE via service role (set_category_active RPC checks member_role, not valid for admin)
+  const { error } = await svc().from("categories")
+    .update({ is_active: active, updated_at: new Date().toISOString() })
+    .eq("id", categoryId).eq("restaurant_id", restaurantId);
+  if (error) return { error: error.message };
+  revalidateManage(restaurantId);
+  revalidatePath(`/r/[slug]`, "page");
+  return { error: null };
+}
+
+export async function adminTransferAndDeleteCategory(
+  restaurantId: string,
+  sourceCategoryId: string,
+  targetCategoryId: string,
+): Promise<ManageResult> {
+  if (!targetCategoryId) return { error: "Debes elegir una categoría destino." };
+  if (sourceCategoryId === targetCategoryId) return { error: "La categoría destino debe ser diferente." };
+  try { await requireAdminForRestaurant(restaurantId); }
+  catch (e) { return { error: (e as Error).message }; }
+
+  const db = svc();
+  const [{ data: src }, { data: tgt }] = await Promise.all([
+    db.from("categories").select("id").eq("id", sourceCategoryId).eq("restaurant_id", restaurantId).maybeSingle(),
+    db.from("categories").select("id").eq("id", targetCategoryId).eq("restaurant_id", restaurantId).maybeSingle(),
+  ]);
+  if (!src) return { error: "Categoría de origen no encontrada." };
+  if (!tgt) return { error: "Categoría destino no encontrada." };
+
+  const { error: moveErr } = await db.from("products")
+    .update({ category_id: targetCategoryId }).eq("category_id", sourceCategoryId).eq("restaurant_id", restaurantId);
+  if (moveErr) return { error: `Error al trasladar: ${moveErr.message}` };
+
+  const { error: delErr } = await db.from("categories").delete().eq("id", sourceCategoryId).eq("restaurant_id", restaurantId);
+  if (delErr) return { error: `Productos trasladados pero no se pudo eliminar la categoría: ${delErr.message}` };
+  revalidateManage(restaurantId);
+  return { error: null };
+}
+
+// ── Gallery image actions (admin) ─────────────────────────────
+
+export async function adminAddProductImage(
+  restaurantId: string,
+  productId: string,
+  storagePath: string,
+  thumbPath: string | null,
+): Promise<{ error: string | null; image?: ProductImage }> {
+  try { await requireAdminForRestaurant(restaurantId); }
+  catch (e) { return { error: (e as Error).message }; }
+
+  const { data: prod } = await svc().from("products").select("id")
+    .eq("id", productId).eq("restaurant_id", restaurantId).is("deleted_at", null).maybeSingle();
+  if (!prod) return { error: "Producto no encontrado." };
+
+  const { data: maxRow } = await svc().from("product_images").select("position")
+    .eq("product_id", productId).order("position", { ascending: false }).limit(1).maybeSingle();
+  const position = (maxRow?.position ?? -1) + 1;
+
+  const { data, error } = await svc().from("product_images")
+    .insert({ product_id: productId, restaurant_id: restaurantId, storage_path: storagePath, thumbnail_path: thumbPath, position })
+    .select("id, product_id, restaurant_id, storage_path, thumbnail_path, alt_text, position, created_at, original_path")
+    .single();
+  if (error) return { error: error.message };
+  revalidateManage(restaurantId);
+  revalidatePath(`/r/[slug]`, "page");
+  return { error: null, image: data as ProductImage };
+}
+
+export async function adminRemoveProductImage(
+  restaurantId: string,
+  imageId: string,
+): Promise<{ error: string | null }> {
+  try { await requireAdminForRestaurant(restaurantId); }
+  catch (e) { return { error: (e as Error).message }; }
+
+  const { data: img } = await svc().from("product_images")
+    .select("storage_path, thumbnail_path").eq("id", imageId).eq("restaurant_id", restaurantId).maybeSingle();
+  const { error } = await svc().from("product_images").delete().eq("id", imageId).eq("restaurant_id", restaurantId);
+  if (error) return { error: error.message };
+
+  const toDelete: string[] = [];
+  if (img?.storage_path)   toDelete.push(img.storage_path);
+  if (img?.thumbnail_path) toDelete.push(img.thumbnail_path);
+  if (toDelete.length) await svc().storage.from("product-images").remove(toDelete);
+  revalidateManage(restaurantId);
+  revalidatePath(`/r/[slug]`, "page");
+  return { error: null };
+}
+
+export async function adminReorderProductImages(
+  restaurantId: string,
+  productId: string,
+  orderedIds: string[],
+): Promise<{ error: string | null }> {
+  try { await requireAdminForRestaurant(restaurantId); }
+  catch (e) { return { error: (e as Error).message }; }
+
+  await Promise.all(
+    orderedIds.map((id, position) =>
+      svc().from("product_images").update({ position })
+        .eq("id", id).eq("product_id", productId).eq("restaurant_id", restaurantId),
+    ),
+  );
+  revalidateManage(restaurantId);
+  revalidatePath(`/r/[slug]`, "page");
+  return { error: null };
+}
+
+export async function adminUpdateProductImagePaths(
+  restaurantId: string,
+  imageId: string,
+  newStoragePath: string | null,
+  newThumbnailPath: string | null,
+  preserveAsOriginal?: string | null,
+): Promise<{ error: string | null }> {
+  try { await requireAdminForRestaurant(restaurantId); }
+  catch (e) { return { error: (e as Error).message }; }
+
+  const { data: img } = await svc().from("product_images")
+    .select("storage_path, thumbnail_path, original_path")
+    .eq("id", imageId).eq("restaurant_id", restaurantId).maybeSingle();
+  if (!img) return { error: "Imagen no encontrada." };
+
+  const protectedPath = img.original_path ?? preserveAsOriginal ?? null;
+  const updates: Record<string, string | null | undefined> = {};
+  if (newStoragePath)   updates.storage_path   = newStoragePath;
+  if (newThumbnailPath) updates.thumbnail_path = newThumbnailPath;
+  if (!img.original_path && preserveAsOriginal) updates.original_path = preserveAsOriginal;
+  if (Object.keys(updates).length === 0) return { error: null };
+
+  const { error } = await svc().from("product_images").update(updates)
+    .eq("id", imageId).eq("restaurant_id", restaurantId);
+  if (error) return { error: error.message };
+
+  const toDelete: string[] = [];
+  if (newStoragePath && img.storage_path && img.storage_path !== protectedPath) toDelete.push(img.storage_path);
+  if (newThumbnailPath && img.thumbnail_path) toDelete.push(img.thumbnail_path);
+  if (toDelete.length) await svc().storage.from("product-images").remove(toDelete);
+  revalidateManage(restaurantId);
+  revalidatePath(`/r/[slug]`, "page");
+  return { error: null };
+}
+
+export async function adminRestoreOriginalImage(
+  restaurantId: string,
+  imageId: string,
+): Promise<{ error: string | null }> {
+  try { await requireAdminForRestaurant(restaurantId); }
+  catch (e) { return { error: (e as Error).message }; }
+
+  const { data: img } = await svc().from("product_images")
+    .select("storage_path, thumbnail_path, original_path")
+    .eq("id", imageId).eq("restaurant_id", restaurantId).maybeSingle();
+  if (!img) return { error: "Imagen no encontrada." };
+  if (!img.original_path) return { error: "Esta imagen no tiene encuadre activo." };
+
+  const { error } = await svc().from("product_images")
+    .update({ storage_path: img.original_path, thumbnail_path: null, original_path: null })
+    .eq("id", imageId).eq("restaurant_id", restaurantId);
+  if (error) return { error: error.message };
+
+  const toDelete: string[] = [];
+  if (img.storage_path !== img.original_path) toDelete.push(img.storage_path);
+  if (img.thumbnail_path) toDelete.push(img.thumbnail_path);
+  if (toDelete.length) await svc().storage.from("product-images").remove(toDelete);
+  revalidateManage(restaurantId);
+  revalidatePath(`/r/[slug]`, "page");
   return { error: null };
 }

@@ -192,7 +192,8 @@ export default async function PublicMenuPage({
         "background_color, secondary_color, font_family, " +
         "phone, whatsapp, instagram_url, facebook_url, twitter_url, " +
         "address, pickup_enabled, pickup_address, pickup_notes, " +
-        "delivery_enabled, is_temporarily_closed, closed_message, orders_enabled",
+        "delivery_enabled, is_temporarily_closed, closed_message, orders_enabled, " +
+        "header_gradient",
       )
       .eq("restaurant_id", restaurant.id)
       .maybeSingle<PublicRestaurantConfig>(),
@@ -300,6 +301,12 @@ export default async function PublicMenuPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      {config?.font_family === "PlayfairDisplay" && (
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap"
+        />
+      )}
       <PublicMenuClient
         restaurant={restaurant}
         config={config ?? null}

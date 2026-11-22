@@ -1,5 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { createServerClient as createSsrClient } from "@supabase/ssr";
+
+function svc() {
+  return createSsrClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { cookies: { getAll: () => [], setAll: () => {} } },
+  );
+}
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MiB
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -153,7 +162,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     path = `${restaurantId}/${productId}-${uuid}.${ext}`;
   }
 
-  const { error: uploadError } = await supabase.storage
+  // platform_admin is not a restaurant member, so Storage RLS (which checks
+  // member_role = 'owner') would block them. Use service role for their uploads.
+  const storageClient = adminRow ? svc() : supabase;
+  const { error: uploadError } = await storageClient.storage
     .from(bucket)
     .upload(path, buffer, {
       contentType: detectedType,

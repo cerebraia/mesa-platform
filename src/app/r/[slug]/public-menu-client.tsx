@@ -94,6 +94,14 @@ function darkenHex(hex: string, amount: number): string {
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
+function lightenHex(hex: string, amount: number): string {
+  const r = Math.round(parseInt(hex.slice(1, 3), 16) + (255 - parseInt(hex.slice(1, 3), 16)) * amount);
+  const g = Math.round(parseInt(hex.slice(3, 5), 16) + (255 - parseInt(hex.slice(3, 5), 16)) * amount);
+  const b = Math.round(parseInt(hex.slice(5, 7), 16) + (255 - parseInt(hex.slice(5, 7), 16)) * amount);
+  if (isNaN(r)) return hex;
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
 // ── Icons ─────────────────────────────────────────────────────
 
 function SearchIcon({ className }: { className?: string }) {
@@ -197,6 +205,7 @@ function BizHeader({
   socialLinks,
   supabaseUrl,
   fontStyle,
+  catalogOnly,
 }: {
   restaurantId: string;
   restaurantName: string;
@@ -208,15 +217,19 @@ function BizHeader({
   socialLinks: SocialLinks;
   supabaseUrl: string;
   fontStyle: React.CSSProperties;
+  catalogOnly: boolean;
 }) {
   void supabaseUrl; // passed for future use
   const initials = restaurantName.slice(0, 2).toUpperCase();
   const hasCover = !!coverUrl;
   const hasSocials = !!(socialLinks.instagram || socialLinks.facebook || socialLinks.twitter || socialLinks.whatsapp);
 
+  const headerGradient = config?.header_gradient ?? null;
   const bgStyle: React.CSSProperties = hasCover
     ? { backgroundImage: `url(${coverUrl})` }
-    : { background: `linear-gradient(135deg,${darkenHex(primaryColor, 0.20)} 0%,${primaryColor} 100%)` };
+    : headerGradient
+      ? { background: headerGradient }
+      : { background: `linear-gradient(135deg,${darkenHex(primaryColor, 0.22)} 0%,${primaryColor} 55%,${lightenHex(primaryColor, 0.22)} 100%)` };
 
   let statusEl: React.ReactNode = null;
   if (liveStatus && liveStatus.status !== "temporarily_closed") {
@@ -270,6 +283,18 @@ function BizHeader({
               {hasSocials && <SocialBar links={socialLinks} hero />}
             </div>
           )}
+          {catalogOnly && (
+            <a
+              href="#catalog-main"
+              className="rm-bh-cta"
+              onClick={(e) => {
+                e.preventDefault();
+                document.querySelector("main")?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              Ver colección ↓
+            </a>
+          )}
         </div>
       </div>
     </div>
@@ -319,6 +344,10 @@ function ProductCard({
   const cardImgUrl  = cardImgPath ? `${imgBase}/${cardImgPath}` : null;
   const displayPrice = product.product_variants?.[0]?.price_cents ?? product.base_price_cents;
   const hasPromo = product.promo_price_cents != null;
+  // base_price_cents=0 with no variants means price not yet confirmed.
+  const priceUnconfirmed = product.base_price_cents === 0
+    && !product.promo_price_cents
+    && (!product.product_variants || product.product_variants.length === 0);
   // If thumbnail_path exists the image is already 1:1; otherwise cover crops inline.
   // 'contain' override still available via image_fit field.
   const imgFit = product.image_fit === "contain" ? "contain" : "cover";
@@ -344,14 +373,18 @@ function ProductCard({
           {showDesc && product.description && (
             <p className="mc-card-desc">{product.description}</p>
           )}
-          <p className="mc-card-price" style={{ color: primaryColor }}>
-            {hasPromo ? (
-              <>
-                <span className="mc-card-price-orig">{money(displayPrice, currency)}</span>
-                {money(product.promo_price_cents!, currency)}
-              </>
-            ) : money(displayPrice, currency)}
-          </p>
+          {priceUnconfirmed ? (
+            <p className="mc-card-price-tbc">Precio por confirmar</p>
+          ) : (
+            <p className="mc-card-price" style={{ color: primaryColor }}>
+              {hasPromo ? (
+                <>
+                  <span className="mc-card-price-orig">{money(displayPrice, currency)}</span>
+                  {money(product.promo_price_cents!, currency)}
+                </>
+              ) : money(displayPrice, currency)}
+            </p>
+          )}
         </div>
       </button>
 
@@ -443,6 +476,21 @@ function CatalogProductDialog({
       (selected[g.id] ?? []).map((id) => g.options.find((o) => o.id === id)?.price_delta_cents ?? 0),
     ).reduce((a, b) => a + b, 0);
     const totalCents = priceCents + optsDeltaCents;
+
+    // When price is not yet confirmed (0 cents, no variants), use a catalog-style message.
+    const priceUnconfirmed = product.base_price_cents === 0
+      && !product.promo_price_cents
+      && product.product_variants.length === 0;
+
+    if (priceUnconfirmed) {
+      const lines = [
+        `Hola, me interesa la *${product.name}* de *${restaurantName}*.`,
+        "Quisiera conocer su precio y las opciones de personalización.",
+      ];
+      if (opts.length) lines.push(`Opciones de interés: ${opts.join(", ")}`);
+      return `https://wa.me/${number}?text=${encodeURIComponent(lines.join("\n"))}`;
+    }
+
     const lines = [
       `Hola, me interesa este producto de *${restaurantName}*:`,
       "",
@@ -459,6 +507,11 @@ function CatalogProductDialog({
   const displayPrice = product.product_variants.find((v) => v.id === variantId)?.price_cents
     ?? product.promo_price_cents
     ?? product.base_price_cents;
+
+  // A product with base_price_cents=0 and no variants has no confirmed price yet.
+  const priceUnconfirmed = product.base_price_cents === 0
+    && !product.promo_price_cents
+    && product.product_variants.length === 0;
 
   return (
     <dialog
@@ -489,7 +542,11 @@ function CatalogProductDialog({
         >
           {imgUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img className="pd-img" src={imgUrl} alt={currentImg?.alt_text || product.name} />
+            <img
+              className={`pd-img${product.image_fit === "contain" ? " pd-img--contain" : ""}`}
+              src={imgUrl}
+              alt={currentImg?.alt_text || product.name}
+            />
           ) : (
             <ImgPlaceholder />
           )}
@@ -530,7 +587,11 @@ function CatalogProductDialog({
 
         <div className="pd-content">
           <h2 className="pd-name">{product.name}</h2>
-          <p className="pd-price" style={{ color: primaryColor }}>{money(displayPrice, currency)}</p>
+          {priceUnconfirmed ? (
+            <p className="pd-price-tbc">Precio por confirmar</p>
+          ) : (
+            <p className="pd-price" style={{ color: primaryColor }}>{money(displayPrice, currency)}</p>
+          )}
           {product.description && (
             <p className="pd-desc">{product.description}</p>
           )}
@@ -1441,6 +1502,8 @@ export function PublicMenuClient({
 
   const fontFamilyStyle = config?.font_family === "Nunito"
     ? { fontFamily: "var(--font-nunito,'Nunito',Arial,sans-serif)" }
+    : config?.font_family === "PlayfairDisplay"
+    ? { fontFamily: "'Playfair Display',Georgia,serif" }
     : {};
 
   // hasCoverImg kept for any remaining internal logic (not used in render).
@@ -1573,7 +1636,10 @@ export function PublicMenuClient({
   }
 
   return (
-    <div className="rm-catalog-root" style={{ ...menuVars, ...fontFamilyStyle }}>
+    <div
+      className={`rm-catalog-root${config?.font_family === "PlayfairDisplay" ? " rm-font-playfair" : ""}`}
+      style={{ ...menuVars, ...fontFamilyStyle }}
+    >
 
       {/* Topbar — búsqueda sticky; logo/nombre viven en el banner */}
       <header className="rm-topbar">
@@ -1619,6 +1685,7 @@ export function PublicMenuClient({
         socialLinks={socialLinks}
         supabaseUrl={supabaseUrl}
         fontStyle={fontFamilyStyle}
+        catalogOnly={catalogOnly}
       />
 
       {/* Aviso de cierre temporal */}
