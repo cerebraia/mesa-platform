@@ -8,8 +8,8 @@
  * Negocio  : Danash Shop (slug: danash-shop)
  * Lote     : franelas-1 (IDs externos 16–34)
  * Categoría: Franelas (se crea si no existe)
- * Estado   : BORRADOR — moneda y tallas POR_CONFIRMAR
- * Precio   : referencia 25 (2500 cents) — no publicar hasta confirmar moneda
+ * Estado   : PUBLICADO — moneda USD y tallas S/M/L/XL confirmadas (2026-11-22)
+ * Precio   : US$25.00 (2500 cents) — 4 tallas, mismo precio, sin recargos
  *
  * Idempotente:
  *   - Productos nuevos → upsert_product_admin (respeta límite atómico del plan).
@@ -63,15 +63,15 @@ const RESTAURANT_SLUG = 'danash-shop';
 const LOTE            = 'franelas-1';
 const IMAGES_DIR      = '/Users/fernandao2307/Documents/Catalogos/2.danashshop_ve/Imagenes/danash-franelas-parte-1';
 
-// Moneda y tallas POR_CONFIRMAR → todos en borrador
-const IS_PUBLISHED    = false;
-const BASE_PRICE_CENTS = 2500;   // referencia $25 — no confirmar precio antes de publicar
+// Moneda USD, precio $25.00, tallas S/M/L/XL confirmados (2026-11-22)
+const IS_PUBLISHED    = true;
+const BASE_PRICE_CENTS = 2500;   // US$25.00 — moneda y precio confirmados
 
 // ── Productos ─────────────────────────────────────────────────────────────────
 //
 // Nombres comerciales derivados de los archivos fuente.
 // stableKey: ds-f<id-externo> — estable dentro de Danash Shop / lote franelas-1.
-// base_price_cents: referencia $25; moneda POR_CONFIRMAR → is_published: false.
+// base_price_cents: 2500 (US$25.00); moneda USD y tallas confirmadas.
 // image_fit: 'contain' — sin recortes, prendas completas (1080×1300 px).
 
 const PRODUCTS = [
@@ -367,7 +367,7 @@ async function run() {
   log(`URL prevista   : https://danash-shop.wacatalogo.com/`);
   log(`Fichas creadas : ${newCount}`);
   log(`Fichas exist.  : ${updatedCount}`);
-  log(`Publicadas     : 0 (todas en borrador — moneda y tallas POR_CONFIRMAR)`);
+  log(`Publicadas     : ${manifest.filter(m => m.isPublished !== false).length} (moneda USD, precio US$25, tallas S/M/L/XL confirmados)`);
 
   log('\nTabla de fichas:');
   log('  Ext'.padEnd(8) + 'Clave'.padEnd(10) + 'Nombre'.padEnd(38) + 'Img  Estado');
@@ -385,11 +385,12 @@ async function run() {
   const allUnique  = new Set(extIds).size === extIds.length;
   log(`\nValidación: ${manifest.length} registros · IDs 16–34: ${allPresent ? '✓' : '✗'} · únicos: ${allUnique ? '✓' : '✗'}`);
 
+  log('\n✅  DATOS CONFIRMADOS: moneda USD, precio US$25, tallas S/M/L/XL.');
   log('\n⚠️  PENDIENTES:');
-  log('  1. MONEDA de venta y TALLAS — confirmar con propietaria para publicar estas fichas.');
-  log('  2. Los 15 productos anteriores (suéteres, cárdigans, capas) siguen sin moneda confirmada.');
-  log('  3. Logo de Danash Shop — pendiente de aportarlo para subir.');
-  log('  4. Cuenta propietaria Danash.hidalgo@gmail.com — vincular en /admin.');
+  log('  1. Logo de Danash Shop — pendiente de aportarlo para subir.');
+  log('  2. Cuenta propietaria Danash.hidalgo@gmail.com — vincular en /admin.');
+  log('  3. Capas (ds-03, ds-05) — precio y tallas pendientes de propietaria.');
+  log('  4. ds-02 Cárdigan Rojo Sonrisa — foto frontal pendiente de validación.');
 
   log('\n✅ Importación de franelas completada.');
   log(`   Verifica en http://localhost:3000/r/danash-shop\n`);
@@ -406,13 +407,13 @@ async function run() {
       importado:      new Date().toISOString().slice(0, 10),
       imagenesDir:    IMAGES_DIR,
       precioCents:    BASE_PRICE_CENTS,
-      moneda:         'POR_CONFIRMAR',
-      tallas:         'POR_CONFIRMAR',
+      moneda:         'USD',
+      tallas:         'S, M, L, XL',
       productosTotales: manifest.length,
       nuevos:         newCount,
       actualizados:   updatedCount,
       publicados:     0,
-      borradores:     manifest.length,
+      borradores:     0,
       validacion: {
         registrosUnicos:  allUnique,
         rango16a34:       allPresent,
