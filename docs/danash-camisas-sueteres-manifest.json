@@ -1,0 +1,302 @@
+{
+  "negocio": "Danash Shop",
+  "slug": "danash-shop",
+  "importado": "2026-11-22",
+  "lotes": "L03 (35-42), L04 (43-48 + 35/36/37/39/41 frente), L05 (49-54)",
+  "precio": "US$1.00 de referencia (100 cents)",
+  "moneda": "USD",
+  "descripcion": "Precio de referencia. Consulta el precio final por WhatsApp.",
+  "creados": 0,
+  "actualizados": 20,
+  "imagenesSubidas": 0,
+  "fichas": [
+    {
+      "stableKey": "ds-c35",
+      "ref": 35,
+      "nombre": "Camisa Blanca Corazones Anatómicos",
+      "categoria": "Camisas",
+      "productId": "1aeef6e7-2dd2-4a82-a8fa-b496c3267a9f",
+      "tallas": "S/M",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "35-camisa-corazones-anatomicos-frente.jpg",
+        "35-camisa-blanca-corazones-anatomicos-doblada.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-c36",
+      "ref": 36,
+      "nombre": "Camisa Rayas Lila Corazón",
+      "categoria": "Camisas",
+      "productId": "ddc2781d-bf34-4b26-b2d7-5bbf4a9a59f7",
+      "tallas": "S/M",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "36-camisa-rayas-lila-corazon-frente.jpg",
+        "36-camisa-rayas-lila-corazon-rojo.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-c37",
+      "ref": 37,
+      "nombre": "Camisa Blanca Arcoíris",
+      "categoria": "Camisas",
+      "productId": "f0454919-b03d-4b63-af5b-c442cc60efcf",
+      "tallas": "S/M",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "37-camisa-arcoiris-frente.jpg",
+        "37-camisa-blanca-arcoiris.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-c38",
+      "ref": 38,
+      "nombre": "Camisa Blanca Lisa Cuello Abierto",
+      "categoria": "Camisas",
+      "productId": "40f82baf-e617-4ca7-83c3-08ebbc97c2d0",
+      "tallas": "ninguna",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "38-camisa-blanca-lisa-cuello-abierto.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-c39",
+      "ref": 39,
+      "nombre": "Camisa Rayas Rojas Corazón Azul",
+      "categoria": "Camisas",
+      "productId": "39a0a375-fbe9-4367-9b03-2f90cf5ecbd0",
+      "tallas": "S/M",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "39-camisa-rayas-rojas-corazon-azul-frente.jpg",
+        "39-camisa-rayas-rojas-corazon-azul-doblada.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-c40",
+      "ref": 40,
+      "nombre": "Camisa Bicolor Constelaciones",
+      "categoria": "Camisas",
+      "productId": "3ee7a8b4-8c51-4404-9ded-12c9a36374d4",
+      "tallas": "ninguna",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "40-camisa-bicolor-constelaciones.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-c41",
+      "ref": 41,
+      "nombre": "Camisa Blanca Corazones Colores",
+      "categoria": "Camisas",
+      "productId": "0d96980b-bdcb-4f0f-9649-002df5ffd608",
+      "tallas": "S/M",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "41-camisa-corazones-colores-frente.jpg",
+        "41-camisa-blanca-corazones-colores.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-c42",
+      "ref": 42,
+      "nombre": "Camisa Blanca Estrellas Doradas",
+      "categoria": "Camisas",
+      "productId": "ce702488-fa55-4970-9fec-0fb766e4671c",
+      "tallas": "ninguna",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "42-camisa-blanca-estrellas-doradas.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-c43",
+      "ref": 43,
+      "nombre": "Camisa Azul AMORE",
+      "categoria": "Camisas",
+      "productId": "cf0733e9-3dd4-492e-8410-ff99f76565b1",
+      "tallas": "S/M",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "43-camisa-azul-amore-frente.jpg",
+        "43-camisa-azul-amore-espalda.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-c44",
+      "ref": 44,
+      "nombre": "Camisa Blanca Corazón Dorado",
+      "categoria": "Camisas",
+      "productId": "bcd234a7-5fa5-4fca-ba54-e8ad5199ac0f",
+      "tallas": "S/M",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "44-camisa-corazon-dorado-frente.jpg",
+        "44-camisa-corazon-dorado-espalda.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-c45",
+      "ref": 45,
+      "nombre": "Camisa Blanca Cangrejos",
+      "categoria": "Camisas",
+      "productId": "d5bab3e6-5829-4845-a05c-d30f795e4572",
+      "tallas": "S/M",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "45-camisa-blanca-cangrejos-frente.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-c46",
+      "ref": 46,
+      "nombre": "Camisa Bicolor Menta y Lila",
+      "categoria": "Camisas",
+      "productId": "79e2ce7a-6cb4-4519-8894-76c96a602277",
+      "tallas": "S/M",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "46-camisa-bicolor-menta-lila-frente.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-c47",
+      "ref": 47,
+      "nombre": "Camisa Bicolor Ojos",
+      "categoria": "Camisas",
+      "productId": "712799d1-ffb7-421b-999e-b50c7695ff63",
+      "tallas": "S/M",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "47-camisa-bicolor-ojos-frente.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-c48",
+      "ref": 48,
+      "nombre": "Camisa Rayas Rojas Doble Bolsillo",
+      "categoria": "Camisas",
+      "productId": "5e66f7e1-96c2-4832-bff3-18b04789a5e1",
+      "tallas": "S/M",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "48-camisa-rayas-rojas-doble-bolsillo-frente.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-s49",
+      "ref": 49,
+      "nombre": "Sudadera Roja Corazón",
+      "categoria": "Suéteres",
+      "productId": "9a647442-59fe-4502-9881-534a12c4b024",
+      "tallas": "ninguna",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "49-sudadera-roja-corazon.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-s50",
+      "ref": 50,
+      "nombre": "Suéter Turquesa Felino",
+      "categoria": "Suéteres",
+      "productId": "776f4f0d-2d70-4ca4-9533-193746361239",
+      "tallas": "ninguna",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "50-sueter-turquesa-felino.jpg",
+        "50-sueter-turquesa-felino-modelo.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-s51",
+      "ref": 51,
+      "nombre": "Suéter Bloques de Colores",
+      "categoria": "Suéteres",
+      "productId": "805dbe35-7ed0-49a7-9b93-44bd87527865",
+      "tallas": "ninguna",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "51-sueter-bloques-colores.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-s52",
+      "ref": 52,
+      "nombre": "Suéter Corazones y Estrellas",
+      "categoria": "Suéteres",
+      "productId": "0ddaa96e-1c52-4c4d-8d74-a1ded4994901",
+      "tallas": "ninguna",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "52-sueter-corazones-estrellas.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-s53",
+      "ref": 53,
+      "nombre": "Sudadera Verde LOVE",
+      "categoria": "Suéteres",
+      "productId": "792a34bd-ba58-431e-a99c-1bf29e9954bf",
+      "tallas": "ninguna",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "53-sudadera-verde-love.jpg"
+      ],
+      "imgsSubidas": 0
+    },
+    {
+      "stableKey": "ds-s54",
+      "ref": 54,
+      "nombre": "Suéter Turquesa Cítrico",
+      "categoria": "Suéteres",
+      "productId": "6fe29c64-5686-4ad3-b419-c9ca7ae4fe1b",
+      "tallas": "ninguna",
+      "precioRef": true,
+      "publicado": true,
+      "imagenes": [
+        "54-sueter-turquesa-citrico-modelo.jpg"
+      ],
+      "imgsSubidas": 0
+    }
+  ]
+}

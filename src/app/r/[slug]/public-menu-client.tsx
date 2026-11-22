@@ -348,6 +348,8 @@ function ProductCard({
   const priceUnconfirmed = product.base_price_cents === 0
     && !product.promo_price_cents
     && (!product.product_variants || product.product_variants.length === 0);
+  // Description starts with this sentinel → price is provisional (US$1 reference).
+  const isRefPrice = !!product.description?.startsWith("Precio de referencia");
   // If thumbnail_path exists the image is already 1:1; otherwise cover crops inline.
   // 'contain' override still available via image_fit field.
   const imgFit = product.image_fit === "contain" ? "contain" : "cover";
@@ -384,6 +386,9 @@ function ProductCard({
                 </>
               ) : money(displayPrice, currency)}
             </p>
+          )}
+          {isRefPrice && !priceUnconfirmed && (
+            <p className="mc-card-price-ref">Precio de referencia</p>
           )}
         </div>
       </button>
@@ -482,6 +487,9 @@ function CatalogProductDialog({
       && !product.promo_price_cents
       && product.product_variants.length === 0;
 
+    // Description starts with this sentinel → price is provisional.
+    const isRefPriceWa = !!product.description?.startsWith("Precio de referencia");
+
     if (priceUnconfirmed) {
       const lines = [
         `Hola, me interesa la *${product.name}* de *${restaurantName}*.`,
@@ -498,7 +506,11 @@ function CatalogProductDialog({
     ];
     if (variant) lines.push(`Variante: ${variant.name}`);
     if (opts.length) lines.push(`Opciones: ${opts.join(", ")}`);
-    lines.push(`Precio: ${money(totalCents, currency)}`);
+    if (isRefPriceWa) {
+      lines.push(`Precio de referencia: ${money(totalCents, currency)} (consultar precio final)`);
+    } else {
+      lines.push(`Precio: ${money(totalCents, currency)}`);
+    }
     lines.push("", "¿Está disponible?");
     return `https://wa.me/${number}?text=${encodeURIComponent(lines.join("\n"))}`;
   }
